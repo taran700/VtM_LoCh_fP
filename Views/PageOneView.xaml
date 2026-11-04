@@ -1,0 +1,170 @@
+<UserControl x:Class="VtM_LoCh_fP.Views.PageOneView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:sys="clr-namespace:System;assembly=mscorlib"
+             xmlns:controls="clr-namespace:VtM_LoCh_fP.Controls">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="12,10,12,16">
+
+            <DockPanel Margin="4,0,4,10">
+                <TextBlock DockPanel.Dock="Right" Text="1/5" FontSize="14" FontWeight="Bold"
+                           Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center"/>
+                <TextBlock Text="ЛИСТ ПЕРСОНАЖА" FontSize="24" FontWeight="Bold"
+                           Foreground="{DynamicResource HeadingBrush}"/>
+            </DockPanel>
+
+            <!-- ===== О персонаже ===== -->
+            <GroupBox Header="О персонаже" Style="{StaticResource SectionBoxStyle}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <controls:FieldControl Grid.Row="0" Grid.Column="0" Label="Имя"/>
+                    <controls:FieldControl Grid.Row="0" Grid.Column="1" Label="Игрок"/>
+                    <controls:FieldControl Grid.Row="0" Grid.Column="2" Label="Хроника"/>
+                    <controls:FieldControl Grid.Row="1" Grid.Column="0" Label="Натура"/>
+                    <controls:FieldControl Grid.Row="1" Grid.Column="1" Label="Маска"/>
+                    <controls:FieldControl Grid.Row="1" Grid.Column="2" Label="Амплуа"/>
+                    <controls:FieldControl Grid.Row="2" Grid.Column="0" Label="Клан"/>
+                    <controls:FieldControl Grid.Row="2" Grid.Column="1" Label="Поколение"/>
+                    <controls:FieldControl Grid.Row="2" Grid.Column="2" Label="Сир"/>
+                </Grid>
+            </GroupBox>
+
+            <!-- ===== Клан и хроника ===== -->
+            <GroupBox Header="Клан и хроника" Style="{StaticResource SectionBoxStyle}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <controls:FieldControl Grid.Column="0" Label="Клановый изъян" Multiline="True" FieldHeight="64"/>
+                    <controls:FieldControl Grid.Column="1" Label="Опоры и принципы" Multiline="True" FieldHeight="64"/>
+                    <controls:FieldControl Grid.Column="2" Label="Догмы хроники" Multiline="True" FieldHeight="64"/>
+                    <controls:FieldControl Grid.Column="3" Label="Стиль охоты" Multiline="True" FieldHeight="64"/>
+                </Grid>
+            </GroupBox>
+
+            <!-- ===== Характеристики ===== -->
+            <GroupBox Header="ХАРАКТЕРИСТИКИ" Style="{StaticResource SectionBoxStyle}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="Физические" Style="{StaticResource FieldLabelStyleB}"/>
+                        <controls:TrackListControl Count="5" LabelWidth="120" Cascade="True">
+                            <controls:TrackListControl.Names>
+                                <sys:String>Сила</sys:String>
+                                <sys:String>Ловкость</sys:String>
+                                <sys:String>Выносливость</sys:String>
+                            </controls:TrackListControl.Names>
+                        </controls:TrackListControl>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="Социальные" Style="{StaticResource FieldLabelStyleB}"/>
+                        <controls:TrackListControl Count="5" LabelWidth="200" Cascade="True">
+                            <controls:TrackListControl.Names>
+                                <sys:String>Обаяние</sys:String>
+                                <sys:String>Манипуляция</sys:String>
+                                <sys:String>Привлекательность</sys:String>
+                            </controls:TrackListControl.Names>
+                        </controls:TrackListControl>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="Ментальные" Style="{StaticResource FieldLabelStyleB}"/>
+                        <controls:TrackListControl Count="5" LabelWidth="120" Cascade="True">
+                            <controls:TrackListControl.Names>
+                                <sys:String>Восприятие</sys:String>
+                                <sys:String>Интеллект</sys:String>
+                                <sys:String>Смекалка</sys:String>
+                            </controls:TrackListControl.Names>
+                        </controls:TrackListControl>
+                    </StackPanel>
+                </Grid>
+            </GroupBox>
+
+            <!-- ===== Способности ===== -->
+            <GroupBox Header="СПОСОБНОСТИ" Style="{StaticResource SectionBoxStyle}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="Таланты"  Style="{StaticResource FieldLabelStyleB}"/>
+                        <controls:TrackListControl Cascade="True" Count="5" LabelWidth="150">
+                            <controls:TrackListControl.Names>
+                                <sys:String>Атлетика</sys:String>
+                                <sys:String>Бдительность</sys:String>
+                                <sys:String>Драка</sys:String>
+                                <sys:String>Запугивание</sys:String>
+                                <sys:String>Красноречие</sys:String>
+                                <sys:String>Лидерство</sys:String>
+                                <sys:String>Уличное чутьё</sys:String>
+                                <sys:String>Хитрость</sys:String>
+                                <sys:String>Шестое чувство</sys:String>
+                                <sys:String>Эмпатия</sys:String>
+                            </controls:TrackListControl.Names>
+                        </controls:TrackListControl>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="Навыки" Style="{StaticResource FieldLabelStyleB}" RenderTransformOrigin="0.5,0.5" VerticalAlignment="Center"/>
+                        <controls:TrackListControl Cascade="True" Count="5" LabelWidth="120">
+                            <controls:TrackListControl.Names>
+                                <sys:String>Вождение</sys:String>
+                                <sys:String>Воровство</sys:String>
+                                <sys:String>Выживание</sys:String>
+                                <sys:String>Исполнение</sys:String>
+                                <sys:String>Обращение с животными</sys:String>
+                                <sys:String>Ремесло</sys:String>
+                                <sys:String>Скрытность</sys:String>
+                                <sys:String>Стрельба</sys:String>
+                                <sys:String>Фехтование</sys:String>
+                                <sys:String>Этикет</sys:String>
+                            </controls:TrackListControl.Names>
+                        </controls:TrackListControl>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="Знания" Style="{StaticResource FieldLabelStyleB}"/>
+                        <controls:TrackListControl Cascade="True" Count="5" LabelWidth="180">
+                            <controls:TrackListControl.Names>
+                                <sys:String>Гуманитарные науки</sys:String>
+                                <sys:String>Естественные науки</sys:String>
+                                <sys:String>Законы</sys:String>
+                                <sys:String>Информатика</sys:String>
+                                <sys:String>Медицина</sys:String>
+                                <sys:String>Оккультизм</sys:String>
+                                <sys:String>Политика</sys:String>
+                                <sys:String>Расследование</sys:String>
+                                <sys:String>Финансы</sys:String>
+                                <sys:String>Электроника</sys:String>
+                            </controls:TrackListControl.Names>
+                        </controls:TrackListControl>
+                    </StackPanel>
+                </Grid>
+            </GroupBox>
+
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

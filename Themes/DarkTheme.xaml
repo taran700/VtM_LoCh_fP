@@ -1,0 +1,19 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Тёмная тема: фон #0B0F19, панели #161B26, акцент #B91C1C.
+         Текст — тёплый светло-серый, границы тёмные, без белых обводок. -->
+    <SolidColorBrush x:Key="BgBrush" Color="#FF0B0F19"/>
+    <SolidColorBrush x:Key="CardBgBrush" Color="#FF161B26"/>
+    <SolidColorBrush x:Key="CardHeaderBrush" Color="#FF1C2333"/>
+    <SolidColorBrush x:Key="InputBrush" Color="#FF10141E"/>
+    <SolidColorBrush x:Key="TextBrush" Color="#FFD9D0D0"/>
+    <SolidColorBrush x:Key="MutedBrush" Color="#FF8B93A3"/>
+    <SolidColorBrush x:Key="AccentBrush" Color="#FFB91C1C"/>
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="#FFEF4444"/>
+    <SolidColorBrush x:Key="HeadingBrush" Color="#FFF0787A"/>
+    <SolidColorBrush x:Key="BorderBrush" Color="#FF232A38"/>
+    <SolidColorBrush x:Key="OnAccentBrush" Color="#FFFDF5F5"/>
+    <SolidColorBrush x:Key="SelectionBrush" Color="#FF47202A"/>
+
+</ResourceDictionary>

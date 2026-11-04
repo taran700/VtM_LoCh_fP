@@ -1,0 +1,41 @@
+<UserControl x:Class="VtM_LoCh_fP.Views.PageFiveView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:VtM_LoCh_fP.Controls">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="16,14,16,20">
+
+            <DockPanel Margin="4,0,4,10">
+                <TextBlock DockPanel.Dock="Right" Text="5/5" FontSize="14" FontWeight="Bold"
+                           Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center"/>
+                <TextBlock Text="ЗАМЕТКИ" FontSize="24" FontWeight="Bold"
+                           Foreground="{DynamicResource HeadingBrush}"/>
+            </DockPanel>
+
+            <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <GroupBox Grid.Column="0" Header="Важные НПС" Style="{StaticResource SectionBoxStyle}">
+                    <controls:FieldControl Label="Имя · отношение · важные сведения" Multiline="True" FieldHeight="190"/>
+                </GroupBox>
+                <GroupBox Grid.Column="1" Header="Заметки" Style="{StaticResource SectionBoxStyle}">
+                    <controls:FieldControl Multiline="True" FieldHeight="190"/>
+                </GroupBox>
+            </Grid>
+            <GroupBox Header="Важные локации" Style="{StaticResource SectionBoxStyle}">
+                <controls:FieldControl Label="Название · описание · кому принадлежит" Multiline="True" FieldHeight="150"/>
+            </GroupBox>
+            <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <GroupBox Grid.Column="0" Header="Заметки" Style="{StaticResource SectionBoxStyle}">
+                    <controls:FieldControl Multiline="True" FieldHeight="180"/>
+                </GroupBox>
+                <GroupBox Grid.Column="1" Header="Заметки" Style="{StaticResource SectionBoxStyle}">
+                    <controls:FieldControl Multiline="True" FieldHeight="180"/>
+                </GroupBox>
+            </Grid>
+            <GroupBox Header="Заметки" Style="{StaticResource SectionBoxStyle}">
+                <controls:FieldControl Multiline="True" FieldHeight="180"/>
+            </GroupBox>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

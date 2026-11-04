@@ -1,0 +1,96 @@
+<UserControl x:Class="VtM_LoCh_fP.Views.PageThreeView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:sys="clr-namespace:System;assembly=mscorlib"
+             xmlns:controls="clr-namespace:VtM_LoCh_fP.Controls">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="12,10,12,16">
+
+            <DockPanel Margin="4,0,4,10">
+                <TextBlock DockPanel.Dock="Right" Text="3/5" FontSize="14" FontWeight="Bold"
+                           Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center"/>
+                <TextBlock Text="ДИСЦИПЛИНЫ" FontSize="24" FontWeight="Bold"
+                           Foreground="{DynamicResource HeadingBrush}"/>
+            </DockPanel>
+
+            <TextBlock Text="Отмечайте освоенные уровни дисциплин круглыми точками. Описание и заметки можно вписать в поля."
+                       Style="{StaticResource SectionCaptionStyle}"/>
+
+            <GroupBox Header="Дисциплины персонажа" Style="{StaticResource SectionBoxStyle}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="Владение телом" Style="{StaticResource FieldLabelStyle}"/>
+                        <controls:TrackListControl Cascade="True" Count="5" LabelWidth="170">
+                            <controls:TrackListControl.Names>
+                                <sys:String>Анимализм</sys:String>
+                                <sys:String>Стремительность</sys:String>
+                                <sys:String>Могущество</sys:String>
+                                <sys:String>Стойкость</sys:String>
+                            </controls:TrackListControl.Names>
+                        </controls:TrackListControl>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="Разум и чувства" Style="{StaticResource FieldLabelStyle}"/>
+                        <controls:TrackListControl Cascade="True" Count="5" LabelWidth="190">
+                            <controls:TrackListControl.Names>
+                                <sys:String>Ясновидение</sys:String>
+                                <sys:String>Доминирование</sys:String>
+                                <sys:String>Затемнение</sys:String>
+                                <sys:String>Присутствие</sys:String>
+                            </controls:TrackListControl.Names>
+                        </controls:TrackListControl>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="Кровь и изменчивость" Style="{StaticResource FieldLabelStyle}"/>
+                        <controls:TrackListControl Cascade="True" Count="5" LabelWidth="190">
+                            <controls:TrackListControl.Names>
+                                <sys:String>Протеан</sys:String>
+                                <sys:String>Тауматургия</sys:String>
+                                <sys:String>Некромантия</sys:String>
+                                <sys:String>Иные дисциплины</sys:String>
+                            </controls:TrackListControl.Names>
+                        </controls:TrackListControl>
+                    </StackPanel>
+                </Grid>
+            </GroupBox>
+
+            <GroupBox Header="Описание дисциплин" Style="{StaticResource SectionBoxStyle}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <controls:FieldControl Grid.Column="0" Label="Дисциплина и уровень" Multiline="True" FieldHeight="160"/>
+                    <controls:FieldControl Grid.Column="1" Label="Дисциплина и уровень" Multiline="True" FieldHeight="160"/>
+                    <controls:FieldControl Grid.Column="2" Label="Дисциплина и уровень" Multiline="True" FieldHeight="160"/>
+                </Grid>
+            </GroupBox>
+
+            <GroupBox Header="Прочее" Style="{StaticResource SectionBoxStyle}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <controls:FieldControl Grid.Column="0" Label="Дополнительные способности" Multiline="True" FieldHeight="120"/>
+                    <controls:FieldControl Grid.Column="1" Label="Снаряжение / ресурсы" Multiline="True" FieldHeight="120"/>
+                </Grid>
+            </GroupBox>
+
+            <GroupBox Header="Заметки по использованию дисциплин" Style="{StaticResource SectionBoxStyle}">
+                <controls:FieldControl Label="Описание эффектов, ограничений и важных деталей"
+                                       Multiline="True" FieldHeight="180"/>
+            </GroupBox>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
