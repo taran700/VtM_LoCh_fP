@@ -72,6 +72,7 @@
     <Compile Include="AppSettings.cs" />
     <Compile Include="CharacterProfile.cs" />
     <Compile Include="BioFactEntry.cs" />
+    <Compile Include="ThemedDialog.cs" />
     <Compile Include="BioFactService.cs" />
     <Compile Include="BioFactPickerWindow.cs" />
     <Compile Include="BioFactDescriptionEditorWindow.cs" />

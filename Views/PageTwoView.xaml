@@ -22,11 +22,16 @@
                        
 
                     <StackPanel Grid.Column="0">
-                        <TextBlock Text="Факты биографии" Style="{StaticResource FieldLabelStyleB}" FontSize="22"/>
-                        <Button Content="＋ Добавить факт биографии"
-                                Style="{StaticResource ToolbarButtonStyle}"
-                                HorizontalAlignment="Left" Margin="2,4,2,10"
-                                Click="AddBioFact_Click"/>
+                        <DockPanel LastChildFill="False" Margin="0,0,0,5" VerticalAlignment="Center">
+                            <TextBlock Text="Факты биографии" Style="{StaticResource FieldLabelStyleB}" FontSize="22"
+                                       VerticalAlignment="Center"/>
+                            <Button Content="＋ Добавить факт"
+                                    Style="{StaticResource ToolbarButtonStyle}"
+                                    Padding="12,6" Margin="12,0,0,0"
+                                    FontWeight="SemiBold" FontSize="14"
+                                    VerticalAlignment="Center"
+                                    Click="AddBioFact_Click"/>
+                        </DockPanel>
                         <StackPanel x:Name="BioFactsPanel"/>
                     </StackPanel>
 

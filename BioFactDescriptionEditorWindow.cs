@@ -51,7 +51,7 @@ namespace VtM_LoCh_fP
                 int filled = editors.Count(x => !string.IsNullOrWhiteSpace(x.Text));
                 if (filled < 5)
                 {
-                    var answer = MessageBox.Show(window, "Заполнены не все пять уровней (" + filled + " из 5). Сохранить только заполненные описания?", "Неполное описание", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                    var answer = ThemedDialog.Show(window, "Заполнены не все пять уровней (" + filled + " из 5). Сохранить только заполненные описания?", "Неполное описание", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                     if (answer != MessageBoxResult.Yes) return;
                 }
                 window.DialogResult = true;

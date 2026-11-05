@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Linq;
+using System.Windows.Controls.Primitives;
 using VtM_LoCh_fP.Controls;
 
 namespace VtM_LoCh_fP.Views
@@ -35,7 +36,7 @@ namespace VtM_LoCh_fP.Views
             {
                 if (string.Equals(existing.Name, picker.Result.Name, StringComparison.OrdinalIgnoreCase))
                 {
-                    MessageBox.Show(Window.GetWindow(this), "Этот факт биографии уже добавлен.", "Факт биографии", MessageBoxButton.OK, MessageBoxImage.Information);
+                    ThemedDialog.Show(Window.GetWindow(this), "Этот факт биографии уже добавлен.", "Факт биографии", MessageBoxButton.OK, MessageBoxImage.Information);
                     return;
                 }
             }
@@ -50,14 +51,38 @@ namespace VtM_LoCh_fP.Views
 
             foreach (var fact in _character.BiographyFacts)
             {
-                var row = new DockPanel { LastChildFill = true, Margin = new Thickness(0, 1, 0, 1) };
+                var card = new Border
+                {
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(5),
+                    Padding = new Thickness(5, 3, 7, 3),
+                    Margin = new Thickness(0, 2, 0, 3)
+                };
+                card.SetResourceReference(Border.BackgroundProperty, "CardHeaderBrush");
+                card.SetResourceReference(Border.BorderBrushProperty, "BorderBrush");
+                var row = new Grid();
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                var removeIcon = new TextBlock
+                {
+                    Text = "\uE74D",
+                    FontFamily = new FontFamily("Segoe MDL2 Assets"),
+                    FontSize = 16,
+                    Foreground = new SolidColorBrush(Color.FromRgb(190, 35, 35)),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
                 var remove = new Button
                 {
-                    Content = "×",
-                    Width = 28,
-                    Height = 27,
-                    Margin = new Thickness(6, 0, 0, 0),
+                    Content = removeIcon,
+                    Width = 30,
+                    Height = 30,
+                    Margin = new Thickness(0, 0, 7, 0),
                     Padding = new Thickness(0),
+                    Background = Brushes.Transparent,
+                    BorderBrush = Brushes.Transparent,
+                    BorderThickness = new Thickness(0),
+                    Cursor = System.Windows.Input.Cursors.Hand,
                     ToolTip = "Удалить факт"
                 };
                 remove.Click += (s, e) =>
@@ -65,12 +90,12 @@ namespace VtM_LoCh_fP.Views
                     string message = fact.IsCustom
                         ? "Удалить пользовательский факт «" + fact.Name + "»? Вместе с ним будут безвозвратно удалены его основное описание и все описания уровней."
                         : "Удалить факт «" + fact.Name + "» из биографии?";
-                    var answer = MessageBox.Show(Window.GetWindow(this), message, "Удаление факта биографии", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                    var answer = ThemedDialog.Show(Window.GetWindow(this), message, "Удаление факта биографии", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                     if (answer != MessageBoxResult.Yes) return;
                     _character.BiographyFacts.Remove(fact);
                     RenderBioFacts();
                 };
-                DockPanel.SetDock(remove, Dock.Right);
+                Grid.SetColumn(remove, 0);
                 row.Children.Add(remove);
 
                 var definition = BioFactService.Find(fact.Name);
@@ -96,8 +121,10 @@ namespace VtM_LoCh_fP.Views
                 };
                 track.SetTrackValue(fact.Level);
                 track.ValueChanged += (s, e) => fact.Level = track.Value;
+                Grid.SetColumn(track, 1);
                 row.Children.Add(track);
-                BioFactsPanel.Children.Add(row);
+                card.Child = row;
+                BioFactsPanel.Children.Add(card);
             }
         }
 
