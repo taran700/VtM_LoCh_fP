@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using VtM_LoCh_fP.ViewModels;
+using System.Windows.Media.Effects;
 
 namespace VtM_LoCh_fP.Controls
 {
@@ -58,6 +59,11 @@ namespace VtM_LoCh_fP.Controls
                 new PropertyMetadata(false, OnForcedZeroChanged));
 
         private bool _syncing;
+        private bool _userInputInProgress;
+        private Popup _descriptionPopup;
+
+        public string InfoDescription { get; set; }
+        public System.Collections.Generic.List<VtM_LoCh_fP.TrackLevelDescription> InfoLevels { get; set; }
 
         public TrackControl()
         {
@@ -123,6 +129,17 @@ namespace VtM_LoCh_fP.Controls
         }
 
         /// <summary>Текущее количество закрашенных фишек.</summary>
+        public event System.EventHandler ValueChanged;
+
+        public void SetTrackValue(int value)
+        {
+            if (Items == null) return;
+            value = System.Math.Max(0, System.Math.Min(Count, value));
+            _syncing = true;
+            for (int i = 0; i < Items.Count; i++) Items[i].IsChecked = i < value;
+            _syncing = false;
+        }
+
         public int Value
         {
             get
@@ -197,13 +214,24 @@ namespace VtM_LoCh_fP.Controls
             panel.Columns = Columns > 0 ? Columns : (Count > 0 ? Count : 1);
         }
 
+        private void Pip_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            _userInputInProgress = true;
+        }
+
+        private void Pip_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == System.Windows.Input.Key.Space || e.Key == System.Windows.Input.Key.Enter)
+                _userInputInProgress = true;
+        }
+
         private void Pip_Checked(object sender, RoutedEventArgs e) => ApplyCascade(e, true);
 
         private void Pip_Unchecked(object sender, RoutedEventArgs e) => ApplyCascade(e, false);
 
         private void ApplyCascade(RoutedEventArgs e, bool isChecked)
         {
-            if (_syncing || !Cascade || Items == null) return;
+            if (!_userInputInProgress || _syncing || !Cascade || Items == null) return;
             if (!(e.OriginalSource is FrameworkElement source) || !(source.DataContext is PipItem pip)) return;
             // Программная пересборка дорожки тоже поднимает событие — реагируем только на реальный клик.
             if (pip.IsChecked != isChecked) return;
@@ -212,6 +240,96 @@ namespace VtM_LoCh_fP.Controls
             _syncing = true;
             for (int i = 0; i < Items.Count; i++) Items[i].IsChecked = i < value;
             _syncing = false;
+            _userInputInProgress = false;
+            ValueChanged?.Invoke(this, System.EventArgs.Empty);
+        }
+
+
+        private void LabelText_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            var info = VtM_LoCh_fP.TrackDescriptionService.Find(Label);
+            string description = !string.IsNullOrWhiteSpace(InfoDescription) ? InfoDescription : info?.Description;
+            var levels = InfoLevels ?? info?.Levels;
+            if (string.IsNullOrWhiteSpace(description) && (levels == null || levels.Count == 0)) return;
+
+            var panel = new StackPanel { MaxWidth = 360 };
+            panel.Children.Add(new TextBlock
+            {
+                Text = Label,
+                FontSize = 15,
+                FontWeight = FontWeights.Bold,
+                Foreground = (Brush)FindResource("HeadingBrush"),
+                Margin = new Thickness(0, 0, 0, 6)
+            });
+            panel.Children.Add(new TextBlock
+            {
+                Text = description ?? string.Empty,
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = (Brush)FindResource("TextBrush"),
+                Visibility = string.IsNullOrWhiteSpace(description) ? Visibility.Collapsed : Visibility.Visible
+            });
+
+            if (Value > 0 && levels != null)
+            {
+                var level = levels.Find(x => x.Level == Value);
+                if (level != null && !string.IsNullOrWhiteSpace(level.Description))
+                {
+                    panel.Children.Add(new Border
+                    {
+                        Height = 1,
+                        Background = (Brush)FindResource("BorderBrush"),
+                        Margin = new Thickness(0, 8, 0, 8)
+                    });
+                    panel.Children.Add(new TextBlock
+                    {
+                        Text = string.IsNullOrWhiteSpace(level.Rank) ? "Уровень " + level.Level : "Уровень " + level.Level + " — " + level.Rank,
+                        FontWeight = FontWeights.SemiBold,
+                        Foreground = (Brush)FindResource("HeadingBrush"),
+                        Margin = new Thickness(0, 0, 0, 4)
+                    });
+                    panel.Children.Add(new TextBlock
+                    {
+                        Text = level.Description,
+                        TextWrapping = TextWrapping.Wrap,
+                        Foreground = (Brush)FindResource("TextBrush")
+                    });
+                }
+            }
+
+            var border = new Border
+            {
+                Child = panel,
+                Padding = new Thickness(12),
+                Background = (Brush)FindResource("CardBgBrush"),
+                BorderBrush = (Brush)FindResource("BorderBrush"),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Effect = new DropShadowEffect { BlurRadius = 14, ShadowDepth = 3, Opacity = 0.3 }
+            };
+            // Используем Popup напрямую, а не свойство FrameworkElement.ToolTip:
+            // ToolTipService оборачивает ToolTip в собственную подсказку и не допускает
+            // вложенный ToolTip с StaysOpen=false. Popup не пересоздаётся через ToolTipService.
+            if (_descriptionPopup == null)
+            {
+                _descriptionPopup = new Popup
+                {
+                    PlacementTarget = LabelText,
+                    Placement = PlacementMode.Right,
+                    HorizontalOffset = 8,
+                    AllowsTransparency = true,
+                    StaysOpen = true,
+                    Focusable = false
+                };
+            }
+
+            _descriptionPopup.Child = border;
+            _descriptionPopup.IsOpen = true;
+        }
+
+        private void LabelText_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            if (_descriptionPopup != null)
+                _descriptionPopup.IsOpen = false;
         }
 
         private static T FindChild<T>(DependencyObject parent) where T : DependencyObject

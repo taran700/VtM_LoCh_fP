@@ -33,6 +33,7 @@ namespace VtM_LoCh_fP
             ThemeManager.AttachWindow(this);
             _character = character;
             CharacterPage.InitializeCharacter(character);
+            AdvantagesPage.InitializeCharacter(character);
             Title = "VtM V20: " + character.Name + " — " + character.CreationMode;
             var rulesService = new CharacterRulesService(character);
             var disciplineService = new DisciplineService();

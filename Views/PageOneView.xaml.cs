@@ -526,7 +526,7 @@ namespace VtM_LoCh_fP.Views
 
         private void ResetClanWeakness_Click(object sender, RoutedEventArgs e)
         {
-            var result = MessageBox.Show(
+            var result = ThemedDialog.Show(
                 "Вернуть исходный изъян выбранного клана? Все внесённые изменения в этом поле будут потеряны.",
                 "Сброс кланового изъяна", MessageBoxButton.YesNo, MessageBoxImage.Question);
             if (result != MessageBoxResult.Yes) return;
@@ -543,7 +543,7 @@ namespace VtM_LoCh_fP.Views
                 ? "Изуродовать себя снова? Привлекательность будет обнулена и заблокирована."
                 : "Применить пластическую хирургию? Привлекательность снова станет доступна для распределения.";
             string title = surgeryDone ? "Изуродовать себя" : "Пластическая хирургия";
-            var result = MessageBox.Show(message, title, MessageBoxButton.YesNo, MessageBoxImage.Question);
+            var result = ThemedDialog.Show(message, title, MessageBoxButton.YesNo, MessageBoxImage.Question);
             if (result != MessageBoxResult.Yes) return;
 
             _character.NosferatuPlasticSurgery = !surgeryDone;

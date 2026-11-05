@@ -1,3 +1,5 @@
+using System.Collections.ObjectModel;
+
 namespace VtM_LoCh_fP
 {
     public sealed class CharacterProfile
@@ -17,6 +19,7 @@ namespace VtM_LoCh_fP
         public string VentruePreyCategory { get; set; }
         public bool VentruePreyCategoryLocked { get; set; }
         public bool NosferatuPlasticSurgery { get; set; }
+        public ObservableCollection<BioFactEntry> BiographyFacts { get; set; } = new ObservableCollection<BioFactEntry>();
         public override string ToString() => Name + " — " + CreationMode;
     }
 }

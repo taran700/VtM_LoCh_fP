@@ -47,7 +47,7 @@
                 <views:PageOneView x:Name="CharacterPage"/>
             </TabItem>
             <TabItem Header="Преимущества">
-                <views:PageTwoView/>
+                <views:PageTwoView x:Name="AdvantagesPage"/>
             </TabItem>
             <TabItem Header="Дисциплины">
                 <views:PageThreeView/>

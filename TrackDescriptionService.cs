@@ -14,7 +14,7 @@ namespace VtM_LoCh_fP
         public List<TrackLevelDescription> Levels { get; set; }
     }
 
-    internal sealed class TrackLevelDescription
+    public sealed class TrackLevelDescription
     {
         public int Level { get; set; }
         public string Rank { get; set; }
@@ -41,6 +41,7 @@ namespace VtM_LoCh_fP
             var result = new Dictionary<string, TrackDescription>(StringComparer.OrdinalIgnoreCase);
             LoadSection(database, "attributes", result);
             LoadSection(database, "abilities", result);
+            LoadSection(database, "backgrounds", result);
             _items = result;
         }
 
