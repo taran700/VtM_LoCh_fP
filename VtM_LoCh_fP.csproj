@@ -41,6 +41,7 @@
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Web.Extensions" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Xaml">
@@ -68,6 +69,14 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="ThemeManager.cs" />
+    <Compile Include="AppSettings.cs" />
+    <Compile Include="CharacterProfile.cs" />
+    <Compile Include="ClanService.cs" />
+    <Compile Include="CharacterSelectionWindow.cs" />
+    <Compile Include="CharacterCreateWindow.cs" />
+    <Compile Include="SettingsWindow.cs" />
+    <Compile Include="CharacterRulesService.cs" />
+    <Compile Include="DisciplineService.cs" />
     <Compile Include="ViewModels\PipItem.cs" />
     <Compile Include="ViewModels\TrackLogic.cs" />
   </ItemGroup>
@@ -187,6 +196,10 @@
   <ItemGroup>
     <None Include="App.config" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Content Include="Data\data.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

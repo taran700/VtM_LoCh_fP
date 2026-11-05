@@ -40,10 +40,15 @@ namespace VtM_LoCh_fP.Controls
             DependencyProperty.Register(nameof(Cascade), typeof(bool), typeof(TrackListControl),
                 new PropertyMetadata(true));
 
+        public static readonly DependencyProperty ForcedZeroNameProperty =
+            DependencyProperty.Register(nameof(ForcedZeroName), typeof(string), typeof(TrackListControl),
+                new PropertyMetadata(null, OnForcedZeroNameChanged));
+
         public TrackListControl()
         {
             Names = new ObservableCollection<string>();
             InitializeComponent();
+            Loaded += (sender, args) => ApplyForcedZeroName();
         }
 
         /// <summary>Подписи дорожек. Заполняются содержимым тега в XAML.</summary>
@@ -84,6 +89,33 @@ namespace VtM_LoCh_fP.Controls
         {
             get => (bool)GetValue(CascadeProperty);
             set => SetValue(CascadeProperty, value);
+        }
+
+        public string ForcedZeroName
+        {
+            get => (string)GetValue(ForcedZeroNameProperty);
+            set => SetValue(ForcedZeroNameProperty, value);
+        }
+
+        private static void OnForcedZeroNameChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+            => ((TrackListControl)d).ApplyForcedZeroName();
+
+        private void ApplyForcedZeroName()
+        {
+            ApplyForcedZeroNameToChildren(this);
+        }
+
+        private void ApplyForcedZeroNameToChildren(DependencyObject parent)
+        {
+            int count = System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent);
+            for (int i = 0; i < count; i++)
+            {
+                var child = System.Windows.Media.VisualTreeHelper.GetChild(parent, i);
+                if (child is TrackControl track)
+                    track.IsForcedZero = !string.IsNullOrWhiteSpace(ForcedZeroName) &&
+                        string.Equals(track.Label, ForcedZeroName, System.StringComparison.OrdinalIgnoreCase);
+                ApplyForcedZeroNameToChildren(child);
+            }
         }
     }
 }

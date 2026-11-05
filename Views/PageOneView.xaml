@@ -27,13 +27,13 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <controls:FieldControl Grid.Row="0" Grid.Column="0" Label="Имя"/>
+                    <controls:FieldControl Grid.Row="0" Grid.Column="0" Label="Имя Персонажа"/>
                     <controls:FieldControl Grid.Row="0" Grid.Column="1" Label="Игрок"/>
                     <controls:FieldControl Grid.Row="0" Grid.Column="2" Label="Хроника"/>
-                    <controls:FieldControl Grid.Row="1" Grid.Column="0" Label="Натура"/>
-                    <controls:FieldControl Grid.Row="1" Grid.Column="1" Label="Маска"/>
+                    <ContentControl x:Name="NatureFieldHost" Grid.Row="1" Grid.Column="0"/>
+                    <ContentControl x:Name="DemeanorFieldHost" Grid.Row="1" Grid.Column="1"/>
                     <controls:FieldControl Grid.Row="1" Grid.Column="2" Label="Амплуа"/>
-                    <controls:FieldControl Grid.Row="2" Grid.Column="0" Label="Клан"/>
+                    <ContentControl x:Name="ClanFieldHost" Grid.Row="2" Grid.Column="0"/>
                     <controls:FieldControl Grid.Row="2" Grid.Column="1" Label="Поколение"/>
                     <controls:FieldControl Grid.Row="2" Grid.Column="2" Label="Сир"/>
                 </Grid>
@@ -48,7 +48,31 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <controls:FieldControl Grid.Column="0" Label="Клановый изъян" Multiline="True" FieldHeight="64"/>
+                    <StackPanel Grid.Column="0" Margin="2,0,4,4">
+                        <TextBlock Text="Клановый изъян" Style="{StaticResource FieldLabelStyle}"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="ClanWeaknessInput" Grid.Column="0" MinHeight="64"
+                                     AcceptsReturn="True" TextWrapping="Wrap"
+                                     VerticalScrollBarVisibility="Auto"
+                                     TextChanged="ClanWeaknessInput_TextChanged"/>
+                            <Button x:Name="ResetClanWeaknessButton" Grid.Column="1"
+                                    Content="↶" Width="30" Height="30" Margin="5,0,0,0"
+                                    VerticalAlignment="Top" Visibility="Collapsed"
+                                    ToolTip="Сбросить исходный изъян"
+                                    Click="ResetClanWeakness_Click"/>
+                        </Grid>
+                        <StackPanel x:Name="VentrueTastePanel" Visibility="Collapsed" Margin="0,9,0,0">
+                            <TextBlock x:Name="VentrueTasteLabel" Text="Утончённый вкус"
+                                       Style="{StaticResource FieldLabelStyle}"/>
+                            <TextBox x:Name="VentrueTasteInput" MinHeight="32"
+                                     ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Tag}"
+                                     Tag="Выбор категории смертных согласуется с Рассказчиком при создании персонажа. После начала игры изменить его нельзя. Кровь смертных вне выбранной категории, включая кровь животных, не пополняет запас крови. Кровь Сородичей не подпадает под это ограничение."/>
+                        </StackPanel>
+                    </StackPanel>
                     <controls:FieldControl Grid.Column="1" Label="Опоры и принципы" Multiline="True" FieldHeight="64"/>
                     <controls:FieldControl Grid.Column="2" Label="Догмы хроники" Multiline="True" FieldHeight="64"/>
                     <controls:FieldControl Grid.Column="3" Label="Стиль охоты" Multiline="True" FieldHeight="64"/>
@@ -64,7 +88,7 @@
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
-                    <StackPanel Grid.Column="0">
+                    <StackPanel Grid.Column="0" Margin="0,0,45,0">
                         <TextBlock Text="Физические" Style="{StaticResource FieldLabelStyleB}"/>
                         <controls:TrackListControl Count="5" LabelWidth="120" Cascade="True">
                             <controls:TrackListControl.Names>
@@ -77,13 +101,20 @@
 
                     <StackPanel Grid.Column="1">
                         <TextBlock Text="Социальные" Style="{StaticResource FieldLabelStyleB}"/>
-                        <controls:TrackListControl Count="5" LabelWidth="200" Cascade="True">
+                        <controls:TrackListControl x:Name="SocialAttributes" Count="5" LabelWidth="120" Cascade="True" >
                             <controls:TrackListControl.Names>
                                 <sys:String>Обаяние</sys:String>
                                 <sys:String>Манипуляция</sys:String>
                                 <sys:String>Привлекательность</sys:String>
                             </controls:TrackListControl.Names>
                         </controls:TrackListControl>
+                        <Button x:Name="NosferatuPlasticSurgeryButton"
+                                Content="Пластическая хирургия"
+                                HorizontalAlignment="Center"
+                                Margin="0,3,0,0"
+                                Padding="9,4"
+                                Visibility="Collapsed"
+                                Click="NosferatuPlasticSurgery_Click"/>
                     </StackPanel>
 
                     <StackPanel Grid.Column="2">

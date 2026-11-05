@@ -4,8 +4,8 @@
              x:Name="Root">
     <Grid Margin="2,1,2,1">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition x:Name="LabelColumn" Width="140"/>
-            <ColumnDefinition Width="*"/>
+            <ColumnDefinition x:Name="LabelColumn" Width="160"/>
+            <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
 
         <TextBlock x:Name="LabelText" Grid.Column="0"
@@ -69,5 +69,16 @@
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
         </ItemsControl>
+
+        <Line x:Name="ForcedZeroStrike" Grid.Column="0" Grid.ColumnSpan="2"
+              X1="0" Y1="31" X2="285" Y2="2"
+              Stroke="{DynamicResource AccentBrush}" StrokeThickness="2.2"
+              HorizontalAlignment="Left" VerticalAlignment="Center"
+              IsHitTestVisible="False" Visibility="Collapsed"/>
+        <Line x:Name="ForcedZeroStrikeSecond" Grid.Column="0" Grid.ColumnSpan="2"
+              X1="0" Y1="35" X2="285" Y2="6"
+              Stroke="{DynamicResource AccentBrush}" StrokeThickness="2.2"
+              HorizontalAlignment="Left" VerticalAlignment="Center"
+              IsHitTestVisible="False" Visibility="Collapsed"/>
     </Grid>
 </UserControl>

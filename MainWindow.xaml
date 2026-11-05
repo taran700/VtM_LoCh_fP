@@ -19,10 +19,8 @@
                 CornerRadius="6" Padding="14,10" Margin="0,0,0,12">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Content="Светлая тема" Style="{StaticResource ToolbarButtonStyle}"
-                            Click="LightTheme_Click"/>
-                    <Button Content="Тёмная тема" Style="{StaticResource ToolbarButtonStyle}"
-                            Click="DarkTheme_Click"/>
+                    <Button Content="Настройки" Style="{StaticResource ToolbarButtonStyle}"
+                            Click="Settings_Click"/>
                 </StackPanel>
                 <TextBlock 
                            Foreground="{DynamicResource HeadingBrush}"
@@ -46,7 +44,7 @@
                     SelectionChanged="Tabs_SelectionChanged">
             <TabItem Header="Лист">
                 
-                <views:PageOneView/>
+                <views:PageOneView x:Name="CharacterPage"/>
             </TabItem>
             <TabItem Header="Преимущества">
                 <views:PageTwoView/>
