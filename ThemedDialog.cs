@@ -29,6 +29,7 @@ namespace VtM_LoCh_fP
                 FontFamily = new FontFamily("Segoe UI"),
                 ShowActivated = true
             };
+            window.SetResourceReference(Window.BackgroundProperty, "BgBrush");
             window.SetResourceReference(Window.ForegroundProperty, "TextBrush");
 
             var outer = new Border { CornerRadius = new CornerRadius(8), BorderThickness = new Thickness(1), SnapsToDevicePixels = true };
