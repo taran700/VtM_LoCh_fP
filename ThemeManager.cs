@@ -1,17 +1,20 @@
 using System;
+using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Interop;
+using System.Windows.Controls;
 
 namespace VtM_LoCh_fP
 {
-    /// <summary>
-    /// Переключает тему, подменяя словарь ресурсов с палитрой.
-    /// Словарь стилей (Styles/Controls.xaml) при этом не пересоздаётся,
-    /// поэтому все стили продолжают ссылаться на DynamicResource и
-    /// перекрашиваются автоматически.
-    /// </summary>
     internal static class ThemeManager
     {
         private const int ThemeDictionaryIndex = 0;
+        private const int DwmUseImmersiveDarkMode = 20;
+        private const int DwmUseImmersiveDarkModeLegacy = 19;
+
+        [DllImport("dwmapi.dll", PreserveSig = true)]
+        private static extern int DwmSetWindowAttribute(
+            IntPtr hwnd, int attribute, ref int value, int valueSize);
 
         internal static bool IsDark { get; private set; }
 
@@ -39,6 +42,42 @@ namespace VtM_LoCh_fP
                 dictionaries.Insert(ThemeDictionaryIndex, theme);
 
             IsDark = dark;
+            RefreshOpenWindows();
+        }
+
+        internal static void AttachWindow(Window window)
+        {
+            window.SetResourceReference(Window.BackgroundProperty, "BgBrush");
+            window.SetResourceReference(Control.ForegroundProperty, "TextBrush");
+            window.SourceInitialized += (s, e) => ApplyNativeTitleBar(window);
+        }
+
+        private static void RefreshOpenWindows()
+        {
+            foreach (Window window in Application.Current.Windows)
+            {
+                window.SetResourceReference(Window.BackgroundProperty, "BgBrush");
+                window.SetResourceReference(Control.ForegroundProperty, "TextBrush");
+                if (window.IsLoaded) ApplyNativeTitleBar(window);
+            }
+        }
+
+        private static void ApplyNativeTitleBar(Window window)
+        {
+            try
+            {
+                IntPtr hwnd = new WindowInteropHelper(window).Handle;
+                if (hwnd == IntPtr.Zero) return;
+
+                int value = IsDark ? 1 : 0;
+                int result = DwmSetWindowAttribute(hwnd, DwmUseImmersiveDarkMode, ref value, sizeof(int));
+                if (result != 0)
+                    DwmSetWindowAttribute(hwnd, DwmUseImmersiveDarkModeLegacy, ref value, sizeof(int));
+            }
+            catch
+            {
+                // На неподдерживаемых версиях Windows остаётся стандартная рамка.
+            }
         }
     }
 }

@@ -13,6 +13,7 @@ namespace VtM_LoCh_fP
         public string Nickname { get; set; }
         public string Description { get; set; }
         public string Quote { get; set; }
+        public string WeaknessDescription { get; set; }
     }
 
     internal static class ClanService
@@ -47,7 +48,8 @@ namespace VtM_LoCh_fP
                     Name = ReadString(clan, "name"),
                     Nickname = ReadString(clan, "nickname"),
                     Description = ReadString(clan, "description"),
-                    Quote = ReadString(clan, "quote")
+                    Quote = ReadString(clan, "quote"),
+                    WeaknessDescription = ReadWeaknessDescription(clan)
                 });
             }
 
@@ -61,6 +63,13 @@ namespace VtM_LoCh_fP
         private static string ReadString(Dictionary<string, object> source, string key)
         {
             return source.ContainsKey(key) ? Convert.ToString(source[key]) : string.Empty;
+        }
+
+        private static string ReadWeaknessDescription(Dictionary<string, object> source)
+        {
+            if (!source.ContainsKey("weakness")) return string.Empty;
+            var weakness = source["weakness"] as Dictionary<string, object>;
+            return weakness != null ? ReadString(weakness, "description") : string.Empty;
         }
     }
 }

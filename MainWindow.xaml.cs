@@ -28,19 +28,46 @@ namespace VtM_LoCh_fP
 
         internal MainWindow(CharacterProfile character)
         {
+            ThemeManager.ApplyDarkIfSelected();
             InitializeComponent();
+            ThemeManager.AttachWindow(this);
             _character = character;
             CharacterPage.InitializeCharacter(character);
             Title = "VtM V20: " + character.Name + " — " + character.CreationMode;
             var rulesService = new CharacterRulesService(character);
             var disciplineService = new DisciplineService();
-            ThemeManager.ApplyDarkIfSelected();
         }
 
         private void Settings_Click(object sender, RoutedEventArgs e)
         {
+            bool previousTheme = AppSettings.DarkTheme;
             var settings = new SettingsWindow { Owner = this };
-            settings.ShowDialog();
+
+            if (settings.ShowDialog() != true)
+                return;
+
+            if (previousTheme != AppSettings.DarkTheme)
+            {
+                ThemeManager.ApplyDarkIfSelected();
+
+                var replacement = new MainWindow(_character)
+                {
+                    WindowStartupLocation = WindowStartupLocation.Manual,
+                    Left = Left,
+                    Top = Top,
+                    Width = Width,
+                    Height = Height,
+                    WindowState = WindowState
+                };
+
+                Application.Current.MainWindow = replacement;
+                replacement.Show();
+                Close();
+            }
+            else
+            {
+                ThemeManager.ApplyDarkIfSelected();
+            }
         }
 
         // ===================== Перетаскивание вкладок =====================

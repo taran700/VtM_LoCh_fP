@@ -53,6 +53,10 @@ namespace VtM_LoCh_fP.Controls
             DependencyProperty.Register(nameof(Items), typeof(ObservableCollection<PipItem>), typeof(TrackControl),
                 new PropertyMetadata(null));
 
+        public static readonly DependencyProperty IsForcedZeroProperty =
+            DependencyProperty.Register(nameof(IsForcedZero), typeof(bool), typeof(TrackControl),
+                new PropertyMetadata(false, OnForcedZeroChanged));
+
         private bool _syncing;
 
         public TrackControl()
@@ -112,6 +116,12 @@ namespace VtM_LoCh_fP.Controls
             set => SetValue(ItemsProperty, value);
         }
 
+        public bool IsForcedZero
+        {
+            get => (bool)GetValue(IsForcedZeroProperty);
+            set => SetValue(IsForcedZeroProperty, value);
+        }
+
         /// <summary>Текущее количество закрашенных фишек.</summary>
         public int Value
         {
@@ -139,12 +149,16 @@ namespace VtM_LoCh_fP.Controls
         private static void OnEditableChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
             => ((TrackControl)d).ApplyEditable();
 
+        private static void OnForcedZeroChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+            => ((TrackControl)d).ApplyForcedZero();
+
         private void Rebuild()
         {
             int count = Count < 0 ? 0 : Count;
             var items = new ObservableCollection<PipItem>();
             for (int i = 0; i < count; i++) items.Add(new PipItem(i));
             Items = items;
+            if (IsForcedZero) ApplyForcedZero();
         }
 
         private void ApplyShape()
@@ -159,6 +173,21 @@ namespace VtM_LoCh_fP.Controls
         {
             LabelInput.Visibility = IsEditableLabel ? Visibility.Visible : Visibility.Collapsed;
             LabelText.Visibility = IsEditableLabel ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        private void ApplyForcedZero()
+        {
+            DotItems.IsEnabled = !IsForcedZero;
+            SquareItems.IsEnabled = !IsForcedZero;
+            SquareItemsH.IsEnabled = !IsForcedZero;
+            LabelText.TextDecorations = null;
+            ForcedZeroStrike.Visibility = IsForcedZero ? Visibility.Visible : Visibility.Collapsed;
+            ForcedZeroStrikeSecond.Visibility = IsForcedZero ? Visibility.Visible : Visibility.Collapsed;
+            if (!IsForcedZero || Items == null) return;
+
+            _syncing = true;
+            foreach (PipItem item in Items) item.IsChecked = false;
+            _syncing = false;
         }
 
         private void ApplySquareColumns()

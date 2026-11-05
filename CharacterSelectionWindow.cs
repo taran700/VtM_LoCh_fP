@@ -13,12 +13,13 @@ namespace VtM_LoCh_fP
         {
             Title = "VtM V20 — Персонажи"; Width = 560; Height = 430; MinWidth = 460; MinHeight = 340;
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
-            Background = (System.Windows.Media.Brush)Application.Current.Resources["BgBrush"];
+            ThemeManager.AttachWindow(this);
             var root = new Grid { Margin = new Thickness(20) };
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            var title = new TextBlock { Text = "Персонажи", FontSize = 24, FontWeight = FontWeights.Bold, Margin = new Thickness(0,0,0,14), Foreground = (System.Windows.Media.Brush)Application.Current.Resources["HeadingBrush"] };
+            var title = new TextBlock { Text = "Персонажи", FontSize = 24, FontWeight = FontWeights.Bold, Margin = new Thickness(0,0,0,14) };
+            title.SetResourceReference(TextBlock.ForegroundProperty, "HeadingBrush");
             root.Children.Add(title);
             _list = new ListBox { ItemsSource = Characters, Margin = new Thickness(0,0,0,14), Padding = new Thickness(6) }; Grid.SetRow(_list, 1); root.Children.Add(_list);
             var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
@@ -44,7 +45,14 @@ namespace VtM_LoCh_fP
             Hide();
             var sheet = new MainWindow(character);
             Application.Current.MainWindow = sheet;
-            sheet.Closed += (s,e) => { if (IsVisible == false) { Application.Current.MainWindow = this; Show(); } };
+            sheet.Closed += (s,e) =>
+            {
+                if (Application.Current.MainWindow == sheet && IsVisible == false)
+                {
+                    Application.Current.MainWindow = this;
+                    Show();
+                }
+            };
             sheet.Show();
         }
     }

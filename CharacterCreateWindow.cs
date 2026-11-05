@@ -13,6 +13,7 @@ namespace VtM_LoCh_fP
         public CharacterCreateWindow()
         {
             Title = "Создание персонажа"; Width = 430; Height = 270; ResizeMode = ResizeMode.NoResize; WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            ThemeManager.AttachWindow(this);
             var panel = new StackPanel { Margin = new Thickness(22) };
             panel.Children.Add(new TextBlock { Text = "Имя персонажа", Margin = new Thickness(0,0,0,6) });
             _name = new TextBox { Height = 30, Margin = new Thickness(0,0,0,16) }; panel.Children.Add(_name);
