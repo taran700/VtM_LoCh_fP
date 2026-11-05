@@ -22,7 +22,7 @@
         <!-- Круглые точки -->
         <ItemsControl x:Name="DotItems" Grid.Column="1"
                       ItemsSource="{Binding Items, ElementName=Root}"
-                      CheckBox.Checked="Pip_Checked" CheckBox.Unchecked="Pip_Unchecked"
+                      CheckBox.Checked="Pip_Checked" CheckBox.Unchecked="Pip_Unchecked" PreviewMouseLeftButtonDown="Pip_PreviewMouseLeftButtonDown" PreviewKeyDown="Pip_PreviewKeyDown"
                       VerticalAlignment="Center" Height="35">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
@@ -40,7 +40,7 @@
         <!-- Квадраты -->
         <ItemsControl x:Name="SquareItems" Grid.Column="1" Visibility="Collapsed"
                       ItemsSource="{Binding Items, ElementName=Root}"
-                      CheckBox.Checked="Pip_Checked" CheckBox.Unchecked="Pip_Unchecked"
+                      CheckBox.Checked="Pip_Checked" CheckBox.Unchecked="Pip_Unchecked" PreviewMouseLeftButtonDown="Pip_PreviewMouseLeftButtonDown" PreviewKeyDown="Pip_PreviewKeyDown"
                       VerticalAlignment="Center">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
@@ -56,7 +56,7 @@
         </ItemsControl>
         <ItemsControl x:Name="SquareItemsH" Grid.Column="1" Visibility="Collapsed"
                ItemsSource="{Binding Items, ElementName=Root}"
-               CheckBox.Checked="Pip_Checked" CheckBox.Unchecked="Pip_Unchecked"
+               CheckBox.Checked="Pip_Checked" CheckBox.Unchecked="Pip_Unchecked" PreviewMouseLeftButtonDown="Pip_PreviewMouseLeftButtonDown" PreviewKeyDown="Pip_PreviewKeyDown"
                VerticalAlignment="Center">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>

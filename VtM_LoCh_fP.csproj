@@ -71,6 +71,10 @@
     <Compile Include="ThemeManager.cs" />
     <Compile Include="AppSettings.cs" />
     <Compile Include="CharacterProfile.cs" />
+    <Compile Include="BioFactEntry.cs" />
+    <Compile Include="BioFactService.cs" />
+    <Compile Include="BioFactPickerWindow.cs" />
+    <Compile Include="BioFactDescriptionEditorWindow.cs" />
     <Compile Include="ClanService.cs" />
     <Compile Include="TrackDescriptionService.cs" />
     <Compile Include="CharacterSelectionWindow.cs" />

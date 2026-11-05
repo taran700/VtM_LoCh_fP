@@ -23,15 +23,11 @@
 
                     <StackPanel Grid.Column="0">
                         <TextBlock Text="Факты биографии" Style="{StaticResource FieldLabelStyleB}" FontSize="22"/>
-                        <controls:TrackListControl Cascade="True" Count="5" LabelWidth="170" IsEditableLabel="True">
-                            <controls:TrackListControl.Names>
-                                <sys:String>Факт биографии</sys:String>
-                                <sys:String>Факт биографии</sys:String>
-                                <sys:String>Факт биографии</sys:String>
-                                <sys:String>Факт биографии</sys:String>
-                                <sys:String>Факт биографии</sys:String>
-                            </controls:TrackListControl.Names>
-                        </controls:TrackListControl>
+                        <Button Content="＋ Добавить факт биографии"
+                                Style="{StaticResource ToolbarButtonStyle}"
+                                HorizontalAlignment="Left" Margin="2,4,2,10"
+                                Click="AddBioFact_Click"/>
+                        <StackPanel x:Name="BioFactsPanel"/>
                     </StackPanel>
 
                     <StackPanel Grid.Column="1">
