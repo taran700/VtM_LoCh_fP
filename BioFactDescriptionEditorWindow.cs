@@ -14,7 +14,7 @@ namespace VtM_LoCh_fP
             var window = CreateWindow(owner, title, 470, 315);
             var root = new StackPanel { Margin = new Thickness(16) };
             root.Children.Add(new TextBlock { Text = "Собственное описание (не более 500 символов)", Margin = new Thickness(0, 0, 0, 8), FontWeight = FontWeights.SemiBold });
-            var editor = new TextBox { Text = current ?? string.Empty, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, MaxLength = 500, MinHeight = 150 };
+            var editor = new TextBox { Text = current ?? string.Empty, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, MaxLength = 500, MinHeight = 150, HorizontalContentAlignment = HorizontalAlignment.Left, VerticalContentAlignment = VerticalAlignment.Top, TextAlignment = TextAlignment.Left };
             var count = new TextBlock { Text = editor.Text.Length + "/500", HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 5, 0, 10) };
             editor.TextChanged += (s, e) => count.Text = editor.Text.Length + "/500";
             root.Children.Add(editor); root.Children.Add(count);
@@ -37,7 +37,7 @@ namespace VtM_LoCh_fP
             {
                 var item = existing.FirstOrDefault(x => x.Level == level);
                 stack.Children.Add(new TextBlock { Text = "Уровень " + level, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 7, 0, 4) });
-                var editor = new TextBox { Text = item?.Description ?? string.Empty, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, MinHeight = 62, MaxLength = 500 };
+                var editor = new TextBox { Text = item?.Description ?? string.Empty, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, MinHeight = 62, MaxLength = 500, HorizontalContentAlignment = HorizontalAlignment.Left, VerticalContentAlignment = VerticalAlignment.Top, TextAlignment = TextAlignment.Left };
                 editors.Add(editor); stack.Children.Add(editor);
             }
             var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 12, 0, 0) };
@@ -51,7 +51,7 @@ namespace VtM_LoCh_fP
                 int filled = editors.Count(x => !string.IsNullOrWhiteSpace(x.Text));
                 if (filled < 5)
                 {
-                    var answer = MessageBox.Show(window, "Заполнены не все пять уровней (" + filled + " из 5). Сохранить только заполненные описания?", "Неполное описание", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                    var answer = ThemedDialog.Show(window, "Заполнены не все пять уровней (" + filled + " из 5). Сохранить только заполненные описания?", "Неполное описание", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                     if (answer != MessageBoxResult.Yes) return;
                 }
                 window.DialogResult = true;

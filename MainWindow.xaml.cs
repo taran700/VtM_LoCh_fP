@@ -34,6 +34,8 @@ namespace VtM_LoCh_fP
             _character = character;
             CharacterPage.InitializeCharacter(character);
             AdvantagesPage.InitializeCharacter(character);
+            CharacterPage.GenerationChanged += () => AdvantagesPage.ApplyGenerationRules(character);
+            AdvantagesPage.ApplyGenerationRules(character);
             Title = "VtM V20: " + character.Name + " — " + character.CreationMode;
             var rulesService = new CharacterRulesService(character);
             var disciplineService = new DisciplineService();
@@ -72,6 +74,12 @@ namespace VtM_LoCh_fP
         }
 
         // ===================== Перетаскивание вкладок =====================
+
+        private void Window_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (_isDragging)
+                EndDrag();
+        }
 
         private void Tabs_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {

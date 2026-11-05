@@ -3,48 +3,41 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Name="Root">
     <UserControl.Resources>
-        <!-- Отметка здоровья: одна палка, затем крест (две палки), затем пусто.
-             Палки специально выходят за рамку квадрата — ClipToBounds=False
-             и размер шрифта больше стороны квадрата. -->
-        <Style x:Key="WoundMarkStyle" TargetType="Button">
-            <Setter Property="Width" Value="32"/>
-            <Setter Property="Height" Value="32"/>
-            <Setter Property="Margin" Value="6,2,6,2"/>
+        <Style x:Key="HealthSlotButton" TargetType="Button">
+            <Setter Property="Width" Value="34"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Margin" Value="4,2"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Background" Value="{DynamicResource InputBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
-            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Grid Width="32" Height="32" ClipToBounds="False" Background="Transparent">
-                            <Border x:Name="Frame" Background="{TemplateBinding Background}"
-                                    BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1.5"
-                                    CornerRadius="2"/>
-                            <Canvas ClipToBounds="False">
-                                <!-- Одна палка: диагональ из левого нижнего в правый верхний угол -->
-                                <TextBlock x:Name="OneSlash" Text="/" FontSize="46" FontWeight="Bold"
-                                           Foreground="{TemplateBinding Foreground}"
-                                           Canvas.Left="-3" Canvas.Top="-9" Visibility="Collapsed"
-                                           IsHitTestVisible="False"/>
-                                <!-- Вторая палка добавляется вторым нажатием -->
-                                <TextBlock x:Name="TwoSlash" Text="/" FontSize="46" FontWeight="Bold"
-                                           Foreground="{TemplateBinding Foreground}"
-                                           Canvas.Left="11" Canvas.Top="-9" Visibility="Collapsed"
-                                           IsHitTestVisible="False"/>
-                            </Canvas>
-                        </Grid>
+                        <Border x:Name="Frame" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4">
+                            <Grid Margin="3">
+                                <Path x:Name="SlashMark" Fill="{DynamicResource AccentBrush}" Visibility="Collapsed"
+                                      Data="F1 M 3,29 L 5,31 L 7,29 L 13,20 L 18,12 L 22,5 L 26,1 L 27,2 L 25,6 L 20,13 L 14,21 L 8,30 L 5,32 Z"/>
+                                <Path x:Name="CrossMark" Fill="{DynamicResource AccentBrush}" Visibility="Collapsed"
+                                      Data="F1 M 3,3 C 5,6 8,10 12,14 L 15,16 L 20,22 L 28,30 L 31,27 L 24,20 L 18,14 L 16,12 L 10,5 L 5,1 Z M 28,2 C 25,6 21,11 16,16 L 13,19 L 7,26 L 1,31 L 4,32 L 9,27 L 14,21 L 17,18 L 23,11 L 30,4 Z"/>
+                                <Path x:Name="AggravatedMark" Stroke="{DynamicResource AccentBrush}" StrokeThickness="2.0"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" Visibility="Collapsed"
+                                      Data="M 1,3 L 7,12 3,5 13,19 8,7 18,25 13,8 25,29 18,10 30,25 M 2,20 L 11,5 7,23 19,3 14,27 28,7 M 1,13 L 18,29 10,2 27,18 20,1 31,12 M 4,29 L 15,13 25,29 19,5 30,20"/>
+                            </Grid>
+                        </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
                             </Trigger>
                             <DataTrigger Binding="{Binding State}" Value="1">
-                                <Setter TargetName="OneSlash" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="SlashMark" Property="Visibility" Value="Visible"/>
                             </DataTrigger>
                             <DataTrigger Binding="{Binding State}" Value="2">
-                                <Setter TargetName="OneSlash" Property="Visibility" Value="Visible"/>
-                                <Setter TargetName="TwoSlash" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="CrossMark" Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding State}" Value="3">
+                                <Setter TargetName="AggravatedMark" Property="Visibility" Value="Visible"/>
                             </DataTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -52,32 +45,30 @@
             </Setter>
         </Style>
     </UserControl.Resources>
-
-    <Grid Margin="2,1,2,1">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="170"/>
-            <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
-
-        <ItemsControl Grid.Column="0" ItemsSource="{Binding Levels, ElementName=Root}">
-            <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                    <TextBlock Text="{Binding Name}" Style="{StaticResource FieldLabelStyle}"
-                               FontWeight="Normal" MinHeight="36" Padding="0,0,4,0"
-                               VerticalAlignment="Center"/>
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
-
-        <ItemsControl Grid.Column="1" ItemsSource="{Binding Levels, ElementName=Root}">
-            <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                    <Button Style="{StaticResource WoundMarkStyle}"
-                            Click="Mark_Click"
-                            HorizontalAlignment="Left"
-                            ToolTip="{Binding Name}"/>
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
-    </Grid>
+    <ItemsControl ItemsSource="{Binding Levels, ElementName=Root}">
+        <ItemsControl.ItemTemplate>
+            <DataTemplate>
+                <Grid MinHeight="36">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="165"/>
+                        <ColumnDefinition Width="48"/>
+                        <ColumnDefinition Width="48"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="{Binding Name}" Style="{StaticResource FieldLabelStyle}" VerticalAlignment="Center"
+                               ToolTipService.InitialShowDelay="350" ToolTipService.ShowDuration="30000">
+                        <TextBlock.ToolTip>
+                            <ToolTip MaxWidth="360" Padding="12" Placement="Mouse">
+                                <TextBlock Text="{Binding StatusTooltip}" TextWrapping="Wrap" MaxWidth="330" FontSize="13"/>
+                            </ToolTip>
+                        </TextBlock.ToolTip>
+                    </TextBlock>
+                    <TextBlock Grid.Column="1" Text="{Binding Penalty}" FontSize="14" Foreground="{DynamicResource MutedBrush}"
+                               VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    <Button Grid.Column="2" Style="{StaticResource HealthSlotButton}" Click="Mark_Click"
+                            PreviewMouseRightButtonDown="Heal_Click"
+                            ToolTip="ЛКМ — нанести или повысить повреждение. ПКМ — сразу лечить."/>
+                </Grid>
+            </DataTemplate>
+        </ItemsControl.ItemTemplate>
+    </ItemsControl>
 </UserControl>

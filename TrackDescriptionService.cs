@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -42,6 +42,8 @@ namespace VtM_LoCh_fP
             LoadSection(database, "attributes", result);
             LoadSection(database, "abilities", result);
             LoadSection(database, "backgrounds", result);
+            LoadSection(database, "virtues", result);
+            LoadSection(database, "willpower", result);
             _items = result;
         }
 

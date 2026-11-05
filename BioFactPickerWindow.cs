@@ -59,7 +59,7 @@ namespace VtM_LoCh_fP
             selectionPanel.Children.Add(new TextBlock { Text = _freeMode ? "Введите название или выберите подсказку" : "Выберите факт из списка", Margin = new Thickness(0, 0, 0, 6) });
             if (_freeMode)
             {
-                _factInput = new TextBox { Height = 34, FontSize = 14, Padding = new Thickness(7, 4, 7, 4), Margin = new Thickness(0, 0, 0, 3) };
+                _factInput = new TextBox { Height = 34, FontSize = 14, Padding = new Thickness(7, 4, 7, 4), Margin = new Thickness(0, 0, 0, 3), HorizontalContentAlignment = HorizontalAlignment.Left, VerticalContentAlignment = VerticalAlignment.Top, TextAlignment = TextAlignment.Left };
                 _factInput.TextChanged += FactInput_TextChanged;
                 _suggestions = new ListBox { MaxHeight = 135, Visibility = Visibility.Collapsed, DisplayMemberPath = "Name", Margin = new Thickness(0, 0, 0, 8) };
                 var suggestionStyle = new Style(typeof(ListBoxItem));
@@ -172,7 +172,7 @@ namespace VtM_LoCh_fP
         {
             if (string.IsNullOrWhiteSpace(CurrentName))
             {
-                MessageBox.Show(this, "Сначала введите название факта.", "Факт биографии", MessageBoxButton.OK, MessageBoxImage.Information);
+                ThemedDialog.Show(this, "Сначала введите название факта.", "Факт биографии", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
             var value = BioFactDescriptionEditorWindow.EditSingle(this, "Описание факта — " + CurrentName, _customDescription);
@@ -183,7 +183,7 @@ namespace VtM_LoCh_fP
         {
             if (string.IsNullOrWhiteSpace(CurrentName) || _levelTrack.Value < 1)
             {
-                MessageBox.Show(this, "Сначала укажите название факта и выберите его уровень.", "Факт биографии", MessageBoxButton.OK, MessageBoxImage.Information);
+                ThemedDialog.Show(this, "Сначала укажите название факта и выберите его уровень.", "Факт биографии", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
             int level = _levelTrack.Value;
@@ -199,7 +199,7 @@ namespace VtM_LoCh_fP
         {
             if (string.IsNullOrWhiteSpace(CurrentName))
             {
-                MessageBox.Show(this, "Сначала введите название факта.", "Факт биографии", MessageBoxButton.OK, MessageBoxImage.Information);
+                ThemedDialog.Show(this, "Сначала введите название факта.", "Факт биографии", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
             var edited = BioFactDescriptionEditorWindow.EditHolistic(this, _holisticLevels);
@@ -236,18 +236,18 @@ namespace VtM_LoCh_fP
             string name = CurrentName;
             if (string.IsNullOrWhiteSpace(name))
             {
-                MessageBox.Show(this, "Выберите или введите факт биографии.", "Факт биографии", MessageBoxButton.OK, MessageBoxImage.Information);
+                ThemedDialog.Show(this, "Выберите или введите факт биографии.", "Факт биографии", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
             if (!_freeMode && _selectedDefinition == null)
             {
-                MessageBox.Show(this, "В режиме Птенца можно выбрать только факт из базы данных.", "Факт биографии", MessageBoxButton.OK, MessageBoxImage.Warning);
+                ThemedDialog.Show(this, "В режиме Птенца можно выбрать только факт из базы данных.", "Факт биографии", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
             int selectedLevel = _levelTrack.Value;
             if (selectedLevel < 1 || selectedLevel > 5)
             {
-                MessageBox.Show(this, "Укажите уровень факта биографии.", "Факт биографии", MessageBoxButton.OK, MessageBoxImage.Information);
+                ThemedDialog.Show(this, "Укажите уровень факта биографии.", "Факт биографии", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
             Result = new BioFactEntry

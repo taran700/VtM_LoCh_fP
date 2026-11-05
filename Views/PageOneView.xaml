@@ -34,7 +34,7 @@
                     <ContentControl x:Name="DemeanorFieldHost" Grid.Row="1" Grid.Column="1"/>
                     <controls:FieldControl Grid.Row="1" Grid.Column="2" Label="Амплуа"/>
                     <ContentControl x:Name="ClanFieldHost" Grid.Row="2" Grid.Column="0"/>
-                    <controls:FieldControl Grid.Row="2" Grid.Column="1" Label="Поколение"/>
+                    <ContentControl x:Name="GenerationFieldHost" Grid.Row="2" Grid.Column="1"/>
                     <controls:FieldControl Grid.Row="2" Grid.Column="2" Label="Сир"/>
                 </Grid>
             </GroupBox>

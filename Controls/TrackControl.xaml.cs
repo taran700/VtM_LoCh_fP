@@ -63,6 +63,8 @@ namespace VtM_LoCh_fP.Controls
         private Popup _descriptionPopup;
 
         public string InfoDescription { get; set; }
+        public string InfoAdditionalText { get; set; }
+        public System.Func<string> InfoAdditionalTextProvider { get; set; }
         public System.Collections.Generic.List<VtM_LoCh_fP.TrackLevelDescription> InfoLevels { get; set; }
 
         public TrackControl()
@@ -247,6 +249,11 @@ namespace VtM_LoCh_fP.Controls
 
         private void LabelText_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
         {
+            ShowInfoPopup(LabelText);
+        }
+
+        public void ShowInfoPopup(FrameworkElement placementTarget)
+        {
             var info = VtM_LoCh_fP.TrackDescriptionService.Find(Label);
             string description = !string.IsNullOrWhiteSpace(InfoDescription) ? InfoDescription : info?.Description;
             var levels = InfoLevels ?? info?.Levels;
@@ -268,6 +275,30 @@ namespace VtM_LoCh_fP.Controls
                 Foreground = (Brush)FindResource("TextBrush"),
                 Visibility = string.IsNullOrWhiteSpace(description) ? Visibility.Collapsed : Visibility.Visible
             });
+
+            string additionalText = InfoAdditionalTextProvider != null ? InfoAdditionalTextProvider() : InfoAdditionalText;
+            if (!string.IsNullOrWhiteSpace(additionalText))
+            {
+                panel.Children.Add(new Border
+                {
+                    Height = 1,
+                    Background = (Brush)FindResource("BorderBrush"),
+                    Margin = new Thickness(0, 8, 0, 8)
+                });
+                panel.Children.Add(new TextBlock
+                {
+                    Text = "ВОССТАНОВЛЕНИЕ ВОЛИ",
+                    FontWeight = FontWeights.Bold,
+                    Foreground = (Brush)FindResource("HeadingBrush"),
+                    Margin = new Thickness(0, 0, 0, 4)
+                });
+                panel.Children.Add(new TextBlock
+                {
+                    Text = additionalText,
+                    TextWrapping = TextWrapping.Wrap,
+                    Foreground = (Brush)FindResource("TextBrush")
+                });
+            }
 
             if (Value > 0 && levels != null)
             {
@@ -313,7 +344,7 @@ namespace VtM_LoCh_fP.Controls
             {
                 _descriptionPopup = new Popup
                 {
-                    PlacementTarget = LabelText,
+                    PlacementTarget = placementTarget ?? LabelText,
                     Placement = PlacementMode.Right,
                     HorizontalOffset = 8,
                     AllowsTransparency = true,
@@ -322,11 +353,17 @@ namespace VtM_LoCh_fP.Controls
                 };
             }
 
+            _descriptionPopup.PlacementTarget = placementTarget ?? LabelText;
             _descriptionPopup.Child = border;
             _descriptionPopup.IsOpen = true;
         }
 
         private void LabelText_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            HideInfoPopup();
+        }
+
+        public void HideInfoPopup()
         {
             if (_descriptionPopup != null)
                 _descriptionPopup.IsOpen = false;
