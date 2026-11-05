@@ -72,6 +72,7 @@
     <Compile Include="AppSettings.cs" />
     <Compile Include="CharacterProfile.cs" />
     <Compile Include="ClanService.cs" />
+    <Compile Include="TrackDescriptionService.cs" />
     <Compile Include="CharacterSelectionWindow.cs" />
     <Compile Include="CharacterCreateWindow.cs" />
     <Compile Include="SettingsWindow.cs" />

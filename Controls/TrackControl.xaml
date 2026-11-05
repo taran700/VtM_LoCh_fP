@@ -11,7 +11,8 @@
         <TextBlock x:Name="LabelText" Grid.Column="0"
                    Text="{Binding Label, ElementName=Root}"
                    Style="{StaticResource FieldLabelStyle}"
-                   VerticalAlignment="Center"/>
+                   VerticalAlignment="Center"
+                   MouseEnter="LabelText_MouseEnter" MouseLeave="LabelText_MouseLeave"/>
 
         <TextBox x:Name="LabelInput" Grid.Column="0" Visibility="Collapsed"
                  Text="{Binding Label, ElementName=Root, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"

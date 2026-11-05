@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using VtM_LoCh_fP.ViewModels;
+using System.Windows.Media.Effects;
 
 namespace VtM_LoCh_fP.Controls
 {
@@ -58,6 +59,7 @@ namespace VtM_LoCh_fP.Controls
                 new PropertyMetadata(false, OnForcedZeroChanged));
 
         private bool _syncing;
+        private Popup _descriptionPopup;
 
         public TrackControl()
         {
@@ -212,6 +214,89 @@ namespace VtM_LoCh_fP.Controls
             _syncing = true;
             for (int i = 0; i < Items.Count; i++) Items[i].IsChecked = i < value;
             _syncing = false;
+        }
+
+
+        private void LabelText_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            var info = VtM_LoCh_fP.TrackDescriptionService.Find(Label);
+            if (info == null || string.IsNullOrWhiteSpace(info.Description)) return;
+
+            var panel = new StackPanel { MaxWidth = 360 };
+            panel.Children.Add(new TextBlock
+            {
+                Text = info.Name,
+                FontSize = 15,
+                FontWeight = FontWeights.Bold,
+                Foreground = (Brush)FindResource("HeadingBrush"),
+                Margin = new Thickness(0, 0, 0, 6)
+            });
+            panel.Children.Add(new TextBlock
+            {
+                Text = info.Description,
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = (Brush)FindResource("TextBrush")
+            });
+
+            if (Value > 0 && info.Levels != null)
+            {
+                var level = info.Levels.Find(x => x.Level == Value);
+                if (level != null && !string.IsNullOrWhiteSpace(level.Description))
+                {
+                    panel.Children.Add(new Border
+                    {
+                        Height = 1,
+                        Background = (Brush)FindResource("BorderBrush"),
+                        Margin = new Thickness(0, 8, 0, 8)
+                    });
+                    panel.Children.Add(new TextBlock
+                    {
+                        Text = string.IsNullOrWhiteSpace(level.Rank) ? "Уровень " + level.Level : "Уровень " + level.Level + " — " + level.Rank,
+                        FontWeight = FontWeights.SemiBold,
+                        Foreground = (Brush)FindResource("HeadingBrush"),
+                        Margin = new Thickness(0, 0, 0, 4)
+                    });
+                    panel.Children.Add(new TextBlock
+                    {
+                        Text = level.Description,
+                        TextWrapping = TextWrapping.Wrap,
+                        Foreground = (Brush)FindResource("TextBrush")
+                    });
+                }
+            }
+
+            var border = new Border
+            {
+                Child = panel,
+                Padding = new Thickness(12),
+                Background = (Brush)FindResource("CardBgBrush"),
+                BorderBrush = (Brush)FindResource("BorderBrush"),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Effect = new DropShadowEffect { BlurRadius = 14, ShadowDepth = 3, Opacity = 0.3 }
+            };
+            
+            if (_descriptionPopup == null)
+            {
+                _descriptionPopup = new Popup
+                {
+                    PlacementTarget = LabelText,
+                    Placement = PlacementMode.Right,
+                    HorizontalOffset = 8,
+                    AllowsTransparency = true,
+                    StaysOpen = true,
+                    Focusable = false
+                };
+            }
+
+            _descriptionPopup.Child = border;
+            _descriptionPopup.IsOpen = true;
+        }
+
+        private void LabelText_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            if (_descriptionPopup != null)
+                _descriptionPopup.IsOpen = false;
         }
 
         private static T FindChild<T>(DependencyObject parent) where T : DependencyObject
