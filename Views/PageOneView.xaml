@@ -27,13 +27,13 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <controls:FieldControl Grid.Row="0" Grid.Column="0" Label="Имя"/>
+                    <controls:FieldControl Grid.Row="0" Grid.Column="0" Label="Имя Персонажа"/>
                     <controls:FieldControl Grid.Row="0" Grid.Column="1" Label="Игрок"/>
                     <controls:FieldControl Grid.Row="0" Grid.Column="2" Label="Хроника"/>
                     <controls:FieldControl Grid.Row="1" Grid.Column="0" Label="Натура"/>
                     <controls:FieldControl Grid.Row="1" Grid.Column="1" Label="Маска"/>
                     <controls:FieldControl Grid.Row="1" Grid.Column="2" Label="Амплуа"/>
-                    <controls:FieldControl Grid.Row="2" Grid.Column="0" Label="Клан"/>
+                    <ContentControl x:Name="ClanFieldHost" Grid.Row="2" Grid.Column="0"/>
                     <controls:FieldControl Grid.Row="2" Grid.Column="1" Label="Поколение"/>
                     <controls:FieldControl Grid.Row="2" Grid.Column="2" Label="Сир"/>
                 </Grid>
@@ -64,7 +64,7 @@
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
-                    <StackPanel Grid.Column="0">
+                    <StackPanel Grid.Column="0" Margin="0,0,45,0">
                         <TextBlock Text="Физические" Style="{StaticResource FieldLabelStyleB}"/>
                         <controls:TrackListControl Count="5" LabelWidth="120" Cascade="True">
                             <controls:TrackListControl.Names>
@@ -77,7 +77,7 @@
 
                     <StackPanel Grid.Column="1">
                         <TextBlock Text="Социальные" Style="{StaticResource FieldLabelStyleB}"/>
-                        <controls:TrackListControl Count="5" LabelWidth="200" Cascade="True">
+                        <controls:TrackListControl Count="5" LabelWidth="120" Cascade="True" >
                             <controls:TrackListControl.Names>
                                 <sys:String>Обаяние</sys:String>
                                 <sys:String>Манипуляция</sys:String>

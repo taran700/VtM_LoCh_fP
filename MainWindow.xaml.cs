@@ -24,15 +24,24 @@ namespace VtM_LoCh_fP
         private AdornerLayer _adornerLayer;
         private bool _isDragging;
 
-        public MainWindow()
+        private readonly CharacterProfile _character;
+
+        internal MainWindow(CharacterProfile character)
         {
             InitializeComponent();
-            ThemeManager.ApplyLight();
+            _character = character;
+            CharacterPage.InitializeCharacter(character);
+            Title = "VtM V20: " + character.Name + " — " + character.CreationMode;
+            var rulesService = new CharacterRulesService(character);
+            var disciplineService = new DisciplineService();
+            ThemeManager.ApplyDarkIfSelected();
         }
 
-        private void LightTheme_Click(object sender, RoutedEventArgs e) => ThemeManager.ApplyLight();
-
-        private void DarkTheme_Click(object sender, RoutedEventArgs e) => ThemeManager.ApplyDark();
+        private void Settings_Click(object sender, RoutedEventArgs e)
+        {
+            var settings = new SettingsWindow { Owner = this };
+            settings.ShowDialog();
+        }
 
         // ===================== Перетаскивание вкладок =====================
 

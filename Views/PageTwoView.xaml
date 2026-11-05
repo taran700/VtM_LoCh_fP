@@ -13,40 +13,30 @@
             <GroupBox Header="ПРЕИМУЩЕСТВА" Style="{StaticResource SectionBoxStyle}">
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
+   
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
+                   
+                       
+
                     <StackPanel Grid.Column="0">
-                        <TextBlock Text="Дисциплины" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBlock Text="Факты биографии" Style="{StaticResource FieldLabelStyleB}" FontSize="22"/>
                         <controls:TrackListControl Cascade="True" Count="5" LabelWidth="170" IsEditableLabel="True">
                             <controls:TrackListControl.Names>
-                                <sys:String>Название дисциплины</sys:String>
-                                <sys:String>Название дисциплины</sys:String>
-                                <sys:String>Название дисциплины</sys:String>
-                                <sys:String>Название дисциплины</sys:String>
-                                <sys:String>Название дисциплины</sys:String>
+                                <sys:String>Факт биографии</sys:String>
+                                <sys:String>Факт биографии</sys:String>
+                                <sys:String>Факт биографии</sys:String>
+                                <sys:String>Факт биографии</sys:String>
+                                <sys:String>Факт биографии</sys:String>
                             </controls:TrackListControl.Names>
                         </controls:TrackListControl>
                     </StackPanel>
 
                     <StackPanel Grid.Column="1">
-                        <TextBlock Text="Факты биографии" Style="{StaticResource FieldLabelStyle}"/>
-                        <controls:TrackListControl Cascade="True" Count="5" LabelWidth="170" IsEditableLabel="True">
-                            <controls:TrackListControl.Names>
-                                <sys:String>Факт биографии</sys:String>
-                                <sys:String>Факт биографии</sys:String>
-                                <sys:String>Факт биографии</sys:String>
-                                <sys:String>Факт биографии</sys:String>
-                                <sys:String>Факт биографии</sys:String>
-                            </controls:TrackListControl.Names>
-                        </controls:TrackListControl>
-                    </StackPanel>
-
-                    <StackPanel Grid.Column="2">
-                        <TextBlock Text="Добродетели" Style="{StaticResource FieldLabelStyle}"/>
-                        <controls:TrackListControl Cascade="True" Count="5" LabelWidth="190">
+                        <TextBlock Text="Добродетели" Style="{StaticResource FieldLabelStyleB}" FontSize="22"/>
+                        <controls:TrackListControl Cascade="True" Count="5" LabelWidth="190" VerticalAlignment="Center">
                             <controls:TrackListControl.Names>
                                 <sys:String>Совесть / Решимость</sys:String>
                                 <sys:String>Самоконтроль / Инстинкты</sys:String>
@@ -61,8 +51,8 @@
                  Воля: постоянная и временная — одна строка строго под другой,
                  для этого у обеих дорожек одинаковая ширина подписи и одинаковое
                  число точек. Кровь: 10 квадратов всегда в два ряда по пять. -->
-            <GroupBox Header="Человечность / Путь · Воля · Запас крови · Здоровье"
-                      Style="{StaticResource SectionBoxStyle}">
+            <GroupBox  Header="МЕНТАЛЬНЫЙ РЕСУРС" 
+                      Style="{StaticResource SectionBoxStyle}"  >
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -71,14 +61,14 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Grid.Column="0">
-                        <TextBlock Text="Человечность / Путь" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBlock Text="Человечность / Путь" Style="{StaticResource FieldLabelStyleB}" FontSize="22"/>
                         <controls:TrackControl Label="Степень" Count="10" LabelWidth="110"
                                                Shape="Dots" Cascade="True"/>
-                        <controls:FieldControl Label="Название пути"/>
+                        <controls:FieldControl Label="Столп"/>
                     </StackPanel>
 
                     <StackPanel Grid.Column="1">
-                        <TextBlock Text="Воля" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBlock Text="Воля" Style="{StaticResource FieldLabelStyleB}" FontSize="22"/>
                         <controls:TrackControl Label="Постоянная" Count="10" LabelWidth="120"
                                                Shape="Dots" Cascade="True"/>
                         <controls:TrackControl Label="Временная" Count="10" LabelWidth="120"
@@ -90,38 +80,38 @@
             </GroupBox>
 
             <GroupBox
-                Header="Запас крови · Здоровье" Style="{StaticResource SectionBoxStyle}">
+                Header="ФИЗИЧЕСКИЙ РЕСУРС" Style="{StaticResource SectionBoxStyle}">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0">
-                        <TextBlock Text="Запас крови" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBlock Text="Запас крови" Style="{StaticResource FieldLabelStyleB}" FontSize="22"/>
                         <controls:TrackControl Label="Кровь" Count="10" LabelWidth="100"
                                                Shape="Squares" Columns="5" Cascade="True"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1">
-                        <TextBlock Text="Здоровье" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBlock Text="Здоровье" Style="{StaticResource FieldLabelStyleB}" FontSize="22"/>
                         <controls:TrackControl Label="Здоровье" Count="7" LabelWidth="100"
                                                Shape="Squares" Columns="5" Cascade="True"/>
                     </StackPanel>
                 </Grid>
             </GroupBox>
 
-            <!-- ===== Столп и опыт ===== -->
-            <GroupBox Header="Столп · Опыт · Свободные пункты" Style="{StaticResource SectionBoxStyle}">
+            <!-- ===== Опыт ===== -->
+            <GroupBox Header="Опытность" Style="{StaticResource SectionBoxStyle}">
                 <Grid>
                     <Grid.ColumnDefinitions>
+                       
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
+                    
                     </Grid.ColumnDefinitions>
-                    <controls:FieldControl Grid.Column="0" Label="Столп"/>
-                    <controls:FieldControl Grid.Column="1" Label="Опыт"/>
-                    <controls:FieldControl Grid.Column="2" Label="Свободные пункты"/>
-                    <controls:FieldControl Grid.Column="3" Label="Прочее"/>
+               
+                    <controls:FieldControl Grid.Column="0" Label="Опыт"/>
+                    <controls:FieldControl Grid.Column="1" Label="Свободные пункты"/>
+                   
                 </Grid>
             </GroupBox>
             

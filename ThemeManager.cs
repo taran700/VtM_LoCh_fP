@@ -17,6 +17,12 @@ namespace VtM_LoCh_fP
 
         internal static void ApplyLight() => Apply("Themes/LightTheme.xaml", false);
 
+        internal static void ApplyDarkIfSelected()
+        {
+            if (AppSettings.DarkTheme) ApplyDark();
+            else ApplyLight();
+        }
+
         internal static void ApplyDark() => Apply("Themes/DarkTheme.xaml", true);
 
         private static void Apply(string relativePath, bool dark)

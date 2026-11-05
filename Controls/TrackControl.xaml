@@ -4,8 +4,8 @@
              x:Name="Root">
     <Grid Margin="2,1,2,1">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition x:Name="LabelColumn" Width="140"/>
-            <ColumnDefinition Width="*"/>
+            <ColumnDefinition x:Name="LabelColumn" Width="160"/>
+            <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
 
         <TextBlock x:Name="LabelText" Grid.Column="0"
