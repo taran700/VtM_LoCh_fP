@@ -31,6 +31,9 @@ namespace VtM_LoCh_fP.Views
         private ListBox _natureSuggestions;
         private ListBox _demeanorSuggestions;
         private bool _settingArchetypeText;
+        private ComboBox _generationSelector;
+        private TextBox _generationInput;
+        public event Action GenerationChanged;
 
         private const string VentrueTasteHelp =
             "Выбор категории смертных согласуется с Рассказчиком при создании персонажа. " +
@@ -76,6 +79,7 @@ namespace VtM_LoCh_fP.Views
         {
             _character = character;
             ClanFieldHost.Content = CreateClanSelector();
+            GenerationFieldHost.Content = CreateGenerationEditor();
             NatureFieldHost.Content = CreateArchetypeEditor("Натура", true);
             DemeanorFieldHost.Content = CreateArchetypeEditor("Маска", false);
 
@@ -88,6 +92,69 @@ namespace VtM_LoCh_fP.Views
                 else
                     ClearAppliedClanRules();
             }
+        }
+
+
+        private UIElement CreateGenerationEditor()
+        {
+            var field = new StackPanel { Margin = new Thickness(2, 0, 4, 4) };
+            field.Children.Add(new TextBlock { Text = "Поколение", Style = (Style)FindResource("FieldLabelStyle") });
+            var rules = GenerationService.GetRules();
+            if (IsFreeNeonate())
+            {
+                _generationInput = new TextBox
+                {
+                    MinHeight = 32, Padding = new Thickness(6, 3, 6, 3),
+                    Foreground = (Brush)FindResource("TextBrush"),
+                    Background = (Brush)FindResource("InputBrush"),
+                    BorderBrush = (Brush)FindResource("BorderBrush"),
+                    VerticalContentAlignment = VerticalAlignment.Center,
+                    ToolTip = "Введите целочисленное значение от 8 до 15. Поколение показывает удалённость от Каина: чем меньше число, тем ближе Сородич к нему. Большинство Сородичей — 13-го поколения. Значения округляются до ближайшего доступного поколения."
+                };
+                _generationInput.Text = _character.Generation.HasValue ? _character.Generation.Value.ToString() : string.Empty;
+                _generationInput.TextChanged += (s, e) => UpdateGeneration(_generationInput.Text);
+                _generationInput.LostFocus += (s, e) => { if (_character.Generation.HasValue) _generationInput.Text = _character.Generation.Value.ToString(); };
+                field.Children.Add(_generationInput);
+            }
+            else
+            {
+                _generationSelector = new ComboBox
+                {
+                    MinHeight = 32, ItemsSource = rules, DisplayMemberPath = "Generation",
+                    SelectedValuePath = "Generation", IsEditable = false,
+                    Foreground = (Brush)FindResource("TextBrush"),
+                    Background = (Brush)FindResource("InputBrush"),
+                    BorderBrush = (Brush)FindResource("BorderBrush"),
+                    Padding = new Thickness(6, 3, 6, 3),
+                    ToolTip = "Поколение показывает удалённость от Каина. Большинство Сородичей — 13-го поколения."
+                };
+                if (_character.Generation.HasValue) _generationSelector.SelectedValue = _character.Generation.Value;
+                _generationSelector.SelectionChanged += (s, e) => UpdateGeneration(_generationSelector.SelectedValue == null ? string.Empty : _generationSelector.SelectedValue.ToString());
+                field.Children.Add(_generationSelector);
+            }
+            return field;
+        }
+
+        private void UpdateGeneration(string text)
+        {
+            double entered;
+            var valueText = (text ?? string.Empty).Trim().Replace(',', '.');
+            if (!double.TryParse(valueText, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out entered))
+            {
+                _character.Generation = null;
+                _character.BloodPoolMax = 10;
+                _character.BloodPerTurn = 1;
+                GenerationChanged?.Invoke();
+                return;
+            }
+            int generation = (int)Math.Round(entered, MidpointRounding.AwayFromZero);
+            generation = Math.Max(8, Math.Min(15, generation));
+            var rule = GenerationService.Find(generation);
+            if (rule == null) return;
+            _character.Generation = generation;
+            _character.BloodPoolMax = rule.BloodPoolMax;
+            _character.BloodPerTurn = rule.BloodPerTurn;
+            GenerationChanged?.Invoke();
         }
 
         private bool IsFreeNeonate()
@@ -293,7 +360,9 @@ namespace VtM_LoCh_fP.Views
                 Foreground = (Brush)FindResource("TextBrush"),
                 Background = (Brush)FindResource("InputBrush"),
                 BorderBrush = (Brush)FindResource("BorderBrush"),
-                VerticalContentAlignment = VerticalAlignment.Center
+                VerticalContentAlignment = VerticalAlignment.Center,
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                TextAlignment = TextAlignment.Left
             };
             var list = new ListBox
             {
@@ -328,9 +397,9 @@ namespace VtM_LoCh_fP.Views
                 if (_character.NatureSelectedFromSuggestions)
                 {
                     var selected = ArchetypeService.GetArchetypes().FirstOrDefault(a => a.Name == _character.Nature);
-                    if (selected != null) input.ToolTip = CreateArchetypeDescriptionToolTip(selected.Description, "Натура");
+                    if (selected != null) input.ToolTip = CreateArchetypeDescriptionToolTip(selected.Description, "Натура", selected.RegainWillpowerCondition);
                 }
-                else if (!string.IsNullOrWhiteSpace(_character.NatureCustomDescription)) input.ToolTip = CreateArchetypeDescriptionToolTip(_character.NatureCustomDescription, "Натура");
+                else if (!string.IsNullOrWhiteSpace(_character.NatureCustomDescription) || !string.IsNullOrWhiteSpace(_character.NatureCustomWillpowerRecovery)) input.ToolTip = CreateArchetypeDescriptionToolTip(_character.NatureCustomDescription, "Натура", _character.NatureCustomWillpowerRecovery);
                 UpdateArchetypeDescriptionButton(true);
             }
             else
@@ -340,9 +409,9 @@ namespace VtM_LoCh_fP.Views
                 if (_character.DemeanorSelectedFromSuggestions)
                 {
                     var selected = ArchetypeService.GetArchetypes().FirstOrDefault(a => a.Name == _character.Demeanor);
-                    if (selected != null) input.ToolTip = CreateArchetypeDescriptionToolTip(selected.Description, "Маска");
+                    if (selected != null) input.ToolTip = CreateArchetypeDescriptionToolTip(selected.Description, "Маска", selected.RegainWillpowerCondition);
                 }
-                else if (!string.IsNullOrWhiteSpace(_character.DemeanorCustomDescription)) input.ToolTip = CreateArchetypeDescriptionToolTip(_character.DemeanorCustomDescription, "Маска");
+                else if (!string.IsNullOrWhiteSpace(_character.DemeanorCustomDescription) || !string.IsNullOrWhiteSpace(_character.DemeanorCustomWillpowerRecovery)) input.ToolTip = CreateArchetypeDescriptionToolTip(_character.DemeanorCustomDescription, "Маска", _character.DemeanorCustomWillpowerRecovery);
                 UpdateArchetypeDescriptionButton(false);
             }
 
@@ -360,12 +429,14 @@ namespace VtM_LoCh_fP.Views
                     _character.Nature = input.Text;
                     _character.NatureSelectedFromSuggestions = false;
                     _character.NatureCustomDescription = string.Empty;
+                    _character.NatureCustomWillpowerRecovery = string.Empty;
                 }
                 else
                 {
                     _character.Demeanor = input.Text;
                     _character.DemeanorSelectedFromSuggestions = false;
                     _character.DemeanorCustomDescription = string.Empty;
+                    _character.DemeanorCustomWillpowerRecovery = string.Empty;
                 }
                 UpdateArchetypeDescriptionButton(isNature);
             };
@@ -395,7 +466,7 @@ namespace VtM_LoCh_fP.Views
             input.Text = archetype.Name;
             input.CaretIndex = input.Text.Length;
             _settingArchetypeText = false;
-            input.ToolTip = CreateArchetypeDescriptionToolTip(archetype.Description, isNature ? "Натура" : "Маска");
+            input.ToolTip = CreateArchetypeDescriptionToolTip(archetype.Description, isNature ? "Натура" : "Маска", archetype.RegainWillpowerCondition);
             if (isNature)
             {
                 _character.Nature = archetype.Name;
@@ -427,10 +498,11 @@ namespace VtM_LoCh_fP.Views
         {
             var input = isNature ? _natureInput : _demeanorInput;
             string current = isNature ? _character.NatureCustomDescription : _character.DemeanorCustomDescription;
+            string currentRecovery = isNature ? _character.NatureCustomWillpowerRecovery : _character.DemeanorCustomWillpowerRecovery;
             var window = new Window
             {
                 Title = "Описание — " + (isNature ? "Натура" : "Маска"),
-                Width = 460, Height = 300, MinWidth = 400, MinHeight = 260,
+                Width = 500, Height = 440, MinWidth = 440, MinHeight = 400,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 Owner = Window.GetWindow(this), ResizeMode = ResizeMode.NoResize,
                 Background = (Brush)FindResource("BgBrush"), Foreground = (Brush)FindResource("TextBrush")
@@ -438,10 +510,15 @@ namespace VtM_LoCh_fP.Views
             var root = new StackPanel { Margin = new Thickness(16) };
             root.Children.Add(new TextBlock { Text = "Собственное описание (не более 500 символов)", Margin = new Thickness(0, 0, 0, 8), FontWeight = FontWeights.SemiBold });
             var editor = new TextBox { Text = current ?? string.Empty, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto, MaxLength = 500, MinHeight = 145 };
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto, MaxLength = 500, MinHeight = 145, HorizontalContentAlignment = HorizontalAlignment.Left, VerticalContentAlignment = VerticalAlignment.Top, TextAlignment = TextAlignment.Left };
             var count = new TextBlock { Text = editor.Text.Length + "/500", HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 5, 0, 10) };
             editor.TextChanged += (sender, args) => count.Text = editor.Text.Length + "/500";
             root.Children.Add(editor); root.Children.Add(count);
+            root.Children.Add(new TextBlock { Text = "Условие восстановления Воли", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 4, 0, 6) });
+            var recoveryEditor = new TextBox { Text = currentRecovery ?? string.Empty, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto, MaxLength = 1000, MinHeight = 90,
+                HorizontalContentAlignment = HorizontalAlignment.Left, VerticalContentAlignment = VerticalAlignment.Top, TextAlignment = TextAlignment.Left };
+            root.Children.Add(recoveryEditor);
             var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
             var save = new Button { Content = "Сохранить", Padding = new Thickness(12, 5, 12, 5), Margin = new Thickness(0, 0, 8, 0), IsDefault = true };
             var cancel = new Button { Content = "Отмена", Padding = new Thickness(12, 5, 12, 5), IsCancel = true };
@@ -449,17 +526,31 @@ namespace VtM_LoCh_fP.Views
             buttons.Children.Add(save); buttons.Children.Add(cancel); root.Children.Add(buttons); window.Content = root;
             if (window.ShowDialog() == true)
             {
-                if (isNature) _character.NatureCustomDescription = editor.Text;
-                else _character.DemeanorCustomDescription = editor.Text;
-                input.ToolTip = CreateArchetypeDescriptionToolTip(editor.Text, isNature ? "Натура" : "Маска");
+                if (isNature)
+                {
+                    _character.NatureCustomDescription = editor.Text;
+                    _character.NatureCustomWillpowerRecovery = recoveryEditor.Text;
+                }
+                else
+                {
+                    _character.DemeanorCustomDescription = editor.Text;
+                    _character.DemeanorCustomWillpowerRecovery = recoveryEditor.Text;
+                }
+                input.ToolTip = CreateArchetypeDescriptionToolTip(editor.Text, isNature ? "Натура" : "Маска", recoveryEditor.Text);
             }
         }
 
-        private ToolTip CreateArchetypeDescriptionToolTip(string description, string title)
+        private ToolTip CreateArchetypeDescriptionToolTip(string description, string title, string recovery = null)
         {
             var content = new StackPanel { MaxWidth = 390 };
             content.Children.Add(new TextBlock { Text = title.ToUpperInvariant(), FontWeight = FontWeights.Bold, Margin = new Thickness(0, 0, 0, 6), Foreground = (Brush)FindResource("HeadingBrush") });
-            content.Children.Add(new TextBlock { Text = description, TextWrapping = TextWrapping.Wrap, Foreground = (Brush)FindResource("TextBrush") });
+            content.Children.Add(new TextBlock { Text = description ?? string.Empty, TextWrapping = TextWrapping.Wrap, Foreground = (Brush)FindResource("TextBrush") });
+            if (!string.IsNullOrWhiteSpace(recovery))
+            {
+                content.Children.Add(new Border { Height = 1, Background = (Brush)FindResource("BorderBrush"), Margin = new Thickness(0, 8, 0, 8) });
+                content.Children.Add(new TextBlock { Text = "ВОССТАНОВЛЕНИЕ ВОЛИ", FontWeight = FontWeights.Bold, Foreground = (Brush)FindResource("HeadingBrush"), Margin = new Thickness(0, 0, 0, 4) });
+                content.Children.Add(new TextBlock { Text = recovery, TextWrapping = TextWrapping.Wrap, Foreground = (Brush)FindResource("TextBrush") });
+            }
             return new ToolTip { Content = content, Style = (Style)FindResource("PopupToolTipStyle"), MaxWidth = 410 };
         }
 

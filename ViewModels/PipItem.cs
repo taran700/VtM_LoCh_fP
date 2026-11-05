@@ -26,30 +26,29 @@ namespace VtM_LoCh_fP.ViewModels
         public event PropertyChangedEventHandler PropertyChanged;
     }
 
-    /// <summary>Уровень здоровья с трёхпозиционной отметкой: пусто, одна палка, крест.</summary>
+    /// <summary>Один слот здоровья: 0 — пусто, 1 — лёгкое, 2 — тяжёлое, 3 — губительное.</summary>
     public sealed class WoundLevel : INotifyPropertyChanged
     {
         private int _state;
-
-        public WoundLevel(string name) => Name = name;
-
+        public WoundLevel(string name, string penalty) { Name = name; Penalty = penalty; }
         public string Name { get; }
-
-        public int State
+        public string Penalty { get; }
+        private string _statusDescription;
+        public string StatusDescription
         {
-            get => _state;
+            get => _statusDescription;
             set
             {
-                if (_state == value) return;
-                _state = value;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(State)));
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(StateTag)));
+                if (_statusDescription == value) return;
+                _statusDescription = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(StatusDescription)));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(StatusTooltip)));
             }
         }
-
-        /// <summary>Состояние строкой: шаблон кнопки сравнивает его в DataTrigger.</summary>
+        public string StatusTooltip => Name + "\n\nСкорость и состояние персонажа:\n" + (string.IsNullOrWhiteSpace(StatusDescription) ? "Не указано в базе данных." : StatusDescription);
+        public int State { get => _state; set { if (_state == value) return; _state = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(State))); PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(StateTag))); PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Mark))); } }
         public string StateTag => _state.ToString();
-
+        public string Mark => _state == 1 ? "/" : _state == 2 ? "X" : _state == 3 ? "■" : string.Empty;
         public event PropertyChangedEventHandler PropertyChanged;
     }
 
@@ -58,13 +57,13 @@ namespace VtM_LoCh_fP.ViewModels
     {
         public static ObservableCollection<WoundLevel> CreateDefault() => new ObservableCollection<WoundLevel>
         {
-            new WoundLevel("Помят"),
-            new WoundLevel("Легко ранен  (−1)"),
-            new WoundLevel("Ранен  (−1)"),
-            new WoundLevel("Серьёзно ранен  (−2)"),
-            new WoundLevel("Тяжело ранен  (−2)"),
-            new WoundLevel("Едва жив  (−5)"),
-            new WoundLevel("При смерти")
+            new WoundLevel("Помят", "0"),
+            new WoundLevel("Легко ранен", "−1"),
+            new WoundLevel("Ранен", "−1"),
+            new WoundLevel("Серьёзно ранен", "−2"),
+            new WoundLevel("Тяжело ранен", "−2"),
+            new WoundLevel("Едва жив", "−5"),
+            new WoundLevel("При смерти", "—")
         };
     }
 }

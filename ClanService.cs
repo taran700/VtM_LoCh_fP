@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.IO;
 using System.Web.Script.Serialization;
 
@@ -110,6 +111,11 @@ namespace VtM_LoCh_fP
             }
             if (_archetypes.Count == 0) throw new InvalidDataException("Список архетипов пуст.");
             return _archetypes;
+        }
+
+        public static ArchetypeInfo FindByName(string name)
+        {
+            return GetArchetypes().FirstOrDefault(a => string.Equals(a.Name, name, StringComparison.OrdinalIgnoreCase));
         }
 
         private static string Read(Dictionary<string, object> source, string key)

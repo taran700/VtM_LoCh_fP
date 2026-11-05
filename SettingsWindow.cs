@@ -5,18 +5,39 @@ namespace VtM_LoCh_fP
 {
     internal sealed class SettingsWindow : Window
     {
-        private readonly ComboBox _theme, _disciplines, _points;
+        private readonly ComboBox _theme, _disciplines, _points, _healing;
 
         public SettingsWindow()
         {
             Title = "Настройки";
-            Width = 440;
-            Height = 360;
+            Width = 460;
+            Height = 500;
+            MinHeight = 500;
+            MaxHeight = 500;
             ResizeMode = ResizeMode.NoResize;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
             ThemeManager.AttachWindow(this);
 
-            var panel = new StackPanel { Margin = new Thickness(22) };
+            var root = new DockPanel { Margin = new Thickness(22) };
+            var footer = new Border { Padding = new Thickness(0, 14, 0, 0), BorderThickness = new Thickness(0, 1, 0, 0) };
+            footer.SetResourceReference(Border.BorderBrushProperty, "BorderBrush");
+            var save = new Button
+            {
+                Content = "Сохранить",
+                MinWidth = 120,
+                MinHeight = 38,
+                Padding = new Thickness(18, 8, 18, 8),
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            save.Click += Save_Click;
+            footer.Child = save;
+            DockPanel.SetDock(footer, Dock.Bottom);
+            root.Children.Add(footer);
+            var scroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+            var panel = new StackPanel();
+            scroll.Content = panel;
+            root.Children.Add(scroll);
 
             AddSetting(panel, "Тема персонажа",
                 _theme = new ComboBox
@@ -42,24 +63,24 @@ namespace VtM_LoCh_fP
                     Height = 36
                 });
 
+            AddSetting(panel, "Лечение ранений",
+                _healing = new ComboBox
+                {
+                    Items = { "Сир, я сделаю сам", "Работать Гуль!" },
+                    SelectedItem = AppSettings.WoundHealingMode,
+                    Height = 36
+                });
+
             panel.Children.Add(new TextBlock
             {
-                Text = "Расчёты и правила пока не реализованы — ЗАГЛУШКА",
+                Text = "«Сир, я сделаю сам» — отметка раны снимается без автоматической траты крови. «Работать Гуль!» — лечение списывает кровь по правилам V20.",
                 TextWrapping = TextWrapping.Wrap,
                 Foreground = (System.Windows.Media.Brush)Application.Current.Resources["MutedBrush"],
                 Margin = new Thickness(0, 8, 0, 18),
                 Opacity = 1
             });
 
-            var save = new Button
-            {
-                Content = "Сохранить",
-                Padding = new Thickness(16, 8, 16, 8),
-                HorizontalAlignment = HorizontalAlignment.Right
-            };
-            save.Click += Save_Click;
-            panel.Children.Add(save);
-            Content = panel;
+            Content = root;
         }
 
         private static void AddSetting(Panel panel, string label, ComboBox combo)
@@ -79,6 +100,7 @@ namespace VtM_LoCh_fP
             AppSettings.DarkTheme = _theme.SelectedIndex == 1;
             AppSettings.DisciplineMode = _disciplines.SelectedItem as string ?? "Готовые";
             AppSettings.PointMode = _points.SelectedItem as string ?? "Базовые";
+            AppSettings.WoundHealingMode = _healing.SelectedItem as string ?? "Работать Гуль!";
             AppSettings.Save();
             DialogResult = true;
         }

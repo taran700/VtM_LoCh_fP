@@ -5,6 +5,7 @@
         Title="VtM V20: Лист персонажа" Height="940" Width="1360"
         MinHeight="600" MinWidth="980"
         Background="{DynamicResource BgBrush}"
+        PreviewMouseLeftButtonUp="Window_PreviewMouseLeftButtonUp"
         TextOptions.TextFormattingMode="Display"
         FontSize="15">
     <Grid Margin="12">

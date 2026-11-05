@@ -74,6 +74,8 @@
     <Compile Include="BioFactEntry.cs" />
     <Compile Include="ThemedDialog.cs" />
     <Compile Include="BioFactService.cs" />
+    <Compile Include="HumanityPathService.cs" />
+    <Compile Include="HumanityPathEditorWindow.cs" />
     <Compile Include="BioFactPickerWindow.cs" />
     <Compile Include="BioFactDescriptionEditorWindow.cs" />
     <Compile Include="ClanService.cs" />
@@ -82,6 +84,7 @@
     <Compile Include="CharacterCreateWindow.cs" />
     <Compile Include="SettingsWindow.cs" />
     <Compile Include="CharacterRulesService.cs" />
+    <Compile Include="GenerationService.cs" />
     <Compile Include="DisciplineService.cs" />
     <Compile Include="ViewModels\PipItem.cs" />
     <Compile Include="ViewModels\TrackLogic.cs" />

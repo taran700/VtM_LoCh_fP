@@ -59,7 +59,7 @@ namespace VtM_LoCh_fP
             selectionPanel.Children.Add(new TextBlock { Text = _freeMode ? "Введите название или выберите подсказку" : "Выберите факт из списка", Margin = new Thickness(0, 0, 0, 6) });
             if (_freeMode)
             {
-                _factInput = new TextBox { Height = 34, FontSize = 14, Padding = new Thickness(7, 4, 7, 4), Margin = new Thickness(0, 0, 0, 3) };
+                _factInput = new TextBox { Height = 34, FontSize = 14, Padding = new Thickness(7, 4, 7, 4), Margin = new Thickness(0, 0, 0, 3), HorizontalContentAlignment = HorizontalAlignment.Left, VerticalContentAlignment = VerticalAlignment.Top, TextAlignment = TextAlignment.Left };
                 _factInput.TextChanged += FactInput_TextChanged;
                 _suggestions = new ListBox { MaxHeight = 135, Visibility = Visibility.Collapsed, DisplayMemberPath = "Name", Margin = new Thickness(0, 0, 0, 8) };
                 var suggestionStyle = new Style(typeof(ListBoxItem));

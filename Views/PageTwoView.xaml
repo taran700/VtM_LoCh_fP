@@ -37,10 +37,10 @@
 
                     <StackPanel Grid.Column="1">
                         <TextBlock Text="Добродетели" Style="{StaticResource FieldLabelStyleB}" FontSize="22"/>
-                        <controls:TrackListControl Cascade="True" Count="5" LabelWidth="190" VerticalAlignment="Center">
+                        <controls:TrackListControl x:Name="VirtuesTrackList" Cascade="True" Count="5" LabelWidth="190" VerticalAlignment="Center">
                             <controls:TrackListControl.Names>
-                                <sys:String>Совесть / Решимость</sys:String>
-                                <sys:String>Самоконтроль / Инстинкты</sys:String>
+                                <sys:String>Совесть</sys:String>
+                                <sys:String>Самоконтроль</sys:String>
                                 <sys:String>Смелость</sys:String>
                             </controls:TrackListControl.Names>
                         </controls:TrackListControl>
@@ -62,17 +62,45 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Grid.Column="0">
-                        <TextBlock Text="Человечность / Путь" Style="{StaticResource FieldLabelStyleB}" FontSize="22"/>
-                        <controls:TrackControl Label="Степень" Count="10" LabelWidth="110"
+                        <TextBlock Text="Человечность / Путь" Style="{StaticResource FieldLabelStyleB}" FontSize="22" Margin="0,0,0,5"/>
+                        <ComboBox x:Name="HumanityPathCombo" DisplayMemberPath="Name" SelectedValuePath="Id"
+                                  MinHeight="30" Margin="0,0,8,5" Padding="6,3"
+                                  SelectionChanged="HumanityPathCombo_SelectionChanged"/>
+                        <DockPanel x:Name="HumanityPathNeonatePicker" LastChildFill="True" Margin="0,0,8,5" Visibility="Collapsed">
+                            <Button x:Name="CreateHumanityPathButton" Content="Создать" Padding="10,4" Margin="6,0,0,0"
+                                    Click="CreateHumanityPath_Click" Visibility="Collapsed"/>
+                            <TextBox x:Name="HumanityPathInput" MinHeight="30" Padding="6,3"
+                                     TextChanged="HumanityPathInput_TextChanged" KeyDown="HumanityPathInput_KeyDown"/>
+                        </DockPanel>
+                        <Popup x:Name="HumanityPathSuggestionsPopup" PlacementTarget="{Binding ElementName=HumanityPathInput}"
+                               Placement="Bottom" StaysOpen="True" AllowsTransparency="True" PopupAnimation="Fade">
+                            <Border BorderThickness="1" CornerRadius="4" Padding="3" MaxHeight="220"
+                                    Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderBrush}">
+                                <ListBox x:Name="HumanityPathSuggestions" DisplayMemberPath="Name" MinWidth="250"
+                                         BorderThickness="0" SelectionChanged="HumanityPathSuggestions_SelectionChanged"
+                                         MouseUp="HumanityPathSuggestions_MouseUp"/>
+                            </Border>
+                        </Popup>
+                        <DockPanel Margin="2,2,0,5" LastChildFill="False">
+                            <TextBlock x:Name="HumanityPathName" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <Button Content="···" FontSize="18" Padding="5,0" Margin="7,0,0,0" ToolTip="Информация о Пути" Click="HumanityPathInfo_Click"/>
+                        </DockPanel>
+                        <controls:TrackControl x:Name="HumanityPathTrack" Label="Уровень" Count="10" LabelWidth="110"
                                                Shape="Dots" Cascade="True"/>
-                        <controls:FieldControl Label="Столп"/>
+                        <WrapPanel Margin="0,7,0,0">
+                            <Button x:Name="HumanitySinTableButton" Content="Таблица грехов" Padding="10,5" Margin="0,0,7,0"
+                                    Click="HumanitySinTable_Click"/>
+                            <Button x:Name="EditHumanityPathButton" Content="Редактировать Путь" Padding="10,5"
+                                    Click="EditHumanityPath_Click" Visibility="Collapsed"/>
+                        </WrapPanel>
                     </StackPanel>
 
                     <StackPanel Grid.Column="1">
-                        <TextBlock Text="Воля" Style="{StaticResource FieldLabelStyleB}" FontSize="22"/>
-                        <controls:TrackControl Label="Постоянная" Count="10" LabelWidth="120"
+                        <TextBlock x:Name="WillpowerHeader" Text="Воля" Style="{StaticResource FieldLabelStyleB}" FontSize="22"
+                                   />
+                        <controls:TrackControl x:Name="WillpowerPermanentTrack" Label="Постоянная" Count="10" LabelWidth="120"
                                                Shape="Dots" Cascade="True"/>
-                        <controls:TrackControl Label="Временная" Count="10" LabelWidth="120"
+                        <controls:TrackControl x:Name="WillpowerTemporaryTrack" Label="Временная" Count="10" LabelWidth="120"
                                                Shape="SquaresH" Columns="5" Cascade="True" Loaded="TrackControl_Loaded" />
                     </StackPanel>
 
@@ -89,13 +117,45 @@
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0">
                         <TextBlock Text="Запас крови" Style="{StaticResource FieldLabelStyleB}" FontSize="22"/>
-                        <controls:TrackControl Label="Кровь" Count="10" LabelWidth="100"
+                        <controls:TrackControl x:Name="BloodTrack" Label="Кровь" Count="10" LabelWidth="100"
                                                Shape="Squares" Columns="5" Cascade="True"/>
+                        <TextBlock x:Name="BloodPerTurnText" Text="Трата за ход: 1 пункт" Margin="4,5,0,0"
+                                   Foreground="{DynamicResource MutedBrush}" FontSize="13"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1">
-                        <TextBlock Text="Здоровье" Style="{StaticResource FieldLabelStyleB}" FontSize="22"/>
-                        <controls:TrackControl Label="Здоровье" Count="7" LabelWidth="100"
-                                               Shape="Squares" Columns="5" Cascade="True"/>
+                        <DockPanel LastChildFill="False" Margin="0,0,0,5">
+                            <TextBlock x:Name="HealthHeader" Text="Здоровье" Style="{StaticResource FieldLabelStyleB}" FontSize="22" VerticalAlignment="Center"/>
+                            <CheckBox x:Name="AggravatedDamageToggle" Content="Разрешить губительные" Margin="14,0,0,0" VerticalAlignment="Center"
+                                      Foreground="{DynamicResource TextBrush}" Checked="AggravatedDamageToggle_Changed" Unchecked="AggravatedDamageToggle_Changed"
+                                      ToolTip="Когда выключено, новые повреждения не могут стать губительными.">
+                                <CheckBox.Style>
+                                    <Style TargetType="CheckBox">
+                                        <Setter Property="Cursor" Value="Hand"/>
+                                        <Setter Property="FontSize" Value="14"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="CheckBox">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <Border x:Name="Box" Width="19" Height="19" CornerRadius="4" BorderThickness="1.5"
+                                                                BorderBrush="{DynamicResource BorderBrush}" Background="{DynamicResource InputBrush}" VerticalAlignment="Center">
+                                                            <Path x:Name="Tick" Data="M 3,9 L 7,13 16,4" Stroke="{DynamicResource AccentBrush}" StrokeThickness="2.2"
+                                                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" Visibility="Collapsed"/>
+                                                        </Border>
+                                                        <ContentPresenter Margin="8,0,0,0" VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                                                    </StackPanel>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsChecked" Value="True"><Setter TargetName="Tick" Property="Visibility" Value="Visible"/><Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger>
+                                                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger>
+                                                        <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.5"/></Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </CheckBox.Style>
+                            </CheckBox>
+                        </DockPanel>
+                        <controls:HealthTrackControl x:Name="HealthTrack"/>
                     </StackPanel>
                 </Grid>
             </GroupBox>
