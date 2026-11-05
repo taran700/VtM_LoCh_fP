@@ -72,4 +72,50 @@ namespace VtM_LoCh_fP
             return weakness != null ? ReadString(weakness, "description") : string.Empty;
         }
     }
+
+    internal sealed class ArchetypeInfo
+    {
+        public string Id { get; set; }
+        public string Name { get; set; }
+        public string Description { get; set; }
+        public string RegainWillpowerCondition { get; set; }
+    }
+
+    internal static class ArchetypeService
+    {
+        private static List<ArchetypeInfo> _archetypes;
+
+        public static IReadOnlyList<ArchetypeInfo> GetArchetypes()
+        {
+            if (_archetypes != null) return _archetypes;
+            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "data.json");
+            if (!File.Exists(path)) throw new FileNotFoundException("Не найден файл базы данных Data\\data.json.", path);
+            var serializer = new JavaScriptSerializer();
+            var database = serializer.Deserialize<Dictionary<string, object>>(File.ReadAllText(path));
+            if (database == null || !database.ContainsKey("archetypes"))
+                throw new InvalidDataException("В базе данных отсутствует раздел archetypes.");
+            var source = database["archetypes"] as IList;
+            if (source == null) throw new InvalidDataException("Раздел archetypes имеет неверный формат.");
+            _archetypes = new List<ArchetypeInfo>();
+            foreach (var item in source)
+            {
+                var entry = item as Dictionary<string, object>;
+                if (entry == null) continue;
+                _archetypes.Add(new ArchetypeInfo
+                {
+                    Id = Read(entry, "id"), Name = Read(entry, "name"),
+                    Description = Read(entry, "description"),
+                    RegainWillpowerCondition = Read(entry, "regain_willpower_condition")
+                });
+            }
+            if (_archetypes.Count == 0) throw new InvalidDataException("Список архетипов пуст.");
+            return _archetypes;
+        }
+
+        private static string Read(Dictionary<string, object> source, string key)
+        {
+            return source.ContainsKey(key) ? Convert.ToString(source[key]) : string.Empty;
+        }
+    }
+
 }

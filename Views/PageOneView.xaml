@@ -30,8 +30,8 @@
                     <controls:FieldControl Grid.Row="0" Grid.Column="0" Label="Имя Персонажа"/>
                     <controls:FieldControl Grid.Row="0" Grid.Column="1" Label="Игрок"/>
                     <controls:FieldControl Grid.Row="0" Grid.Column="2" Label="Хроника"/>
-                    <controls:FieldControl Grid.Row="1" Grid.Column="0" Label="Натура"/>
-                    <controls:FieldControl Grid.Row="1" Grid.Column="1" Label="Маска"/>
+                    <ContentControl x:Name="NatureFieldHost" Grid.Row="1" Grid.Column="0"/>
+                    <ContentControl x:Name="DemeanorFieldHost" Grid.Row="1" Grid.Column="1"/>
                     <controls:FieldControl Grid.Row="1" Grid.Column="2" Label="Амплуа"/>
                     <ContentControl x:Name="ClanFieldHost" Grid.Row="2" Grid.Column="0"/>
                     <controls:FieldControl Grid.Row="2" Grid.Column="1" Label="Поколение"/>
@@ -108,6 +108,13 @@
                                 <sys:String>Привлекательность</sys:String>
                             </controls:TrackListControl.Names>
                         </controls:TrackListControl>
+                        <Button x:Name="NosferatuPlasticSurgeryButton"
+                                Content="Пластическая хирургия"
+                                HorizontalAlignment="Center"
+                                Margin="0,3,0,0"
+                                Padding="9,4"
+                                Visibility="Collapsed"
+                                Click="NosferatuPlasticSurgery_Click"/>
                     </StackPanel>
 
                     <StackPanel Grid.Column="2">
