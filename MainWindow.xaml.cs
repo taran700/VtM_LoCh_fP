@@ -34,11 +34,11 @@ namespace VtM_LoCh_fP
             _character = character;
             CharacterPage.InitializeCharacter(character);
             AdvantagesPage.InitializeCharacter(character);
+            DisciplinesPage.InitializeCharacter(character);
             CharacterPage.GenerationChanged += () => AdvantagesPage.ApplyGenerationRules(character);
             AdvantagesPage.ApplyGenerationRules(character);
             Title = "VtM V20: " + character.Name + " — " + character.CreationMode;
             var rulesService = new CharacterRulesService(character);
-            var disciplineService = new DisciplineService();
         }
 
         private void Settings_Click(object sender, RoutedEventArgs e)
@@ -70,6 +70,7 @@ namespace VtM_LoCh_fP
             else
             {
                 ThemeManager.ApplyDarkIfSelected();
+                DisciplinesPage.InitializeCharacter(_character);
             }
         }
 
