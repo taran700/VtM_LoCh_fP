@@ -51,7 +51,7 @@
                 <views:PageTwoView x:Name="AdvantagesPage"/>
             </TabItem>
             <TabItem Header="Дисциплины">
-                <views:PageThreeView/>
+                <views:PageThreeView x:Name="DisciplinesPage"/>
             </TabItem>
             <TabItem Header="Достоинства и история">
                 <views:PageFourView/>

@@ -13,6 +13,7 @@ namespace VtM_LoCh_fP
         public int BloodPoolMax { get; set; }
         public int BloodPerTurn { get; set; }
         public int TraitMax { get; set; }
+        public int DisciplineMax { get; set; }
     }
 
     internal static class GenerationService
@@ -36,7 +37,8 @@ namespace VtM_LoCh_fP
                     Generation = Convert.ToInt32(row["generation"]),
                     BloodPoolMax = Convert.ToInt32(row["blood_pool_max"]),
                     BloodPerTurn = Convert.ToInt32(row["blood_per_turn"]),
-                    TraitMax = Convert.ToInt32(row["trait_max"])
+                    TraitMax = Convert.ToInt32(row["trait_max"]),
+                    DisciplineMax = row.ContainsKey("discipline_max") ? Convert.ToInt32(row["discipline_max"]) : 5
                 });
             }
             _rules = _rules.OrderByDescending(x => x.Generation).ToList();
