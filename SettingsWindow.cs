@@ -5,15 +5,15 @@ namespace VtM_LoCh_fP
 {
     internal sealed class SettingsWindow : Window
     {
-        private readonly ComboBox _theme, _disciplines, _points, _healing;
+        private readonly ComboBox _theme, _points, _healing;
 
         public SettingsWindow()
         {
             Title = "Настройки";
             Width = 460;
-            Height = 500;
-            MinHeight = 500;
-            MaxHeight = 500;
+            Height = 430;
+            MinHeight = 430;
+            MaxHeight = 430;
             ResizeMode = ResizeMode.NoResize;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
             ThemeManager.AttachWindow(this);
@@ -44,14 +44,6 @@ namespace VtM_LoCh_fP
                 {
                     Items = { "Человек", "Сородич" },
                     SelectedIndex = AppSettings.DarkTheme ? 1 : 0,
-                    Height = 36
-                });
-
-            AddSetting(panel, "Дисциплины",
-                _disciplines = new ComboBox
-                {
-                    Items = { "Готовые", "Самобытные" },
-                    SelectedItem = AppSettings.DisciplineMode,
                     Height = 36
                 });
 
@@ -98,7 +90,6 @@ namespace VtM_LoCh_fP
         private void Save_Click(object sender, RoutedEventArgs e)
         {
             AppSettings.DarkTheme = _theme.SelectedIndex == 1;
-            AppSettings.DisciplineMode = _disciplines.SelectedItem as string ?? "Готовые";
             AppSettings.PointMode = _points.SelectedItem as string ?? "Базовые";
             AppSettings.WoundHealingMode = _healing.SelectedItem as string ?? "Работать Гуль!";
             AppSettings.Save();

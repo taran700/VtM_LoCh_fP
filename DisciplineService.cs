@@ -39,6 +39,25 @@ namespace VtM_LoCh_fP
         public string PathName { get; set; }
         public List<DisciplinePower> Powers { get; set; } = new List<DisciplinePower>();
         public List<DisciplinePath> Paths { get; set; } = new List<DisciplinePath>();
+        public List<DisciplineRitual> Rituals { get; set; } = new List<DisciplineRitual>();
+    }
+    public sealed class DisciplineRitual
+    {
+        public string Id { get; set; }
+        public int Level { get; set; }
+        public string Name { get; set; }
+        public string SystemText { get; set; }
+        public string CastTime { get; set; }
+    }
+    public sealed class CharacterRitual
+    {
+        public string DisciplineId { get; set; }
+        public string RitualId { get; set; }
+        public string DisciplineName { get; set; }
+        public string Name { get; set; }
+        public int Level { get; set; }
+        public string SystemText { get; set; }
+        public string CastTime { get; set; }
     }
     public sealed class CharacterDiscipline
     {
@@ -66,6 +85,7 @@ namespace VtM_LoCh_fP
                 if (d == null) continue;
                 var item = new DisciplineDefinition { Id = S(d,"id"), Name = S(d,"name"), Description = Clean(S(d,"description")), IsSorcery = B(d,"is_sorcery") };
                 item.Powers = ParsePowers(d.ContainsKey("powers") ? d["powers"] as IList : null);
+                item.Rituals = ParseRituals(d.ContainsKey("rituals") ? d["rituals"] as IList : null);
                 var paths = d.ContainsKey("paths") ? d["paths"] as IList : null;
                 if (paths != null) foreach (var pathRaw in paths)
                 {
@@ -77,12 +97,38 @@ namespace VtM_LoCh_fP
             }
             return _all;
         }
+        public static List<DisciplineRitual> GetRituals(string disciplineId)
+        {
+            var d = GetAll().FirstOrDefault(x => x.Id == disciplineId);
+            return d == null ? new List<DisciplineRitual>() : d.Rituals;
+        }
+        private static List<DisciplineRitual> ParseRituals(IList rituals)
+        {
+            var result = new List<DisciplineRitual>();
+            if (rituals == null) return result;
+            foreach (var raw in rituals)
+            {
+                var r = raw as Dictionary<string, object>;
+                if (r == null) continue;
+                string cast = "";
+                object rawTime;
+                if (r.TryGetValue("cast_time", out rawTime) && rawTime is Dictionary<string, object>)
+                {
+                    var t = (Dictionary<string, object>)rawTime;
+                    string value = S(t, "value"), unit = S(t, "unit");
+                    if (!string.IsNullOrWhiteSpace(value) && !string.IsNullOrWhiteSpace(unit))
+                        cast = value + " " + unit;
+                }
+                result.Add(new DisciplineRitual { Id=S(r,"id"), Level=I(r,"level"), Name=S(r,"name"), SystemText=Clean(S(r,"system_text")), CastTime=cast });
+            }
+            return result;
+        }
         public static DisciplineDefinition ForSelection(DisciplineDefinition source, string pathId)
         {
             if (source == null || string.IsNullOrEmpty(pathId)) return source;
             var path = source.Paths.FirstOrDefault(x => x.Id == pathId);
             if (path == null) return source;
-            return new DisciplineDefinition { Id=source.Id, Name=source.Name, Description=source.Description, IsSorcery=source.IsSorcery, IsCustom=source.IsCustom, PathId=path.Id, PathName=path.Name, Powers=path.Powers, Paths=source.Paths };
+            return new DisciplineDefinition { Id=source.Id, Name=source.Name, Description=source.Description, IsSorcery=source.IsSorcery, IsCustom=source.IsCustom, PathId=path.Id, PathName=path.Name, Powers=path.Powers, Paths=source.Paths, Rituals=source.Rituals };
         }
         private static List<DisciplinePower> ParsePowers(IList powers)
         {

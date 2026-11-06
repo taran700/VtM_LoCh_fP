@@ -1,3 +1,4 @@
+
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -90,6 +91,10 @@ namespace VtM_LoCh_fP
                     "BorderBrush");
 
                 var grid = new Grid();
+                grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+                if (isClan)
+                    grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
                 var title = new TextBlock
                 {
@@ -97,9 +102,11 @@ namespace VtM_LoCh_fP
                     FontSize = 18,
                     FontWeight = FontWeights.SemiBold,
                     HorizontalAlignment = HorizontalAlignment.Center,
-                    TextAlignment = TextAlignment.Center
+                    TextAlignment = TextAlignment.Center,
+                    TextWrapping = TextWrapping.Wrap
                 };
 
+                Grid.SetRow(title, 0);
                 grid.Children.Add(title);
 
                 if (isClan)
@@ -110,10 +117,10 @@ namespace VtM_LoCh_fP
                         FontSize = 12,
                         Foreground = BrushResource("AccentBrush"),
                         HorizontalAlignment = HorizontalAlignment.Left,
-                        VerticalAlignment = VerticalAlignment.Bottom,
-                        Margin = new Thickness(0, 4, 0, 0)
+                        Margin = new Thickness(0, 3, 0, 0)
                     };
 
+                    Grid.SetRow(label, 1);
                     grid.Children.Add(label);
                 }
 
@@ -490,28 +497,39 @@ namespace VtM_LoCh_fP
                         ? saved[i]
                         : current?.Powers.FirstOrDefault(x => x.Level == i);
 
-                    var group = new GroupBox
+                    // Вместо GroupBox используем Border.
+                    // Это исключает стандартную системную белую рамку WPF.
+                    var group = new Border
                     {
-                        Header = "Уровень " + i,
                         Margin = new Thickness(0, 5, 0, 8),
-                        Padding = new Thickness(8)
+                        Padding = new Thickness(8),
+                        BorderThickness = new Thickness(1),
+                        CornerRadius = new CornerRadius(4)
                     };
 
-                    // Цвета рамки и фона в соответствии с текущей темой.
                     group.SetResourceReference(
-                        Control.BorderBrushProperty,
-                        "BorderBrush"
-                    );
+                        Border.BorderBrushProperty,
+                        "AccentBrush");
 
                     group.SetResourceReference(
-                        Control.BackgroundProperty,
-                        "CardBgBrush"
-                    );
+                        Border.BackgroundProperty,
+                        "CardBgBrush");
 
-                    group.SetResourceReference(
-                        Control.ForegroundProperty,
-                        "TextBrush"
-                    );
+                    var groupContent = new StackPanel();
+
+                    var header = new TextBlock
+                    {
+                        Text = "Уровень " + i,
+                        FontWeight = FontWeights.SemiBold,
+                        FontSize = 15,
+                        Margin = new Thickness(0, 0, 0, 8)
+                    };
+
+                    header.SetResourceReference(
+                        TextBlock.ForegroundProperty,
+                        "TextBrush");
+
+                    groupContent.Children.Add(header);
 
                     var g = new StackPanel();
                     var pe = new PowerEditors();
@@ -541,7 +559,9 @@ namespace VtM_LoCh_fP
 
                     editors.Add(pe);
 
-                    group.Content = g;
+                    groupContent.Children.Add(g);
+                    group.Child = groupContent;
+
                     stack.Children.Add(group);
                 }
             };
@@ -551,7 +571,6 @@ namespace VtM_LoCh_fP
             rebuild();
 
             // Панель кнопок добавляется до ScrollViewer.
-            // Последний элемент DockPanel заполняет оставшееся место.
             var buttons = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
@@ -594,7 +613,6 @@ namespace VtM_LoCh_fP
 
             buttons.Children.Add(save);
 
-            // ScrollViewer добавляется последним и занимает свободное место.
             DockPanel.SetDock(scroll, Dock.Top);
             root.Children.Add(scroll);
 

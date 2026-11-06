@@ -87,6 +87,7 @@
     <Compile Include="GenerationService.cs" />
     <Compile Include="DisciplineService.cs" />
     <Compile Include="DisciplineWindows.cs" />
+    <Compile Include="RitualWindows.cs" />
     <Compile Include="ViewModels\PipItem.cs" />
     <Compile Include="ViewModels\TrackLogic.cs" />
   </ItemGroup>

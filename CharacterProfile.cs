@@ -13,6 +13,7 @@ namespace VtM_LoCh_fP
         public System.Collections.ObjectModel.ObservableCollection<int> HealthDamageStates { get; set; } = new System.Collections.ObjectModel.ObservableCollection<int>();
         public System.Collections.ObjectModel.ObservableCollection<CharacterDiscipline> Disciplines { get; set; } = new System.Collections.ObjectModel.ObservableCollection<CharacterDiscipline>();
         public System.Collections.ObjectModel.ObservableCollection<DisciplineDefinition> CustomDisciplines { get; set; } = new System.Collections.ObjectModel.ObservableCollection<DisciplineDefinition>();
+        public System.Collections.ObjectModel.ObservableCollection<CharacterRitual> Rituals { get; set; } = new System.Collections.ObjectModel.ObservableCollection<CharacterRitual>();
         public bool AllowAggravatedDamage { get; set; }
         public bool ClanSelectedFromSuggestions { get; set; }
         public string Nature { get; set; }
