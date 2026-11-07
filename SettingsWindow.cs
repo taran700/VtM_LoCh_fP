@@ -5,15 +5,15 @@ namespace VtM_LoCh_fP
 {
     internal sealed class SettingsWindow : Window
     {
-        private readonly ComboBox _theme, _points, _healing;
+        private readonly ComboBox _theme, _points, _healing, _ruleOfSeven;
 
         public SettingsWindow()
         {
             Title = "Настройки";
             Width = 460;
-            Height = 430;
-            MinHeight = 430;
-            MaxHeight = 430;
+            Height = 540;
+            MinHeight = 540;
+            MaxHeight = 540;
             ResizeMode = ResizeMode.NoResize;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
             ThemeManager.AttachWindow(this);
@@ -63,6 +63,15 @@ namespace VtM_LoCh_fP
                     Height = 36
                 });
 
+            AddSetting(panel, "Правило Семи в Недостатках",
+                _ruleOfSeven = new ComboBox
+                {
+                    Items = { "Мастер разрешил брать больше!", "Мы чтим книгу!" },
+                    SelectedItem = AppSettings.RuleOfSeven ? "Мы чтим книгу!" : "Мастер разрешил брать больше!",
+                    Height = 36
+                },
+                "Правило запрещает брать на себя недостатки сумма стоимости которых более 7");
+
             panel.Children.Add(new TextBlock
             {
                 Text = "«Сир, я сделаю сам» — отметка раны снимается без автоматической траты крови. «Работать Гуль!» — лечение списывает кровь по правилам V20.",
@@ -75,11 +84,12 @@ namespace VtM_LoCh_fP
             Content = root;
         }
 
-        private static void AddSetting(Panel panel, string label, ComboBox combo)
+        private static void AddSetting(Panel panel, string label, ComboBox combo, string tooltip = null)
         {
             panel.Children.Add(new TextBlock
             {
                 Text = label,
+                ToolTip = tooltip,
                 Foreground = (System.Windows.Media.Brush)Application.Current.Resources["MutedBrush"],
                 Margin = new Thickness(0, 0, 0, 5)
             });
@@ -92,6 +102,7 @@ namespace VtM_LoCh_fP
             AppSettings.DarkTheme = _theme.SelectedIndex == 1;
             AppSettings.PointMode = _points.SelectedItem as string ?? "Базовые";
             AppSettings.WoundHealingMode = _healing.SelectedItem as string ?? "Работать Гуль!";
+            AppSettings.RuleOfSeven = (_ruleOfSeven.SelectedItem as string) == "Мы чтим книгу!";
             AppSettings.Save();
             DialogResult = true;
         }

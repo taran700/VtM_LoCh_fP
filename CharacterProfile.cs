@@ -30,6 +30,16 @@ namespace VtM_LoCh_fP
         public bool VentruePreyCategoryLocked { get; set; }
         public bool NosferatuPlasticSurgery { get; set; }
         public ObservableCollection<BioFactEntry> BiographyFacts { get; set; } = new ObservableCollection<BioFactEntry>();
+        public ObservableCollection<CharacterMeritFlaw> MeritsFlaws { get; set; } = new ObservableCollection<CharacterMeritFlaw>();
+        public int MeritFlawBasePoints { get; set; } = 15;
+        public string BiographyBirthDate { get; set; }
+        public string BiographyDeathDate { get; set; }
+        public string BiographyTrueAge { get; set; }
+        public string BiographyApparentAge { get; set; }
+        public string BiographyHeight { get; set; }
+        public string BiographyWeight { get; set; }
+        public string BiographyBackstory { get; set; }
+        public string BiographyAppearance { get; set; }
         public string HumanityPathId { get; set; } = "humanity";
         public int HumanityPathRating { get; set; } = 7;
         public bool HumanityPathIsCustom { get; set; }

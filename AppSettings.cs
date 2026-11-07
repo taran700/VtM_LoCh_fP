@@ -10,6 +10,7 @@ namespace VtM_LoCh_fP
         public static bool DarkTheme { get; set; }
         public static string PointMode { get; set; } = "Базовые";
         public static string WoundHealingMode { get; set; } = "Работать Гуль!";
+        public static bool RuleOfSeven { get; set; } = true;
 
         public static void Load()
         {
@@ -20,6 +21,7 @@ namespace VtM_LoCh_fP
                 DarkTheme = (bool?)root.Element("DarkTheme") ?? false;
                 PointMode = (string)root.Element("PointMode") ?? "Базовые";
                 WoundHealingMode = (string)root.Element("WoundHealingMode") ?? "Работать Гуль!";
+                RuleOfSeven = (bool?)root.Element("RuleOfSeven") ?? true;
             }
             catch { }
         }
@@ -32,7 +34,8 @@ namespace VtM_LoCh_fP
                 new XDocument(new XElement("Settings",
                     new XElement("DarkTheme", DarkTheme),
                     new XElement("PointMode", PointMode),
-                    new XElement("WoundHealingMode", WoundHealingMode))).Save(FilePath);
+                    new XElement("WoundHealingMode", WoundHealingMode),
+                    new XElement("RuleOfSeven", RuleOfSeven))).Save(FilePath);
             }
             catch { }
         }

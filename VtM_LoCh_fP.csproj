@@ -72,6 +72,8 @@
     <Compile Include="AppSettings.cs" />
     <Compile Include="CharacterProfile.cs" />
     <Compile Include="BioFactEntry.cs" />
+    <Compile Include="MeritFlawService.cs" />
+    <Compile Include="MeritFlawWindows.cs" />
     <Compile Include="ThemedDialog.cs" />
     <Compile Include="BioFactService.cs" />
     <Compile Include="HumanityPathService.cs" />

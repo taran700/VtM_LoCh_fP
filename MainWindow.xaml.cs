@@ -35,6 +35,7 @@ namespace VtM_LoCh_fP
             CharacterPage.InitializeCharacter(character);
             AdvantagesPage.InitializeCharacter(character);
             DisciplinesPage.InitializeCharacter(character);
+            HistoryPage.InitializeCharacter(character);
             CharacterPage.GenerationChanged += () => AdvantagesPage.ApplyGenerationRules(character);
             AdvantagesPage.ApplyGenerationRules(character);
             Title = "VtM V20: " + character.Name + " — " + character.CreationMode;
