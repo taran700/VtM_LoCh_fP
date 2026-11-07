@@ -1,5 +1,6 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
+using System;
 
 namespace VtM_LoCh_fP.Controls
 {
@@ -18,10 +19,13 @@ namespace VtM_LoCh_fP.Controls
             DependencyProperty.Register(nameof(FieldHeight), typeof(double), typeof(FieldControl),
                 new PropertyMetadata(32.0));
 
+        public event TextChangedEventHandler InputTextChanged;
+
         public FieldControl()
         {
             InitializeComponent();
             ApplyModes();
+            Input.TextChanged += (sender, args) => InputTextChanged?.Invoke(this, args);
         }
 
         public string Label
@@ -62,6 +66,7 @@ namespace VtM_LoCh_fP.Controls
             Input.AcceptsReturn = Multiline;
             Input.TextWrapping = WrapMode;
             Input.VerticalScrollBarVisibility = ScrollMode;
+            Input.VerticalContentAlignment = Multiline ? VerticalAlignment.Top : VerticalAlignment.Center;
         }
     }
 }

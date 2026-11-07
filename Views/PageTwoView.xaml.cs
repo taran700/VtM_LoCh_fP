@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -64,6 +64,12 @@ namespace VtM_LoCh_fP.Views
 
 
 
+
+
+        public void ApplyTraitPointLimit(int max)
+        {
+            VirtuesTrackList.Count = max;
+        }
 
         private string GetWillpowerRecoveryInfo()
         {

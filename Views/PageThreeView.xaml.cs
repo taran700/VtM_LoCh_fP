@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -20,6 +20,11 @@ namespace VtM_LoCh_fP.Views
             if(_character.CustomDisciplines==null)_character.CustomDisciplines=new System.Collections.ObjectModel.ObservableCollection<DisciplineDefinition>();
             if(_character.Rituals==null)_character.Rituals=new System.Collections.ObjectModel.ObservableCollection<CharacterRitual>();
             RenderDisciplines();
+        }
+
+        public void RefreshGenerationLimits()
+        {
+            if (_character != null) RenderDisciplines();
         }
 
         private void OpenDisciplineCatalog_Click(object sender,RoutedEventArgs e)
@@ -136,13 +141,15 @@ namespace VtM_LoCh_fP.Views
 
         private int GetDisciplinePointCount(DisciplineDefinition definition)
         {
-            if(definition!=null&&definition.IsCustom&&definition.LevelCount>0)return Math.Max(1,Math.Min(9,definition.LevelCount));
-            if(_character.Generation.HasValue)
+            int generationLimit = 5;
+            if (AppSettings.GenerationPointIncrease && _character.Generation.HasValue)
             {
-                var rule=GenerationService.Find(_character.Generation.Value);
-                if(rule!=null&&rule.DisciplineMax>0)return rule.DisciplineMax;
+                var rule = GenerationService.Find(_character.Generation.Value);
+                if (rule != null && rule.DisciplineMax > 0) generationLimit = rule.DisciplineMax;
             }
-            return 5;
+            if (definition != null && definition.IsCustom && definition.LevelCount > 0)
+                return Math.Max(1, Math.Min(generationLimit, Math.Min(9, definition.LevelCount)));
+            return generationLimit;
         }
 
         private DisciplineDefinition FindDefinition(CharacterDiscipline selected)

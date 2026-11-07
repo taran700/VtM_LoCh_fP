@@ -1,37 +1,75 @@
-<UserControl x:Class="VtM_LoCh_fP.Views.PageFourView"
+﻿<UserControl x:Class="VtM_LoCh_fP.Views.PageFourView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:VtM_LoCh_fP.Controls">
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="16,14,16,20">
             <DockPanel Margin="4,0,4,12">
-                <TextBlock DockPanel.Dock="Right" Text="4/5" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center"/>
+                <TextBlock DockPanel.Dock="Right" Text="4/6" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center"/>
                 <TextBlock Text="ДОСТОИНСТВА · НЕДОСТАТКИ · ИСТОРИЯ" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource HeadingBrush}"/>
             </DockPanel>
+            <TextBlock Text="Выберите достоинства и недостатки персонажа, следите за свободными очками и заполните биографию." Style="{StaticResource SectionCaptionStyle}" Margin="4,0,4,10"/>
+
             <Grid>
-                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                <GroupBox Grid.Column="0" Header="ДОСТОИНСТВА" Style="{StaticResource SectionBoxStyle}">
-                    <controls:FieldControl Label="Название · описание · стоимость" Multiline="True" FieldHeight="260"/>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <GroupBox Grid.Column="0" Header="НЕДОСТАТКИ" Style="{StaticResource SectionBoxStyle}">
+                    <StackPanel>
+                        <Button Content="＋ Добавить недостаток" Style="{StaticResource ToolbarButtonStyle}" HorizontalAlignment="Left" Padding="12,6" Margin="0,0,0,10" Click="AddFlaw_Click"/>
+                        <StackPanel x:Name="FlawsPanel"/>
+                    </StackPanel>
                 </GroupBox>
-                <GroupBox Grid.Column="1" Header="НЕДОСТАТКИ" Style="{StaticResource SectionBoxStyle}">
-                    <controls:FieldControl Label="Название · описание · стоимость" Multiline="True" FieldHeight="260"/>
+                <GroupBox Grid.Column="1" Header="ДОСТОИНСТВА" Style="{StaticResource SectionBoxStyle}">
+                    <StackPanel>
+                        <Button Content="＋ Добавить достоинство" Style="{StaticResource ToolbarButtonStyle}" HorizontalAlignment="Left" Padding="12,6" Margin="0,0,0,10" Click="AddMerit_Click"/>
+                        <StackPanel x:Name="MeritsPanel"/>
+                    </StackPanel>
                 </GroupBox>
             </Grid>
-            <GroupBox Header="ДИСЦИПЛИНЫ · дополнительные записи" Style="{StaticResource SectionBoxStyle}">
-                <controls:FieldControl Label="Дополнительные дисциплины и особенности" Multiline="True" FieldHeight="110"/>
+
+            <GroupBox Header="ОЧКИ ДОСТОИНСТВ И НЕДОСТАТКОВ" Style="{StaticResource SectionBoxStyle}">
+                <DockPanel LastChildFill="False">
+                    <TextBlock x:Name="FreePointsText" Text="Свободные очки: 15" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
+                        <TextBlock Text="Базовые очки:" VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}" Margin="12,0,6,0"/>
+                        <TextBox x:Name="BasePointsInput" Width="58" MinHeight="30" Text="15" TextAlignment="Center" VerticalContentAlignment="Center" TextChanged="BasePointsInput_TextChanged"/>
+                    </StackPanel>
+                </DockPanel>
             </GroupBox>
-            <GroupBox Header="ИСТОРИЯ" Style="{StaticResource SectionBoxStyle}">
+
+            <GroupBox Header="БИОГРАФИЯ" Style="{StaticResource SectionBoxStyle}" Margin="4,8,4,8" Height="440">
                 <Grid>
-                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                    <controls:FieldControl Grid.Row="0" Grid.Column="0" Label="Истинный возраст"/>
-                    <controls:FieldControl Grid.Row="0" Grid.Column="1" Label="Предыстория" Multiline="True" FieldHeight="70"/>
-                    <controls:FieldControl Grid.Row="1" Grid.Column="0" Label="Видимый возраст"/>
-                    <controls:FieldControl Grid.Row="1" Grid.Column="1" Label="Дата рождения"/>
-                    <controls:FieldControl Grid.Row="2" Grid.Column="0" Label="Дата смерти"/>
-                    <controls:FieldControl Grid.Row="2" Grid.Column="1" Label="Отличительные черты · внешность" Multiline="True" FieldHeight="70"/>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="0.9*"/>
+                        <ColumnDefinition Width="1.1*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid Grid.Column="0" Margin="0,0,8,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <controls:FieldControl x:Name="BirthDateField" Grid.Row="0" Grid.Column="0" Label="Дата рождения" Tag="BirthDate" InputTextChanged="BiographyField_InputTextChanged"/>
+                        <controls:FieldControl x:Name="DeathDateField" Grid.Row="0" Grid.Column="1" Label="Дата смерти" Tag="DeathDate" InputTextChanged="BiographyField_InputTextChanged"/>
+                        <controls:FieldControl x:Name="TrueAgeField" Grid.Row="1" Grid.Column="0" Label="Истинный возраст" Tag="TrueAge" InputTextChanged="BiographyField_InputTextChanged"/>
+                        <controls:FieldControl x:Name="ApparentAgeField" Grid.Row="1" Grid.Column="1" Label="Видимый возраст" Tag="ApparentAge" InputTextChanged="BiographyField_InputTextChanged"/>
+                        <controls:FieldControl x:Name="HeightField" Grid.Row="2" Grid.Column="0" Label="Рост" Tag="Height" InputTextChanged="BiographyField_InputTextChanged"/>
+                        <controls:FieldControl x:Name="WeightField" Grid.Row="2" Grid.Column="1" Label="Вес" Tag="Weight" InputTextChanged="BiographyField_InputTextChanged"/>
+                        <controls:FieldControl x:Name="AppearanceField" Label="Отличительные черты внешности" Multiline="True" FieldHeight="135" Tag="Appearance" InputTextChanged="BiographyField_InputTextChanged"  Grid.ColumnSpan="2" Margin="0,97,0,-201" Grid.Row="2"/>
+                    </Grid>
+                    <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                        <controls:FieldControl x:Name="BackstoryField" Label="Предыстория" Multiline="True" FieldHeight="360" Tag="Backstory" InputTextChanged="BiographyField_InputTextChanged" Height="391" Loaded="BackstoryField_Loaded"/>
+                    </StackPanel>
                 </Grid>
             </GroupBox>
+
+
         </StackPanel>
     </ScrollViewer>
 </UserControl>

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
@@ -35,8 +35,17 @@ namespace VtM_LoCh_fP
             CharacterPage.InitializeCharacter(character);
             AdvantagesPage.InitializeCharacter(character);
             DisciplinesPage.InitializeCharacter(character);
-            CharacterPage.GenerationChanged += () => AdvantagesPage.ApplyGenerationRules(character);
+            HistoryPage.InitializeCharacter(character);
+            EquipmentPage.InitializeCharacter(character);
+            CharacterPage.GenerationChanged += () =>
+            {
+                AdvantagesPage.ApplyGenerationRules(character);
+                CharacterPage.ApplyGenerationLimits();
+                AdvantagesPage.ApplyTraitPointLimit(AppSettings.GenerationPointIncrease ? Math.Max(5, character.TraitMax) : 5);
+                DisciplinesPage.RefreshGenerationLimits();
+            };
             AdvantagesPage.ApplyGenerationRules(character);
+            AdvantagesPage.ApplyTraitPointLimit(AppSettings.GenerationPointIncrease ? Math.Max(5, character.TraitMax) : 5);
             Title = "VtM V20: " + character.Name + " — " + character.CreationMode;
             var rulesService = new CharacterRulesService(character);
         }
@@ -70,6 +79,8 @@ namespace VtM_LoCh_fP
             else
             {
                 ThemeManager.ApplyDarkIfSelected();
+                CharacterPage.ApplyGenerationLimits();
+                AdvantagesPage.ApplyTraitPointLimit(AppSettings.GenerationPointIncrease ? Math.Max(5, _character.TraitMax) : 5);
                 DisciplinesPage.InitializeCharacter(_character);
             }
         }

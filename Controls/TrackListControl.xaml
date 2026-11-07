@@ -13,12 +13,12 @@
             <DataTemplate>
                 <controls:TrackControl
                     Label="{Binding}"
-                    Count="{Binding Count, ElementName=Root}"
-                    Shape="{Binding Shape, ElementName=Root}"
-                    Columns="{Binding Columns, ElementName=Root}"
-                    LabelWidth="{Binding LabelWidth, ElementName=Root}"
-                    IsEditableLabel="{Binding IsEditableLabel, ElementName=Root}"
-                    Cascade="{Binding Cascade, ElementName=Root}"/>
+                    Count="{Binding Count, RelativeSource={RelativeSource AncestorType={x:Type controls:TrackListControl}}}"
+                    Shape="{Binding Shape, RelativeSource={RelativeSource AncestorType={x:Type controls:TrackListControl}}}"
+                    Columns="{Binding Columns, RelativeSource={RelativeSource AncestorType={x:Type controls:TrackListControl}}}"
+                    LabelWidth="{Binding LabelWidth, RelativeSource={RelativeSource AncestorType={x:Type controls:TrackListControl}}}"
+                    IsEditableLabel="{Binding IsEditableLabel, RelativeSource={RelativeSource AncestorType={x:Type controls:TrackListControl}}}"
+                    Cascade="{Binding Cascade, RelativeSource={RelativeSource AncestorType={x:Type controls:TrackListControl}}}"/>
             </DataTemplate>
         </ItemsControl.ItemTemplate>
     </ItemsControl>

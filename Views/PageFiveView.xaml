@@ -1,4 +1,4 @@
-<UserControl x:Class="VtM_LoCh_fP.Views.PageFiveView"
+﻿<UserControl x:Class="VtM_LoCh_fP.Views.PageFiveView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:VtM_LoCh_fP.Controls">
@@ -6,7 +6,7 @@
         <StackPanel Margin="16,14,16,20">
 
             <DockPanel Margin="4,0,4,10">
-                <TextBlock DockPanel.Dock="Right" Text="5/5" FontSize="14" FontWeight="Bold"
+                <TextBlock DockPanel.Dock="Right" Text="6/6" FontSize="14" FontWeight="Bold"
                            Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center"/>
                 <TextBlock Text="ЗАМЕТКИ" FontSize="24" FontWeight="Bold"
                            Foreground="{DynamicResource HeadingBrush}"/>
