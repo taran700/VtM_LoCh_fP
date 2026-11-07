@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.IO;
@@ -42,20 +42,24 @@ namespace VtM_LoCh_fP.Controls
             var level = (sender as FrameworkElement)?.DataContext as WoundLevel;
             if (level == null) return;
 
-            if (level.State == 0)
+            bool aggravatedMode = AllowAggravatedDamage != null && AllowAggravatedDamage();
+            if (aggravatedMode)
             {
-                // Если уже есть лёгкое повреждение, следующее попадание повышает
-                // тяжесть самого верхнего лёгкого повреждения, а не добавляет новое.
+                // Губительное повреждение всегда занимает верхний слот.
+                var states = Levels.Select(x => x.State).ToList();
+                states.Insert(0, 3);
+                states = states.Take(7).ToList();
+                for (int i = 0; i < 7; i++) Levels[i].State = states[i];
+            }
+            else if (level.State == 0)
+            {
+                // Пока есть лёгкие повреждения, новое попадание повышает самое верхнее из них.
                 var light = Levels.FirstOrDefault(x => x.State == 1);
                 if (light != null) light.State = 2;
                 else level.State = 1;
             }
             else if (level.State == 1) level.State = 2;
-            else if (level.State == 2)
-            {
-                if (AllowAggravatedDamage != null && AllowAggravatedDamage()) level.State = 3;
-            }
-            // Левый клик только наносит или повышает повреждение; снятие — только ПКМ.
+            // Левый клик наносит или повышает повреждение; снятие — только ПКМ.
 
             Normalize(); StateChanged?.Invoke();
         }
@@ -63,8 +67,13 @@ namespace VtM_LoCh_fP.Controls
         private void Heal_Click(object sender, MouseButtonEventArgs e)
         {
             e.Handled = true;
-            var level = (sender as FrameworkElement)?.DataContext as WoundLevel;
-            if (level == null || level.State == 0) return;
+            var clicked = (sender as FrameworkElement)?.DataContext as WoundLevel;
+            if (clicked == null || !Levels.Any(x => x.State > 0)) return;
+            // Лечение всегда идёт от самых лёгких ран к самым тяжёлым, независимо от нажатого слота.
+            var level = Levels.LastOrDefault(x => x.State == 1) ??
+                        Levels.LastOrDefault(x => x.State == 2) ??
+                        Levels.LastOrDefault(x => x.State == 3);
+            if (level == null) return;
 
             // В обоих режимах лечение происходит сразу, без окна подтверждения.
             // В режиме «Сир, я сделаю сам» кровь игрок списывает самостоятельно.

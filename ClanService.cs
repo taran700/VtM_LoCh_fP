@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -54,8 +54,16 @@ namespace VtM_LoCh_fP
                 });
             }
 
-            if (result.Count != 13)
-                throw new InvalidDataException("Ожидалось 13 кланов, загружено: " + result.Count + ".");
+            if (result.Count == 0)
+                throw new InvalidDataException("В базе данных не найдено ни одного клана.");
+
+            var duplicateIds = result.Where(x => !string.IsNullOrWhiteSpace(x.Id))
+                .GroupBy(x => x.Id, StringComparer.OrdinalIgnoreCase)
+                .Where(g => g.Count() > 1)
+                .Select(g => g.Key)
+                .ToList();
+            if (duplicateIds.Count > 0)
+                throw new InvalidDataException("В базе данных обнаружены повторяющиеся ID кланов: " + string.Join(", ", duplicateIds));
 
             _clans = result;
             return _clans;

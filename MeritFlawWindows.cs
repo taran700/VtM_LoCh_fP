@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
@@ -128,6 +128,38 @@ namespace VtM_LoCh_fP
         private readonly MeritFlawDefinition _definition;
         private readonly ComboBox _costPicker;
         public int SelectedCost { get; private set; }
+
+        public MeritFlawDescriptionWindow(Window owner, CharacterMeritFlaw entry, Action deleteAction)
+        {
+            _character = null;
+            _definition = null;
+            _costPicker = null;
+            Title = entry.Name;
+            Width = 760; Height = 560; MinWidth = 560; MinHeight = 400;
+            WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            Owner = owner;
+            ResizeMode = ResizeMode.CanResize;
+            ShowInTaskbar = false;
+            ThemeManager.AttachWindow(this);
+
+            var root = new DockPanel { Margin = new Thickness(18) };
+            var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 12, 0, 0) };
+            var close = HumanityPathEditorWindow.MakeButton("Закрыть", false);
+            close.Click += (s, e) => Close();
+            buttons.Children.Add(close);
+            var remove = HumanityPathEditorWindow.MakeButton("Удалить", true);
+            remove.Margin = new Thickness(8, 0, 0, 0);
+            remove.Click += (s, e) => { deleteAction?.Invoke(); DialogResult = true; };
+            buttons.Children.Add(remove);
+            DockPanel.SetDock(buttons, Dock.Bottom); root.Children.Add(buttons);
+
+            var body = new StackPanel();
+            body.Children.Add(new TextBlock { Text = entry.Name, FontSize = 25, FontWeight = FontWeights.Bold, Foreground = MeritFlawPickerWindow.BrushResource("HeadingBrush"), HorizontalAlignment = HorizontalAlignment.Center, TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 12) });
+            body.Children.Add(new TextBlock { Text = entry.Type == "flaw" ? "НЕДОСТАТОК" : "ДОСТОИНСТВО", FontSize = 13, FontWeight = FontWeights.Bold, Foreground = MeritFlawPickerWindow.BrushResource("MutedBrush"), HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 14) });
+            body.Children.Add(new TextBlock { Text = string.IsNullOrWhiteSpace(entry.Description) ? "Описание отсутствует." : entry.Description, FontSize = 15, LineHeight = 22, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(2, 0, 2, 16) });
+            root.Children.Add(new ScrollViewer { Content = body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
+            Content = root;
+        }
 
         public MeritFlawDescriptionWindow(Window owner, MeritFlawDefinition definition, CharacterProfile character)
         {

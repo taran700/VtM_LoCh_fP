@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 
 namespace VtM_LoCh_fP
 {
@@ -7,9 +7,17 @@ namespace VtM_LoCh_fP
         public string Name { get; set; }
         public string CreationMode { get; set; }
         public string ClanName { get; set; }
-        public int? Generation { get; set; }
+        public int? Generation { get; set; } = 13;
         public int BloodPoolMax { get; set; } = 10;
         public int BloodPerTurn { get; set; } = 1;
+        public int TraitMax { get; set; } = 5;
+        public int DisciplineMax { get; set; } = 5;
+        public string SireName { get; set; }
+        public string SireDescription { get; set; }
+        public string EquipmentClothing { get; set; }
+        public string EquipmentPockets { get; set; }
+        public string EquipmentArmor { get; set; }
+        public string EquipmentWeapons { get; set; }
         public System.Collections.ObjectModel.ObservableCollection<int> HealthDamageStates { get; set; } = new System.Collections.ObjectModel.ObservableCollection<int>();
         public System.Collections.ObjectModel.ObservableCollection<CharacterDiscipline> Disciplines { get; set; } = new System.Collections.ObjectModel.ObservableCollection<CharacterDiscipline>();
         public System.Collections.ObjectModel.ObservableCollection<DisciplineDefinition> CustomDisciplines { get; set; } = new System.Collections.ObjectModel.ObservableCollection<DisciplineDefinition>();

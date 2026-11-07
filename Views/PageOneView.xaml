@@ -7,7 +7,7 @@
         <StackPanel Margin="12,10,12,16">
 
             <DockPanel Margin="4,0,4,10">
-                <TextBlock DockPanel.Dock="Right" Text="1/5" FontSize="14" FontWeight="Bold"
+                <TextBlock DockPanel.Dock="Right" Text="1/6" FontSize="14" FontWeight="Bold"
                            Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center"/>
                 <TextBlock Text="ЛИСТ ПЕРСОНАЖА" FontSize="24" FontWeight="Bold"
                            Foreground="{DynamicResource HeadingBrush}"/>
@@ -35,7 +35,7 @@
                     <controls:FieldControl Grid.Row="1" Grid.Column="2" Label="Амплуа"/>
                     <ContentControl x:Name="ClanFieldHost" Grid.Row="2" Grid.Column="0"/>
                     <ContentControl x:Name="GenerationFieldHost" Grid.Row="2" Grid.Column="1"/>
-                    <controls:FieldControl Grid.Row="2" Grid.Column="2" Label="Сир"/>
+                    <ContentControl x:Name="SireFieldHost" Grid.Row="2" Grid.Column="2"/>
                 </Grid>
             </GroupBox>
 
@@ -56,7 +56,7 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBox x:Name="ClanWeaknessInput" Grid.Column="0" MinHeight="64"
-                                     AcceptsReturn="True" TextWrapping="Wrap"
+                                     AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" HorizontalContentAlignment="Left" TextAlignment="Left"
                                      VerticalScrollBarVisibility="Auto"
                                      TextChanged="ClanWeaknessInput_TextChanged"/>
                             <Button x:Name="ResetClanWeaknessButton" Grid.Column="1"
@@ -90,7 +90,7 @@
 
                     <StackPanel Grid.Column="0" Margin="0,0,45,0">
                         <TextBlock Text="Физические" Style="{StaticResource FieldLabelStyleB}"/>
-                        <controls:TrackListControl Count="5" LabelWidth="120" Cascade="True">
+                        <controls:TrackListControl x:Name="PhysicalAttributesTrackList" Count="5" LabelWidth="120" Cascade="True">
                             <controls:TrackListControl.Names>
                                 <sys:String>Сила</sys:String>
                                 <sys:String>Ловкость</sys:String>
@@ -119,7 +119,7 @@
 
                     <StackPanel Grid.Column="2">
                         <TextBlock Text="Ментальные" Style="{StaticResource FieldLabelStyleB}"/>
-                        <controls:TrackListControl Count="5" LabelWidth="120" Cascade="True">
+                        <controls:TrackListControl x:Name="MentalAttributesTrackList" Count="5" LabelWidth="120" Cascade="True">
                             <controls:TrackListControl.Names>
                                 <sys:String>Восприятие</sys:String>
                                 <sys:String>Интеллект</sys:String>
@@ -141,7 +141,7 @@
 
                     <StackPanel Grid.Column="0">
                         <TextBlock Text="Таланты"  Style="{StaticResource FieldLabelStyleB}"/>
-                        <controls:TrackListControl Cascade="True" Count="5" LabelWidth="150">
+                        <controls:TrackListControl x:Name="TalentsTrackList" Cascade="True" Count="5" LabelWidth="150">
                             <controls:TrackListControl.Names>
                                 <sys:String>Атлетика</sys:String>
                                 <sys:String>Бдительность</sys:String>
@@ -159,7 +159,7 @@
 
                     <StackPanel Grid.Column="1">
                         <TextBlock Text="Навыки" Style="{StaticResource FieldLabelStyleB}" RenderTransformOrigin="0.5,0.5" VerticalAlignment="Center"/>
-                        <controls:TrackListControl Cascade="True" Count="5" LabelWidth="120">
+                        <controls:TrackListControl x:Name="SkillsTrackList" Cascade="True" Count="5" LabelWidth="120">
                             <controls:TrackListControl.Names>
                                 <sys:String>Вождение</sys:String>
                                 <sys:String>Воровство</sys:String>
@@ -177,7 +177,7 @@
 
                     <StackPanel Grid.Column="2">
                         <TextBlock Text="Знания" Style="{StaticResource FieldLabelStyleB}"/>
-                        <controls:TrackListControl Cascade="True" Count="5" LabelWidth="180">
+                        <controls:TrackListControl x:Name="KnowledgeTrackList" Cascade="True" Count="5" LabelWidth="180">
                             <controls:TrackListControl.Names>
                                 <sys:String>Гуманитарные науки</sys:String>
                                 <sys:String>Естественные науки</sys:String>

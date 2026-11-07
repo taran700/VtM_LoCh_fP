@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -154,7 +154,12 @@ namespace VtM_LoCh_fP.Controls
         }
 
         private static void OnCountChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-            => ((TrackControl)d).Rebuild();
+        {
+            var track = (TrackControl)d;
+            int previousValue = track.Value;
+            track.Rebuild();
+            track.SetTrackValue(System.Math.Min(previousValue, track.Count));
+        }
 
         private static void OnShapeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
             => ((TrackControl)d).ApplyShape();

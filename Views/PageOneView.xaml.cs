@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -33,6 +33,8 @@ namespace VtM_LoCh_fP.Views
         private bool _settingArchetypeText;
         private ComboBox _generationSelector;
         private TextBox _generationInput;
+        private TextBox _sireInput;
+        private Button _sireDescriptionButton;
         public event Action GenerationChanged;
 
         private const string VentrueTasteHelp =
@@ -44,6 +46,7 @@ namespace VtM_LoCh_fP.Views
         public PageOneView()
         {
             InitializeComponent();
+            Loaded += (s, e) => ApplyGenerationLimits();
             VentrueTasteInput.ToolTip = CreateVentrueTasteToolTip();
             VentrueTasteLabel.ToolTip = CreateVentrueTasteToolTip();
         }
@@ -78,10 +81,25 @@ namespace VtM_LoCh_fP.Views
         public void InitializeCharacter(CharacterProfile character)
         {
             _character = character;
+            if (!_character.Generation.HasValue) _character.Generation = 13;
+            _character.Generation = Math.Max(4, Math.Min(15, _character.Generation.Value));
             ClanFieldHost.Content = CreateClanSelector();
             GenerationFieldHost.Content = CreateGenerationEditor();
+            SireFieldHost.Content = CreateSireEditor();
             NatureFieldHost.Content = CreateArchetypeEditor("Натура", true);
             DemeanorFieldHost.Content = CreateArchetypeEditor("Маска", false);
+            if (character.Generation.HasValue)
+            {
+                var existingRule = GenerationService.Find(character.Generation.Value);
+                if (existingRule != null)
+                {
+                    character.BloodPoolMax = existingRule.BloodPoolMax;
+                    character.BloodPerTurn = existingRule.BloodPerTurn;
+                    character.TraitMax = existingRule.TraitMax;
+                    character.DisciplineMax = existingRule.DisciplineMax;
+                }
+            }
+            ApplyGenerationLimits();
 
             if (!string.IsNullOrWhiteSpace(character.ClanName))
             {
@@ -94,6 +112,112 @@ namespace VtM_LoCh_fP.Views
             }
         }
 
+
+        public void ApplyGenerationLimits()
+        {
+            if (_character == null) return;
+            int max = AppSettings.GenerationPointIncrease
+                ? (_character.TraitMax > 0 ? _character.TraitMax : 5)
+                : 5;
+
+            // Лимит поколения применяется ко всем характеристикам и способностям,
+            // а не только к добродетелям или дисциплинам.
+            PhysicalAttributesTrackList.Count = max;
+            SocialAttributes.Count = max;
+            MentalAttributesTrackList.Count = max;
+            TalentsTrackList.Count = max;
+            SkillsTrackList.Count = max;
+            KnowledgeTrackList.Count = max;
+        }
+
+        private UIElement CreateSireEditor()
+        {
+            var panel = new StackPanel { Margin = new Thickness(2, 0, 4, 4) };
+            panel.Children.Add(new TextBlock { Text = "Сир", Style = (Style)FindResource("FieldLabelStyle") });
+            _sireInput = new TextBox
+            {
+                MinHeight = 32, Padding = new Thickness(6, 3, 6, 3),
+                Foreground = (Brush)FindResource("TextBrush"),
+                Background = (Brush)FindResource("InputBrush"),
+                BorderBrush = (Brush)FindResource("BorderBrush"),
+                VerticalContentAlignment = VerticalAlignment.Center,
+                Text = _character.SireName ?? string.Empty
+            };
+            _sireInput.TextChanged += (s, e) =>
+            {
+                _character.SireName = _sireInput.Text;
+                _sireDescriptionButton.Visibility = string.IsNullOrWhiteSpace(_sireInput.Text) ? Visibility.Collapsed : Visibility.Visible;
+            };
+            panel.Children.Add(_sireInput);
+            _sireDescriptionButton = HumanityPathEditorWindow.MakeButton(
+                string.IsNullOrWhiteSpace(_character.SireDescription) ? "Добавить описание Сиру" : "Изменить описание Сира", false);
+            _sireDescriptionButton.Margin = new Thickness(0, 5, 0, 0);
+            _sireDescriptionButton.HorizontalAlignment = HorizontalAlignment.Left;
+            _sireDescriptionButton.Visibility = string.IsNullOrWhiteSpace(_character.SireName) ? Visibility.Collapsed : Visibility.Visible;
+            _sireDescriptionButton.Click += (s, e) =>
+            {
+                var editor = HumanityPathEditorWindow.CreateWindow(Window.GetWindow(this), "Описание Сира", 560, 420);
+                editor.MinWidth = 420;
+                editor.MinHeight = 300;
+                var root = new DockPanel { Margin = new Thickness(16) };
+                var footer = new StackPanel { Margin = new Thickness(0, 10, 0, 0) };
+                var counter = new TextBlock
+                {
+                    Text = "Символов: 0 / 750",
+                    HorizontalAlignment = HorizontalAlignment.Right,
+                    Margin = new Thickness(0, 0, 2, 8),
+                    FontSize = 12,
+                    Foreground = (Brush)FindResource("MutedBrush")
+                };
+                var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+                var cancel = HumanityPathEditorWindow.MakeButton("Отмена", false);
+                cancel.Click += (a, b) => editor.DialogResult = false;
+                var save = HumanityPathEditorWindow.MakeButton("Сохранить", true);
+                save.Margin = new Thickness(8, 0, 0, 0);
+                save.Click += (a, b) => editor.DialogResult = true;
+                buttons.Children.Add(cancel); buttons.Children.Add(save);
+                footer.Children.Add(counter);
+                footer.Children.Add(buttons);
+                DockPanel.SetDock(footer, Dock.Bottom);
+                root.Children.Add(footer);
+                var currentSireDescription = _character.SireDescription ?? string.Empty;
+                if (currentSireDescription.Length > 750)
+                    currentSireDescription = currentSireDescription.Substring(0, 750);
+                var text = new TextBox { Text = currentSireDescription, MaxLength = 750, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Padding = new Thickness(8), FontSize = 15, VerticalContentAlignment = VerticalAlignment.Top, HorizontalContentAlignment = HorizontalAlignment.Left, TextAlignment = TextAlignment.Left };
+                text.SetResourceReference(Control.BackgroundProperty, "InputBrush");
+                text.SetResourceReference(Control.ForegroundProperty, "TextBrush");
+                text.SetResourceReference(Control.BorderBrushProperty, "BorderBrush");
+                Action updateCounter = () =>
+                {
+                    counter.Text = "Символов: " + text.Text.Length + " / 750";
+                    counter.Foreground = text.Text.Length >= 750
+                        ? (Brush)FindResource("AccentBrush")
+                        : (Brush)FindResource("MutedBrush");
+                };
+                text.TextChanged += (a, b) => updateCounter();
+                updateCounter();
+                root.Children.Add(text); editor.Content = root;
+                if (editor.ShowDialog() == true)
+                {
+                    _character.SireDescription = text.Text.Length > 750 ? text.Text.Substring(0, 750) : text.Text;
+                    _sireDescriptionButton.Content = string.IsNullOrWhiteSpace(_character.SireDescription) ? "Добавить описание Сиру" : "Изменить описание Сира";
+                    var tip = new ToolTip { Content = new TextBlock { Text = _character.SireDescription, TextWrapping = TextWrapping.Wrap, MaxWidth = 360 },
+                        Style = (Style)FindResource("PopupToolTipStyle") };
+                    _sireInput.ToolTip = tip;
+                    _sireDescriptionButton.ToolTip = tip;
+                }
+            };
+            panel.Children.Add(_sireDescriptionButton);
+            if (!string.IsNullOrWhiteSpace(_character.SireDescription))
+            {
+                var tip = new ToolTip { Content = new TextBlock { Text = _character.SireDescription, TextWrapping = TextWrapping.Wrap, MaxWidth = 360 },
+                    Style = (Style)FindResource("PopupToolTipStyle") };
+                _sireInput.ToolTip = tip;
+                _sireDescriptionButton.ToolTip = tip;
+            }
+            return panel;
+        }
 
         private UIElement CreateGenerationEditor()
         {
@@ -109,7 +233,7 @@ namespace VtM_LoCh_fP.Views
                     Background = (Brush)FindResource("InputBrush"),
                     BorderBrush = (Brush)FindResource("BorderBrush"),
                     VerticalContentAlignment = VerticalAlignment.Center,
-                    ToolTip = "Введите целочисленное значение от 8 до 15. Поколение показывает удалённость от Каина: чем меньше число, тем ближе Сородич к нему. Большинство Сородичей — 13-го поколения. Значения округляются до ближайшего доступного поколения."
+                    ToolTip = "Введите целочисленное значение от 4 до 15. Поколение показывает удалённость от Каина: чем меньше число, тем ближе Сородич к нему. Большинство Сородичей — 13-го поколения. Значения округляются до ближайшего доступного поколения."
                 };
                 _generationInput.Text = _character.Generation.HasValue ? _character.Generation.Value.ToString() : string.Empty;
                 _generationInput.TextChanged += (s, e) => UpdateGeneration(_generationInput.Text);
@@ -120,13 +244,13 @@ namespace VtM_LoCh_fP.Views
             {
                 _generationSelector = new ComboBox
                 {
-                    MinHeight = 32, ItemsSource = rules, DisplayMemberPath = "Generation",
+                    MinHeight = 32, ItemsSource = rules, DisplayMemberPath = "DisplayName",
                     SelectedValuePath = "Generation", IsEditable = false,
                     Foreground = (Brush)FindResource("TextBrush"),
                     Background = (Brush)FindResource("InputBrush"),
                     BorderBrush = (Brush)FindResource("BorderBrush"),
                     Padding = new Thickness(6, 3, 6, 3),
-                    ToolTip = "Поколение показывает удалённость от Каина. Большинство Сородичей — 13-го поколения."
+                    ToolTip = "Поколение показывает удалённость от Каина. Большинство Сородичей — 13-го поколения и младше. Значения выше 13 относятся к строке «Тринадцатое и младше»."
                 };
                 if (_character.Generation.HasValue) _generationSelector.SelectedValue = _character.Generation.Value;
                 _generationSelector.SelectionChanged += (s, e) => UpdateGeneration(_generationSelector.SelectedValue == null ? string.Empty : _generationSelector.SelectedValue.ToString());
@@ -144,16 +268,22 @@ namespace VtM_LoCh_fP.Views
                 _character.Generation = null;
                 _character.BloodPoolMax = 10;
                 _character.BloodPerTurn = 1;
+                _character.TraitMax = 5;
+                _character.DisciplineMax = 5;
+                ApplyGenerationLimits();
                 GenerationChanged?.Invoke();
                 return;
             }
             int generation = (int)Math.Round(entered, MidpointRounding.AwayFromZero);
-            generation = Math.Max(8, Math.Min(15, generation));
+            generation = Math.Max(4, Math.Min(15, generation));
             var rule = GenerationService.Find(generation);
             if (rule == null) return;
             _character.Generation = generation;
             _character.BloodPoolMax = rule.BloodPoolMax;
             _character.BloodPerTurn = rule.BloodPerTurn;
+            _character.TraitMax = rule.TraitMax;
+            _character.DisciplineMax = rule.DisciplineMax;
+            ApplyGenerationLimits();
             GenerationChanged?.Invoke();
         }
 
@@ -209,6 +339,9 @@ namespace VtM_LoCh_fP.Views
                 BindingOperations.SetBinding(_clanSuggestionsPopup, FrameworkElement.WidthProperty,
                     new Binding("ActualWidth") { Source = _clanInput });
                 _clanInput.Text = _character.ClanName ?? string.Empty;
+                var initialClan = FindClanByName(_character.ClanName);
+                if (initialClan != null && _character.ClanSelectedFromSuggestions)
+                    SetClanFieldToolTip(_clanInput, initialClan, CreateClanTooltipTemplate());
                 _clanInput.TextChanged += FreeClanInput_TextChanged;
                 _clanInput.PreviewKeyDown += FreeClanInput_PreviewKeyDown;
                 _clanSuggestions.SelectionChanged += FreeClanSuggestions_SelectionChanged;
@@ -238,16 +371,17 @@ namespace VtM_LoCh_fP.Views
             itemStyle.Setters.Add(new Setter(ToolTipService.InitialShowDelayProperty, 250));
             itemStyle.Setters.Add(new Setter(ToolTipService.ShowDurationProperty, 60000));
             _clanSelector.ItemContainerStyle = itemStyle;
-            BindingOperations.SetBinding(_clanSelector, ToolTipService.ToolTipProperty, new Binding("SelectedItem") { Source = _clanSelector });
             ToolTipService.SetInitialShowDelay(_clanSelector, 250);
             ToolTipService.SetShowDuration(_clanSelector, 60000);
             if (!string.IsNullOrWhiteSpace(_character.ClanName)) _clanSelector.SelectedValue = _character.ClanName;
+            SetClanFieldToolTip(_clanSelector, _clanSelector.SelectedItem as ClanInfo, tooltipTemplate);
             _clanSelector.SelectionChanged += (sender, args) =>
             {
                 if (args.AddedItems.Count > 0 && args.AddedItems[0] is ClanInfo clan)
                 {
                     _character.ClanName = clan.Name;
                     _character.ClanSelectedFromSuggestions = true;
+                    SetClanFieldToolTip(_clanSelector, clan, tooltipTemplate);
                     ApplyClan(clan, true);
                 }
             };
@@ -261,6 +395,7 @@ namespace VtM_LoCh_fP.Views
             string query = _clanInput.Text.Trim();
             _character.ClanName = _clanInput.Text;
             _character.ClanSelectedFromSuggestions = false;
+            _clanInput.ToolTip = null;
             ClearAppliedClanRules();
             var matches = string.IsNullOrWhiteSpace(query)
                 ? new List<ClanInfo>()
@@ -304,6 +439,7 @@ namespace VtM_LoCh_fP.Views
             _character.ClanName = clan.Name;
             _character.ClanSelectedFromSuggestions = true;
             _clanSuggestionsPopup.IsOpen = false;
+            SetClanFieldToolTip(_clanInput, clan, CreateClanTooltipTemplate());
             ApplyClan(clan, true);
             _clanInput.Focus();
         }
@@ -317,6 +453,28 @@ namespace VtM_LoCh_fP.Views
             SocialAttributes.ForcedZeroName = null;
             NosferatuPlasticSurgeryButton.Visibility = Visibility.Collapsed;
             VentrueTastePanel.Visibility = Visibility.Collapsed;
+        }
+
+        private void SetClanFieldToolTip(FrameworkElement field, ClanInfo clan, DataTemplate template)
+        {
+            if (field == null) return;
+
+            if (clan == null)
+            {
+                field.ToolTip = null;
+                return;
+            }
+
+            var toolTip = new ToolTip
+            {
+                Content = clan,
+                ContentTemplate = template,
+                Style = (Style)FindResource("PopupToolTipStyle"),
+                MaxWidth = 410
+            };
+            field.ToolTip = toolTip;
+            ToolTipService.SetInitialShowDelay(field, 250);
+            ToolTipService.SetShowDuration(field, 60000);
         }
 
         private DataTemplate CreateClanTooltipTemplate()

@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System;
 
@@ -66,6 +66,7 @@ namespace VtM_LoCh_fP.Controls
             Input.AcceptsReturn = Multiline;
             Input.TextWrapping = WrapMode;
             Input.VerticalScrollBarVisibility = ScrollMode;
+            Input.VerticalContentAlignment = Multiline ? VerticalAlignment.Top : VerticalAlignment.Center;
         }
     }
 }

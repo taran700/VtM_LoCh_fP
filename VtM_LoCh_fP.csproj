@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -89,6 +89,7 @@
     <Compile Include="GenerationService.cs" />
     <Compile Include="DisciplineService.cs" />
     <Compile Include="DisciplineWindows.cs" />
+    <Compile Include="EquipmentInfoWindows.cs" />
     <Compile Include="RitualWindows.cs" />
     <Compile Include="ViewModels\PipItem.cs" />
     <Compile Include="ViewModels\TrackLogic.cs" />
@@ -177,6 +178,14 @@
     </Page>
     <Compile Include="Views\PageFiveView.xaml.cs">
       <DependentUpon>PageFiveView.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
+    <Page Include="Views\PageSixView.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Compile Include="Views\PageSixView.xaml.cs">
+      <DependentUpon>PageSixView.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
   </ItemGroup>

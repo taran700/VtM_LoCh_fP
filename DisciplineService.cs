@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -72,6 +72,8 @@ namespace VtM_LoCh_fP
     internal static class DisciplineService
     {
         private static List<DisciplineDefinition> _all;
+        // Кэш русских названий атрибутов и способностей из Data/data.json.
+        private static Dictionary<string, string> _localizedTerms;
         public static IReadOnlyList<DisciplineDefinition> GetAll()
         {
             if (_all != null) return _all;
@@ -165,23 +167,138 @@ namespace VtM_LoCh_fP
         private static string Difficulty(Dictionary<string, object> p)
         {
             if (!p.ContainsKey("difficulty") || !(p["difficulty"] is Dictionary<string, object>)) return "";
-            var d=(Dictionary<string,object>)p["difficulty"]; string type=S(d,"type"); object v; d.TryGetValue("value",out v);
-            if(type=="fixed") return v==null?"":Convert.ToString(v);
-            if(type=="variable") return S(d,"min")+"–"+S(d,"max")+" (зависит от ситуации)";
-            return string.IsNullOrEmpty(type)?"":type.Replace('_',' ');
+            var d = (Dictionary<string, object>)p["difficulty"];
+            string type = S(d, "type");
+            object value;
+            d.TryGetValue("value", out value);
+            if (type == "fixed") return value == null ? "" : Convert.ToString(value);
+            if (type == "variable") return S(d, "min") + "–" + S(d, "max") + " (зависит от ситуации)";
+
+            var labels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "target_self_control_or_instinct_plus_4", "Самоконтроль или Инстинкты цели + 4" },
+                { "target_wits_plus_courage", "Сообразительность + Смелость цели" },
+                { "target_willpower", "Сила воли цели" },
+                { "target_stamina_plus_empathy", "Выносливость + Эмпатия цели" },
+                { "target_willpower_plus_2", "Сила воли цели + 2" },
+                { "target_wits_plus_stealth", "Сообразительность + Скрытность цели" },
+                { "generations_affected_plus_4", "Поколение цели + 4" },
+                { "target_willpower_min_7", "Сила воли цели (минимум 7)" },
+                { "target_willpower_min_4", "Сила воли цели (минимум 4)" },
+                { "target_stamina_plus_3_if_other", "Выносливость цели + 3 (если цель — другой персонаж)" },
+                { "target_stamina_plus_3", "Выносливость цели + 3" },
+                { "target_humanity_or_path", "Человечность или рейтинг Пути цели" },
+                { "target_perception_plus_self_control", "Восприятие + Самоконтроль цели" },
+                { "target_wits_plus_subterfuge", "Сообразительность + Хитрость цели" },
+                { "target_stamina_plus_self_control", "Выносливость + Самоконтроль цели" },
+                { "target_wits_plus_awareness", "Сообразительность + Осведомлённость цели" },
+                { "target_appearance_plus_3", "Внешность цели + 3" },
+                { "target_perception_plus_alertness", "Восприятие + Бдительность цели" },
+                { "target_manipulation_plus_subterfuge", "Манипуляция + Хитрость цели" },
+                { "target_manipulation_plus_combat_ability", "Манипуляция + боевая способность цели" }
+            };
+            string label;
+            if (labels.TryGetValue(type, out label)) return label;
+            return string.IsNullOrEmpty(type) ? "" : type.Replace('_', ' ');
         }
         private static string Cost(Dictionary<string, object> p)
         {
             if (!p.ContainsKey("cost") || !(p["cost"] is Dictionary<string, object>)) return "";
-            var d=(Dictionary<string,object>)p["cost"]; string type=S(d,"type"); int amount=I(d,"amount");
-            if(type=="none"||string.IsNullOrEmpty(type))return "";
-            string label=type=="blood"?"крови":type.StartsWith("willpower")||type=="willpower"?"Воли":type.Replace('_',' ');
-            return amount+" "+label;
+            var d = (Dictionary<string, object>)p["cost"];
+            string type = S(d, "type");
+            int amount = I(d, "amount");
+            if (type == "none" || string.IsNullOrEmpty(type)) return "";
+
+            var labels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "willpower_per_turn_after_first", "Воли за каждый ход после первого" },
+                { "willpower_per_turn_if_active_frenzy", "Воли за ход при активном безумии" },
+                { "blood_3_and_willpower_1", "крови и 1 Воли" },
+                { "blood_optional_for_auto_success", "кровь за автоматический успех (по желанию)" },
+                { "blood_1_and_willpower_1", "крови и 1 Воли" },
+                { "willpower_1_plus_1_blood_per_zombie", "Воля и кровь за каждого зомби" },
+                { "blood_2_and_willpower_2", "крови и 2 Воли" },
+                { "blood_2_and_willpower_1", "крови и 1 Воля" },
+                { "blood_variable_1_to_5", "крови (от 1 до 5 пунктов)" },
+                { "willpower_1_plus_blood_per_extra_target", "Воля и кровь за каждую дополнительную цель" },
+                { "blood_per_body_part", "крови за каждую часть тела" },
+                { "blood_optional_for_higher_appearance", "кровь (по желанию, для повышения Внешности)" },
+                { "willpower_1_plus_blood_per_level", "Воля и кровь за каждый уровень" },
+                { "blood_per_extra_action", "крови за каждое дополнительное действие" },
+                { "blood_1_and_willpower_check", "кровь и проверка Силы воли" },
+                { "blood_and_willpower_check", "кровь и проверка Силы воли" },
+                { "blood_per_ichor_point", "крови за каждый пункт ихора" },
+                { "blood_equal_to_target_willpower", "крови по числу пунктов Воли цели" },
+                { "willpower_2_plus_blood_per_target", "2 Воли и кровь за каждую цель" },
+                { "blood_10_and_permanent_willpower_1", "крови и 1 постоянная Воля" },
+                { "permanent_willpower", "постоянная Воля" },
+                { "dead_blood", "мёртвая кровь" },
+                { "blood", "крови" },
+                { "willpower", "Воли" }
+            };
+            string label;
+            if (!labels.TryGetValue(type, out label)) label = type.Replace('_', ' ');
+            if (type == "blood_optional_for_auto_success") return amount + " " + label;
+            if (type == "blood_3_and_willpower_1") return "3 " + label;
+            if (type == "blood_1_and_willpower_1") return "1 " + label;
+            if (type == "blood_2_and_willpower_2") return "2 " + label;
+            if (type == "blood_2_and_willpower_1") return "2 " + label;
+            if (type == "blood_1_and_willpower_check" || type == "blood_and_willpower_check") return "1 " + label;
+            if (type == "blood_10_and_permanent_willpower_1") return "10 " + label;
+            if (type == "willpower_1_plus_1_blood_per_zombie" || type == "willpower_1_plus_blood_per_extra_target" ||
+                type == "willpower_1_plus_blood_per_level" || type == "willpower_2_plus_blood_per_target") return label;
+            if (type == "blood_variable_1_to_5" || type == "blood_per_body_part" ||
+                type == "blood_per_extra_action" || type == "blood_per_ichor_point" ||
+                type == "blood_equal_to_target_willpower") return label;
+            return amount > 0 ? amount + " " + label : label;
         }
         public static string Translate(string id)
         {
-            var map=new Dictionary<string,string>{{"strength","Сила"},{"dexterity","Ловкость"},{"stamina","Выносливость"},{"charisma","Обаяние"},{"manipulation","Манипуляция"},{"appearance","Внешность"},{"perception","Восприятие"},{"intelligence","Интеллект"},{"wits","Сообразительность"},{"animal_ken","Обращение с животными"},{"survival","Выживание"},{"intimidation","Запугивание"},{"empathy","Эмпатия"},{"performance","Исполнение"},{"subterfuge","Хитрость"},{"willpower","Сила воли"}};
-            if(string.IsNullOrEmpty(id))return ""; return map.ContainsKey(id)?map[id]:id.Replace('_',' ');
+            if (string.IsNullOrWhiteSpace(id)) return string.Empty;
+            if (_localizedTerms == null)
+            {
+                _localizedTerms = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    { "strength", "Сила" }, { "dexterity", "Ловкость" }, { "stamina", "Выносливость" },
+                    { "charisma", "Обаяние" }, { "manipulation", "Манипуляция" }, { "appearance", "Внешность" },
+                    { "perception", "Восприятие" }, { "intelligence", "Интеллект" }, { "wits", "Сообразительность" },
+                    { "willpower", "Сила воли" }, { "courage", "Смелость" },
+                    { "self_control", "Самоконтроль" }, { "instinct", "Инстинкты" },
+                    { "combat_ability", "Боевая способность" }
+                };
+
+                try
+                {
+                    string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "data.json");
+                    var db = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(File.ReadAllText(path));
+                    AddLocalizedTerms(db, "attributes");
+                    AddLocalizedTerms(db, "abilities");
+                }
+                catch { /* Fallback to the built-in translations if optional data is unavailable. */ }
+            }
+
+            string localized;
+            if (_localizedTerms.TryGetValue(id, out localized)) return localized;
+
+            // Некоторые дайспулы допускают выбор одного из двух навыков.
+            if (id.IndexOf("_or_", StringComparison.OrdinalIgnoreCase) >= 0)
+                return string.Join(" или ", id.Split(new[] { "_or_" }, StringSplitOptions.None).Select(Translate));
+
+            return id.Replace('_', ' ');
+        }
+
+        private static void AddLocalizedTerms(Dictionary<string, object> db, string section)
+        {
+            if (db == null || !db.ContainsKey(section) || !(db[section] is IList entries)) return;
+            foreach (var raw in entries)
+            {
+                var entry = raw as Dictionary<string, object>;
+                if (entry == null) continue;
+                string id = S(entry, "id");
+                string name = S(entry, "name");
+                if (!string.IsNullOrWhiteSpace(id) && !string.IsNullOrWhiteSpace(name))
+                    _localizedTerms[id] = name;
+            }
         }
         private static string S(Dictionary<string,object>d,string k){object v;return d.TryGetValue(k,out v)&&v!=null?Convert.ToString(v):"";}
         private static int I(Dictionary<string,object>d,string k){object v;int n;return d.TryGetValue(k,out v)&&int.TryParse(Convert.ToString(v),out n)?n:0;}

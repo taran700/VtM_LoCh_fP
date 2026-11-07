@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -90,15 +90,37 @@ namespace VtM_LoCh_fP.Views
                 remove.SetResourceReference(Control.BackgroundProperty, "InputBrush");
                 remove.SetResourceReference(Control.ForegroundProperty, "TextBrush");
                 remove.SetResourceReference(Control.BorderBrushProperty, "BorderBrush");
-                remove.Click += (s, e) => { _character.MeritsFlaws.Remove(entry); RenderMeritsFlaws(); };
+                
                 right.Children.Add(remove);
                 Grid.SetColumn(right, 1); row.Children.Add(right);
                 card.Child = row;
-                card.ToolTip = entry.Description;
+                card.Cursor = System.Windows.Input.Cursors.Hand;
+                card.MouseLeftButtonUp += (s, e) =>
+                {
+                    DependencyObject source = e.OriginalSource as DependencyObject;
+                    while (source != null)
+                    {
+                        if (source is Button) return;
+                        source = VisualTreeHelper.GetParent(source);
+                    }
+                    ShowOwnedMeritFlaw(entry);
+                    e.Handled = true;
+                };
+                remove.Click += (s, e) => ShowOwnedMeritFlaw(entry);
                 panel.Children.Add(card);
             }
             if (entries.Count == 0)
                 panel.Children.Add(new TextBlock { Text = "Пока ничего не выбрано.", Foreground = BrushResource("MutedBrush"), Margin = new Thickness(2, 3, 2, 5) });
+        }
+
+        private void ShowOwnedMeritFlaw(CharacterMeritFlaw entry)
+        {
+            var window = new MeritFlawDescriptionWindow(Window.GetWindow(this), entry, () =>
+            {
+                _character.MeritsFlaws.Remove(entry);
+                RenderMeritsFlaws();
+            });
+            window.ShowDialog();
         }
 
         private void BasePointsInput_TextChanged(object sender, TextChangedEventArgs e)
