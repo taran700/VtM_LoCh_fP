@@ -1,4 +1,4 @@
-using VtM_LoCh_fP.ViewModels;
+﻿using VtM_LoCh_fP.ViewModels;
 
 static void Check(bool condition, string behavior)
 {
@@ -10,21 +10,16 @@ static void AssertEqual(int expected, int actual, string behavior)
     if (expected != actual) throw new Exception($"{behavior}: expected {expected}, got {actual}");
 }
 
-// ===== Точки: отметка закрашивает себя и всё левее =====
-AssertEqual(4, TrackLogic.ValueAfterToggle(3, true), "checking a dot selects it and all dots left of it");
-AssertEqual(1, TrackLogic.ValueAfterToggle(0, true), "checking the first dot selects exactly one");
-AssertEqual(5, TrackLogic.ValueAfterToggle(4, true), "checking the last of five selects all five");
+// ===== Точки: клик по пустой заполняет её и всё левее =====
+AssertEqual(4, TrackLogic.ValueAfterClick(0, 3), "clicking an empty fourth dot fills it and all dots left of it");
+AssertEqual(1, TrackLogic.ValueAfterClick(0, 0), "clicking the first empty dot fills exactly one");
+AssertEqual(5, TrackLogic.ValueAfterClick(2, 4), "clicking the fifth empty dot fills through the fifth");
 
-// ===== Точки: снятие очищает себя и всё правее =====
-AssertEqual(2, TrackLogic.ValueAfterToggle(2, false), "unchecking a dot clears it and all dots to its right");
-AssertEqual(0, TrackLogic.ValueAfterToggle(0, false), "unchecking the first dot clears the whole track");
-AssertEqual(4, TrackLogic.ValueAfterToggle(4, false), "unchecking the last of five leaves four");
-
-// ===== Запас крови: 10 квадратов, отметка каскадная =====
-AssertEqual(10, TrackLogic.ValueAfterToggle(9, true), "checking the tenth blood square fills the whole pool");
-AssertEqual(7, TrackLogic.ValueAfterToggle(6, true), "checking the seventh blood square fills seven");
-AssertEqual(3, TrackLogic.ValueAfterToggle(3, false), "unchecking the fourth blood square leaves three");
-AssertEqual(0, TrackLogic.ValueAfterToggle(0, false), "draining the pool from the middle clears to zero");
+// ===== Точки: клик по закрашенной оставляет её и очищает всё правее =====
+AssertEqual(3, TrackLogic.ValueAfterClick(5, 2), "clicking a filled middle dot keeps it and clears dots to the right");
+AssertEqual(1, TrackLogic.ValueAfterClick(4, 0), "clicking the first filled dot keeps it and clears all dots right of it");
+AssertEqual(3, TrackLogic.ValueAfterClick(4, 3), "clicking the last filled dot removes that dot");
+AssertEqual(0, TrackLogic.ValueAfterClick(1, 0), "clicking the only filled dot removes it");
 
 // ===== Здоровье: пусто → одна палка → две палки → пусто =====
 AssertEqual(1, TrackLogic.NextHealthState(0), "first health click draws one slash");
@@ -44,7 +39,7 @@ AssertEqual(1, TrackLogic.TargetIndex(200, centers), "pointer past the first cen
 AssertEqual(2, TrackLogic.TargetIndex(900, centers), "pointer past the last centre targets the last slot");
 
 // ===== Ошибки в аргументах должны быть видны =====
-try { TrackLogic.ValueAfterToggle(-1, true); throw new Exception("FAILED: negative index must throw"); }
+try { TrackLogic.ValueAfterClick(0, -1); throw new Exception("FAILED: negative index must throw"); }
 catch (ArgumentOutOfRangeException) { }
 try { TrackLogic.NextHealthState(3); throw new Exception("FAILED: state above two must throw"); }
 catch (ArgumentOutOfRangeException) { }

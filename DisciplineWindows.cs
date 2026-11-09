@@ -496,9 +496,6 @@ namespace VtM_LoCh_fP
                     var old = saved.ContainsKey(i)
                         ? saved[i]
                         : current?.Powers.FirstOrDefault(x => x.Level == i);
-
-                    // Вместо GroupBox используем Border.
-                    // Это исключает стандартную системную белую рамку WPF.
                     var group = new Border
                     {
                         Margin = new Thickness(0, 5, 0, 8),
@@ -570,7 +567,7 @@ namespace VtM_LoCh_fP
 
             rebuild();
 
-            // Панель кнопок добавляется до ScrollViewer.
+            // Панель кнопок добавляется до ScrollViewer
             var buttons = new StackPanel
             {
                 Orientation = Orientation.Horizontal,

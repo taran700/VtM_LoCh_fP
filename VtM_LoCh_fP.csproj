@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -8,6 +8,7 @@
     <OutputType>WinExe</OutputType>
     <RootNamespace>VtM_LoCh_fP</RootNamespace>
     <AssemblyName>VtM_LoCh_fP</AssemblyName>
+    <ApplicationIcon>Resources\Vampiric.ico</ApplicationIcon>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{60dc8134-eba5-43b8-bcc9-bb4bc16c2548};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
@@ -71,6 +72,10 @@
     <Compile Include="ThemeManager.cs" />
     <Compile Include="AppSettings.cs" />
     <Compile Include="CharacterProfile.cs" />
+    <Compile Include="CharacterStorage.cs" />
+    <Compile Include="CharacterCreationRules.cs" />
+    <Compile Include="InitialAllocationWindow.cs" />
+    <Compile Include="PurchaseWindows.cs" />
     <Compile Include="BioFactEntry.cs" />
     <Compile Include="MeritFlawService.cs" />
     <Compile Include="MeritFlawWindows.cs" />
@@ -139,7 +144,6 @@
       <DependentUpon>HealthTrackControl.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="Controls\DragAdorner.cs" />
     <Page Include="Views\PageOneView.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -224,4 +228,7 @@
     </Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <ItemGroup>
+    <Resource Include="Resources\\Vampiric.ico" />
+  </ItemGroup>
 </Project>

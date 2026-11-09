@@ -11,7 +11,6 @@ using VtM_LoCh_fP.Controls;
 
 namespace VtM_LoCh_fP.Views
 {
-    /// <summary>Страница 1: лист персонажа.</summary>
     public partial class PageOneView : UserControl
     {
         private CharacterProfile _character;
@@ -35,7 +34,13 @@ namespace VtM_LoCh_fP.Views
         private TextBox _generationInput;
         private TextBox _sireInput;
         private Button _sireDescriptionButton;
+        private bool _applyingDerivedGeneration;
         public event Action GenerationChanged;
+        public event Action<string> CharacterNameChanged;
+        public event Action InitialPurchaseRequested;
+        public event Action FreebieJournalRequested;
+        public event Func<string, string, int, int, bool> AdvancementCheck;
+        private readonly Dictionary<string, int> _lastTrackValues = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
         private const string VentrueTasteHelp =
             "Выбор категории смертных согласуется с Рассказчиком при создании персонажа. " +
@@ -46,11 +51,356 @@ namespace VtM_LoCh_fP.Views
         public PageOneView()
         {
             InitializeComponent();
-            Loaded += (s, e) => ApplyGenerationLimits();
+            Loaded += (s, e) =>
+            {
+                ApplyGenerationLimits();
+                if (_character != null)
+                {
+                    ApplySavedAllocations();
+                    AttachAllocationPersistence();
+                    UpdateInitialAllocationButton();
+                }
+            };
+            InitializeInlinePrioritySelectors();
             VentrueTasteInput.ToolTip = CreateVentrueTasteToolTip();
             VentrueTasteLabel.ToolTip = CreateVentrueTasteToolTip();
         }
 
+
+        private void OpenInitialAllocation_Click(object sender, RoutedEventArgs e)
+        {
+            if (_character == null) return;
+            ConfirmAllocationInline_Click(sender, e);
+        }
+
+        public void RefreshPurchaseHeader() => UpdateInitialAllocationButton();
+
+        private void UpdateInitialAllocationButton()
+        {
+            if (InitialAllocationButton != null) InitialAllocationButton.Visibility = Visibility.Collapsed;
+            if (_character == null) return;
+            bool initialDone = _character.CreationState.InitialAllocationCompleted;
+            if (ConfirmAllocationInlineButton != null) ConfirmAllocationInlineButton.Visibility = initialDone ? Visibility.Collapsed : Visibility.Visible;
+            foreach (var combo in GetPriorityCombos())
+            {
+                combo.Visibility = initialDone ? Visibility.Collapsed : Visibility.Visible;
+                combo.IsEnabled = !_character.CreationState.InitialAllocationEverCompleted;
+            }
+            RefreshInitialBlockControls();
+            if (FreebieJournalButton != null)
+                FreebieJournalButton.Visibility = _character.CreationState.FreebiePoints <= 0 && !_character.CreationState.FreebiePurchasesConfirmed
+                    ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private void FreebieJournal_Click(object sender, RoutedEventArgs e) => FreebieJournalRequested?.Invoke();
+
+        private void ConfirmInitialPurchase_Click(object sender, RoutedEventArgs e) { }
+
+        private int GetAllocatedTotal(bool attributes)
+        {
+            var values = attributes ? _character.CreationState.AttributeDots : _character.CreationState.AbilityDots;
+            return values == null ? 0 : values.Values.Sum();
+        }
+        private int GetAllocationPool(bool attributes)
+        {
+            string key = attributes ? "attributes." : "abilities.";
+            string[] groups = attributes ? new[] { "Физические", "Социальные", "Ментальные" } : new[] { "Таланты", "Навыки", "Знания" };
+            int total = 0;
+            foreach (var group in groups)
+            {
+                string priority;
+                if (_character.CreationState.Priorities.TryGetValue(key + group, out priority))
+                {
+                    string id = priority == "Первичная" ? "primary" : priority == "Вторичная" ? "secondary" : "tertiary";
+                    total += CharacterCreationRules.GetPriorityPool(attributes ? "attributes" : "abilities", id, !attributes);
+                }
+            }
+            return total;
+        }
+        private void RefreshInitialBlockControls()
+        {
+            if (_character == null) return;
+            bool show = !_character.CreationState.InitialAllocationCompleted;
+            if (AttributesAllocationHelp != null) AttributesAllocationHelp.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            if (AbilitiesAllocationHelp != null) AbilitiesAllocationHelp.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            var remainingLabels = new[] { PhysicalRemainingText, SocialRemainingText, MentalRemainingText,
+                TalentsRemainingText, SkillsRemainingText, KnowledgeRemainingText };
+            foreach (var label in remainingLabels)
+                if (label != null) label.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            var combos = GetPriorityCombos();
+            string[] labels = { "Физические", "Социальные", "Ментальные" };
+            for (int i = 0; i < 3; i++)
+                SetRemainingText(i, labels[i], InitialAttributeGroups[i], combos[i], true);
+            string[] abilityLabels = { "Таланты", "Навыки", "Знания" };
+            for (int i = 0; i < 3; i++)
+                SetRemainingText(i + 3, abilityLabels[i], InitialAbilityGroups[i], combos[i + 3], false);
+        }
+
+        private void SetRemainingText(int index, string label, string[] names, ComboBox priority, bool attributes)
+        {
+            var targets = new[] { PhysicalRemainingText, SocialRemainingText, MentalRemainingText,
+                TalentsRemainingText, SkillsRemainingText, KnowledgeRemainingText };
+            var target = targets[index];
+            if (target == null || _character == null) return;
+            var values = attributes
+                ? _character.CreationState.AttributeDots
+                : _character.CreationState.AbilityDots;
+            int baseValue = attributes ? CharacterCreationRules.GetCreationLimit("attribute_base") : 0;
+            int spent = 0;
+            var initialValues = attributes ? _character.CreationState.InitialAttributeDots : _character.CreationState.InitialAbilityDots;
+            foreach (string name in names)
+            {
+                int value;
+                if (_character.CreationState.InitialAllocationEverCompleted && initialValues != null && initialValues.TryGetValue(name, out value))
+                    spent += Math.Max(0, value);
+                else if (values.TryGetValue(name, out value)) spent += Math.Max(0, value - baseValue);
+            }
+
+            int pool = GetInitialGroupPool(priority, attributes);
+            int remaining = Math.Max(0, pool - spent);
+            target.Text = $"Осталось: {remaining} из {pool}";
+        }
+
+        private ComboBox[] GetPriorityCombos() => new[] { PhysicalPriority, SocialPriority, MentalPriority, TalentsPriority, SkillsPriority, KnowledgePriority };
+
+        private void InitializeInlinePrioritySelectors()
+        {
+            foreach (var combo in GetPriorityCombos())
+            {
+                combo.ItemsSource = new[] { "Первичная", "Вторичная", "Третичная" };
+                combo.SelectionChanged += InlinePriority_SelectionChanged;
+            }
+            if (_character != null) LoadInlinePriorities();
+        }
+
+        private bool _loadingInlinePriorities;
+
+        private void LoadInlinePriorities()
+        {
+            _loadingInlinePriorities = true;
+            if (_character.CreationState.Priorities == null) _character.CreationState.Priorities = new Dictionary<string, string>();
+            var combos = GetPriorityCombos();
+            string[] keys = { "attributes.Физические", "attributes.Социальные", "attributes.Ментальные", "abilities.Таланты", "abilities.Навыки", "abilities.Знания" };
+            for (int i = 0; i < combos.Length; i++)
+            {
+                string value;
+                combos[i].SelectedItem = _character.CreationState.Priorities.TryGetValue(keys[i], out value) ? value : new[] { "Первичная", "Вторичная", "Третичная" }[i % 3];
+            }
+            _loadingInlinePriorities = false;
+            RefreshInitialBlockControls();
+        }
+
+        private void InlinePriority_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            var combo = sender as ComboBox;
+            if (combo == null || _character == null || _loadingInlinePriorities || _character.CreationState.InitialAllocationCompleted || _character.CreationState.InitialAllocationEverCompleted || combo.SelectedIndex < 0) return;
+            var all = GetPriorityCombos();
+            int index = Array.IndexOf(all, combo);
+            int start = index < 3 ? 0 : 3;
+            var peers = all.Skip(start).Take(3).Where(c => c != combo).ToArray();
+            var duplicate = peers.FirstOrDefault(c => c.SelectedIndex == combo.SelectedIndex);
+            if (duplicate != null)
+            {
+                int replacement = Enumerable.Range(0, 3).FirstOrDefault(v => v != combo.SelectedIndex && !peers.Any(c => c != duplicate && c.SelectedIndex == v));
+                duplicate.SelectedIndex = replacement;
+            }
+            int groupIndex = Array.IndexOf(all, combo);
+            ResetInitialGroup(groupIndex);
+            SaveInlinePriority(groupIndex);
+            RefreshInitialBlockControls();
+        }
+
+        private void ResetInitialGroup(int index)
+        {
+            if (index < 0 || index >= 6) return;
+            bool attributes = index < 3;
+            string[] names = attributes ? InitialAttributeGroups[index] : InitialAbilityGroups[index - 3];
+            int baseValue = attributes ? CharacterCreationRules.GetCreationLimit("attribute_base") : 0;
+            foreach (var track in FindTracks(this).Where(t => names.Contains(t.Label)))
+            {
+                int value = attributes && track.IsForcedZero ? 0 : baseValue;
+                track.SetTrackValue(value);
+                if (attributes)
+                {
+                    _character.CreationState.AttributeDots[track.Label] = value;
+                    if (_character.CreationState.InitialAttributeDots != null) _character.CreationState.InitialAttributeDots[track.Label] = 0;
+                }
+                else
+                {
+                    _character.CreationState.AbilityDots[track.Label] = value;
+                    if (_character.CreationState.InitialAbilityDots != null) _character.CreationState.InitialAbilityDots[track.Label] = 0;
+                }
+                _lastTrackValues[track.Label] = value;
+            }
+        }
+
+        private void SaveInlinePriority(int index)
+        {
+            string[] keys = { "attributes.Физические", "attributes.Социальные", "attributes.Ментальные", "abilities.Таланты", "abilities.Навыки", "abilities.Знания" };
+            var combo = GetPriorityCombos()[index];
+            if (combo.SelectedItem != null)
+                _character.CreationState.Priorities[keys[index]] = combo.SelectedItem.ToString();
+        }
+
+        private static readonly string[][] InitialAttributeGroups =
+        {
+            new[] { "Сила", "Ловкость", "Выносливость" },
+            new[] { "Обаяние", "Манипуляция", "Привлекательность" },
+            new[] { "Восприятие", "Интеллект", "Смекалка" }
+        };
+
+        private static readonly string[][] InitialAbilityGroups =
+        {
+            new[] { "Атлетика", "Бдительность", "Драка", "Запугивание", "Красноречие", "Лидерство", "Уличное чутьё", "Хитрость", "Шестое чувство", "Эмпатия" },
+            new[] { "Вождение", "Воровство", "Выживание", "Исполнение", "Обращение с животными", "Ремесло", "Скрытность", "Стрельба", "Фехтование", "Этикет" },
+            new[] { "Гуманитарные науки", "Естественные науки", "Законы", "Информатика", "Медицина", "Оккультизм", "Политика", "Расследование", "Финансы", "Электроника" }
+        };
+
+        private bool TryGetInitialGroup(TrackControl changedTrack, out string[] groupNames, out ComboBox priority, out bool attributes)
+        {
+            groupNames = null;
+            priority = null;
+            attributes = false;
+            if (changedTrack == null) return false;
+
+            for (int i = 0; i < InitialAttributeGroups.Length; i++)
+            {
+                if (InitialAttributeGroups[i].Contains(changedTrack.Label))
+                {
+                    groupNames = InitialAttributeGroups[i];
+                    priority = GetPriorityCombos()[i];
+                    attributes = true;
+                    return true;
+                }
+            }
+            for (int i = 0; i < InitialAbilityGroups.Length; i++)
+            {
+                if (InitialAbilityGroups[i].Contains(changedTrack.Label))
+                {
+                    groupNames = InitialAbilityGroups[i];
+                    priority = GetPriorityCombos()[i + 3];
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private int GetInitialGroupPool(ComboBox priority, bool attributes)
+        {
+            if (priority == null || priority.SelectedIndex < 0) return 0;
+            string rank = new[] { "primary", "secondary", "tertiary" }[priority.SelectedIndex];
+            return CharacterCreationRules.GetPriorityPool(attributes ? "attributes" : "abilities", rank, !attributes);
+        }
+
+        private int GetInitialGroupSpent(string[] names, bool attributes, TrackControl except = null)
+        {
+            int baseValue = attributes ? CharacterCreationRules.GetCreationLimit("attribute_base") : 0;
+            if (_character.CreationState.InitialAllocationEverCompleted)
+            {
+                var initialValues = attributes ? _character.CreationState.InitialAttributeDots : _character.CreationState.InitialAbilityDots;
+                return names.Where(name => except == null || !string.Equals(name, except.Label, StringComparison.OrdinalIgnoreCase))
+                    .Sum(name => { int value; return initialValues != null && initialValues.TryGetValue(name, out value) ? Math.Max(0, value) : 0; });
+            }
+            return FindTracks(this).Where(t => t != except && names.Contains(t.Label)).Sum(t => Math.Max(0, t.Value - baseValue));
+        }
+
+        private bool ValidateInitialGroupBudgets(out string message)
+        {
+            var combos = GetPriorityCombos();
+            for (int i = 0; i < 6; i++)
+            {
+                bool attributes = i < 3;
+                string[] names = attributes ? InitialAttributeGroups[i] : InitialAbilityGroups[i - 3];
+                int baseValue = attributes ? CharacterCreationRules.GetCreationLimit("attribute_base") : 0;
+                var initialValues = attributes ? _character.CreationState.InitialAttributeDots : _character.CreationState.InitialAbilityDots;
+                int spent = _character.CreationState.InitialAllocationEverCompleted && initialValues != null
+                    ? names.Sum(name => { int v; return initialValues.TryGetValue(name, out v) ? Math.Max(0, v) : 0; })
+                    : FindTracks(this).Where(t => names.Contains(t.Label)).Sum(t => Math.Max(0, t.Value - baseValue));
+                int pool = GetInitialGroupPool(combos[i], attributes);
+                if (spent != pool)
+                {
+                    string groupName = attributes
+                        ? new[] { "Физические", "Социальные", "Ментальные" }[i]
+                        : new[] { "Таланты", "Навыки", "Знания" }[i - 3];
+                    message = spent < pool
+                        ? $"В группе «{groupName}» распределено {spent} из {pool} пунктов. Распределите оставшиеся {pool - spent} пунктов."
+                        : $"В группе «{groupName}» потрачено {spent} из {pool} пунктов. Уменьшите значения или измените приоритет.";
+                    return false;
+                }
+            }
+            message = null;
+            return true;
+        }
+
+        private void ConfirmAllocationInline_Click(object sender, RoutedEventArgs e)
+        {
+            if (_character == null) return;
+            var combos = GetPriorityCombos();
+            if (combos.Select(c => c.SelectedIndex).Distinct().Count() != 3 || combos.Take(3).Select(c => c.SelectedIndex).Distinct().Count() != 3 || combos.Skip(3).Select(c => c.SelectedIndex).Distinct().Count() != 3)
+            { ThemedDialog.Show(Window.GetWindow(this), "В каждой тройке выберите первичный, вторичный и третичный приоритеты без повторений.", "Приоритеты", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+            string budgetError;
+            if (!ValidateInitialGroupBudgets(out budgetError))
+            {
+                ThemedDialog.Show(Window.GetWindow(this), budgetError, "Недостаточно пунктов", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            if (_character.CreationState.Priorities == null) _character.CreationState.Priorities = new Dictionary<string, string>();
+            string[] keys = { "attributes.Физические", "attributes.Социальные", "attributes.Ментальные", "abilities.Таланты", "abilities.Навыки", "abilities.Знания" };
+            for (int i = 0; i < combos.Length; i++) _character.CreationState.Priorities[keys[i]] = combos[i].SelectedItem.ToString();
+            bool wasInitialAllocationCompleted = _character.CreationState.InitialAllocationEverCompleted;
+            _character.CreationState.InitialAllocationCompleted = true;
+            _character.CreationState.InitialAllocationEverCompleted = true;
+            if (_character.CreationState.InitialAttributeDots == null) _character.CreationState.InitialAttributeDots = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            if (_character.CreationState.InitialAbilityDots == null) _character.CreationState.InitialAbilityDots = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            if (!wasInitialAllocationCompleted)
+            {
+                _character.CreationState.InitialAttributeDots.Clear();
+                _character.CreationState.InitialAbilityDots.Clear();
+            }
+            if (_character.CreationState.PurchaseLedger == null) _character.CreationState.PurchaseLedger = new List<PurchaseTransaction>();
+            // Пересобираем только записи стартового распределения характеристик/способностей
+            _character.CreationState.PurchaseLedger.RemoveAll(t => t.Resource == "initial_pool" &&
+                (t.Block == "Характеристики" || t.Block == "Способности"));
+            if (_character.CreationState.InitialPurchases == null) _character.CreationState.InitialPurchases = new List<CreationPurchase>();
+            _character.CreationState.InitialPurchases.RemoveAll(p => p.Block == "Характеристики" || p.Block == "Способности");
+            foreach (var track in FindTracks(this))
+            {
+                if (new[] { "Сила", "Ловкость", "Выносливость", "Обаяние", "Манипуляция", "Привлекательность", "Восприятие", "Интеллект", "Смекалка" }.Contains(track.Label))
+                {
+                    _character.CreationState.AttributeDots[track.Label] = track.Value;
+                    int attributeBase = CharacterCreationRules.GetCreationLimit("attribute_base");
+                    if (!wasInitialAllocationCompleted)
+                        _character.CreationState.InitialAttributeDots[track.Label] = Math.Max(0, track.Value - attributeBase);
+                    int initialAttributeValue = attributeBase + (_character.CreationState.InitialAttributeDots.ContainsKey(track.Label) ? _character.CreationState.InitialAttributeDots[track.Label] : 0);
+                    _character.CreationState.InitialPurchases.Add(new CreationPurchase { Block = "Характеристики", ItemId = track.Label, ItemName = track.Label, PreviousValue = attributeBase, NewValue = initialAttributeValue, Cost = 0, Source = "initial" });
+                    for (int level = attributeBase; level < initialAttributeValue; level++)
+                        RecordInitialAllocationPoint("Характеристики", "attribute", track.Label, level, level + 1);
+                }
+                else
+                {
+                    _character.CreationState.AbilityDots[track.Label] = track.Value;
+                    if (!wasInitialAllocationCompleted)
+                        _character.CreationState.InitialAbilityDots[track.Label] = track.Value;
+                    int initialAbilityValue = _character.CreationState.InitialAbilityDots.ContainsKey(track.Label) ? _character.CreationState.InitialAbilityDots[track.Label] : 0;
+                    _character.CreationState.InitialPurchases.Add(new CreationPurchase { Block = "Способности", ItemId = track.Label, ItemName = track.Label, PreviousValue = 0, NewValue = initialAbilityValue, Cost = 0, Source = "initial" });
+                    for (int level = 0; level < initialAbilityValue; level++)
+                        RecordInitialAllocationPoint("Способности", "ability", track.Label, level, level + 1);
+                }
+            }
+            UpdateInitialAllocationButton();
+            ApplyGenerationLimits();
+        }
+
+        private void RecordInitialAllocationPoint(string block, string category, string itemName, int previous, int next)
+        {
+            var state = _character.CreationState;
+            state.PurchaseLedger.Add(new PurchaseTransaction
+            {
+                Order = state.NextPurchaseOrder++, Block = block, Category = category,
+                ItemId = itemName, ItemName = itemName, PreviousValue = previous, NewValue = next,
+                Resource = "initial_pool", Cost = 0
+            });
+        }
 
         private ToolTip CreateVentrueTasteToolTip()
         {
@@ -78,10 +428,33 @@ namespace VtM_LoCh_fP.Views
             };
         }
 
+        private void ApplyThemeResources(Control control, string backgroundKey = "InputBrush")
+        {
+            if (control == null) return;
+            control.SetResourceReference(Control.ForegroundProperty, "TextBrush");
+            control.SetResourceReference(Control.BackgroundProperty, backgroundKey);
+            control.SetResourceReference(Control.BorderBrushProperty, "BorderBrush");
+        }
+
         public void InitializeCharacter(CharacterProfile character)
         {
             _character = character;
+            LoadInlinePriorities();
+            var nameField = new FieldControl { Label = "Имя Персонажа", InputText = _character.Name ?? string.Empty };
+            nameField.InputTextChanged += (sender, args) =>
+            {
+                _character.Name = nameField.InputText;
+                CharacterNameChanged?.Invoke(_character.Name);
+            };
+            NameFieldHost.Content = nameField;
+            _character.CreationState.PropertyChanged += (s, e) =>
+            {
+                if (e.PropertyName == nameof(CharacterCreationState.FreebiePoints) || e.PropertyName == nameof(CharacterCreationState.FreebiePurchasesConfirmed))
+                    UpdateInitialAllocationButton();
+            };
             if (!_character.Generation.HasValue) _character.Generation = 13;
+            if (!_character.CreationState.BaseGeneration.HasValue)
+                _character.CreationState.BaseGeneration = _character.Generation.Value;
             _character.Generation = Math.Max(4, Math.Min(15, _character.Generation.Value));
             ClanFieldHost.Content = CreateClanSelector();
             GenerationFieldHost.Content = CreateGenerationEditor();
@@ -100,6 +473,7 @@ namespace VtM_LoCh_fP.Views
                 }
             }
             ApplyGenerationLimits();
+            UpdateInitialAllocationButton();
 
             if (!string.IsNullOrWhiteSpace(character.ClanName))
             {
@@ -120,14 +494,120 @@ namespace VtM_LoCh_fP.Views
                 ? (_character.TraitMax > 0 ? _character.TraitMax : 5)
                 : 5;
 
-            // Лимит поколения применяется ко всем характеристикам и способностям,
-            // а не только к добродетелям или дисциплинам.
-            PhysicalAttributesTrackList.Count = max;
-            SocialAttributes.Count = max;
-            MentalAttributesTrackList.Count = max;
-            TalentsTrackList.Count = max;
-            SkillsTrackList.Count = max;
-            KnowledgeTrackList.Count = max;
+            // Во время создания атрибуты ограничены 5, способности — 3
+            // После подтверждения стартовой закупки применяется лимит поколения
+            int attributeMax = _character.CreationState.InitialAllocationCompleted ? max : Math.Min(5, max);
+            PhysicalAttributesTrackList.Count = attributeMax;
+            SocialAttributes.Count = attributeMax;
+            MentalAttributesTrackList.Count = attributeMax;
+            int abilityMax = max;
+            if (!_character.CreationState.InitialAllocationCompleted)
+                abilityMax = Math.Min(abilityMax, CharacterCreationRules.GetCreationLimit("ability_creation_max"));
+            TalentsTrackList.Count = abilityMax;
+            SkillsTrackList.Count = abilityMax;
+            KnowledgeTrackList.Count = abilityMax;
+        }
+
+        public void RefreshSavedAllocations()
+        {
+            ApplySavedAllocations();
+        }
+
+        private void ApplySavedAllocations()
+        {
+            // Применение сохранённого распределения (в том числе перераспределения характеристик для Носферату) не является прокачкой и не должно запускать списание свободных пунктов или опыта.
+            foreach (var track in FindTracks(this))
+                track.ValueChanged -= AllocationTrack_ValueChanged;
+            foreach (var track in FindTracks(this))
+            {
+                int value;
+                if (_character.CreationState.AttributeDots.TryGetValue(track.Label, out value) ||
+                    _character.CreationState.AbilityDots.TryGetValue(track.Label, out value))
+                    track.SetTrackValue(value);
+                else if (new[] { "Сила", "Ловкость", "Выносливость", "Обаяние", "Манипуляция", "Привлекательность", "Восприятие", "Интеллект", "Смекалка" }.Contains(track.Label))
+                    track.SetTrackValue(CharacterCreationRules.GetCreationLimit("attribute_base"));
+            }
+        }
+
+        private void AttachAllocationPersistence()
+        {
+            foreach (var track in FindTracks(this))
+            {
+                track.ValueChanged -= AllocationTrack_ValueChanged;
+                track.ValueChanged += AllocationTrack_ValueChanged;
+                _lastTrackValues[track.Label] = track.Value;
+            }
+        }
+
+        private void AllocationTrack_ValueChanged(object sender, EventArgs e)
+        {
+            var track = sender as TrackControl;
+            if (track == null || _character == null) return;
+            string[] attrs = { "Сила", "Ловкость", "Выносливость", "Обаяние", "Манипуляция", "Привлекательность", "Восприятие", "Интеллект", "Смекалка" };
+            bool isAttribute = attrs.Contains(track.Label);
+            int previous = _lastTrackValues.ContainsKey(track.Label) ? _lastTrackValues[track.Label] : track.Value;
+            if (track.Value != previous && (_character.CreationState.InitialAllocationCompleted ||
+                (_character.CreationState.InitialAllocationEverCompleted && track.Value < previous)))
+            {
+                bool allowed = AdvancementCheck == null || AdvancementCheck(attrs.Contains(track.Label) ? "attribute" : "ability", track.Label, previous, track.Value);
+                if (!allowed)
+                {
+                    track.SetTrackValue(previous);
+                    return;
+                }
+            }
+            if (!_character.CreationState.InitialAllocationCompleted)
+            {
+                bool nosferatuAppearanceLocked = track.IsForcedZero;
+                int minimum = isAttribute && !nosferatuAppearanceLocked ? CharacterCreationRules.GetCreationLimit("attribute_base") : 0;
+                if (track.Value < minimum)
+                {
+                    track.SetTrackValue(minimum);
+                }
+                string[] groupNames;
+                ComboBox priority;
+                bool isAttributeGroup;
+                if (TryGetInitialGroup(track, out groupNames, out priority, out isAttributeGroup))
+                {
+                    int baseValue = isAttributeGroup ? CharacterCreationRules.GetCreationLimit("attribute_base") : 0;
+                    int pool = GetInitialGroupPool(priority, isAttributeGroup);
+                    int alreadySpent = GetInitialGroupSpent(groupNames, isAttributeGroup, track);
+                    int remaining = Math.Max(0, pool - alreadySpent);
+                    int paidDots = _character.CreationState.InitialAllocationEverCompleted && _character.CreationState.PurchaseLedger != null
+                        ? _character.CreationState.PurchaseLedger.Where(t => string.Equals(t.ItemName, track.Label, StringComparison.OrdinalIgnoreCase) && t.Resource != "initial_pool")
+                            .Sum(t => Math.Max(0, t.NewValue - t.PreviousValue)) : 0;
+                    int allowedValue = baseValue + paidDots + remaining;
+                    if (track.Value > allowedValue)
+                        track.SetTrackValue(allowedValue);
+                }
+            }
+            if (attrs.Contains(track.Label)) _character.CreationState.AttributeDots[track.Label] = track.Value;
+            else _character.CreationState.AbilityDots[track.Label] = track.Value;
+            if (_character.CreationState.InitialAllocationEverCompleted && !_character.CreationState.InitialAllocationCompleted)
+            {
+                int baseValue = attrs.Contains(track.Label) ? CharacterCreationRules.GetCreationLimit("attribute_base") : 0;
+                int paidDots = _character.CreationState.PurchaseLedger == null ? 0 : _character.CreationState.PurchaseLedger
+                    .Where(t => string.Equals(t.ItemName, track.Label, StringComparison.OrdinalIgnoreCase) && t.Resource != "initial_pool")
+                    .Sum(t => Math.Max(0, t.NewValue - t.PreviousValue));
+                int initialDots = Math.Max(0, track.Value - baseValue - paidDots);
+                if (attrs.Contains(track.Label)) _character.CreationState.InitialAttributeDots[track.Label] = initialDots;
+                else _character.CreationState.InitialAbilityDots[track.Label] = initialDots;
+            }
+            _lastTrackValues[track.Label] = track.Value;
+            RefreshInitialBlockControls();
+        }
+
+        private static IEnumerable<TrackControl> FindTracks(DependencyObject parent)
+        {
+            if (parent == null) yield break;
+            int count = System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent);
+            for (int i = 0; i < count; i++)
+            {
+                var child = System.Windows.Media.VisualTreeHelper.GetChild(parent, i);
+                var track = child as TrackControl;
+                if (track != null) yield return track;
+                foreach (var nested in FindTracks(child)) yield return nested;
+            }
         }
 
         private UIElement CreateSireEditor()
@@ -143,6 +623,7 @@ namespace VtM_LoCh_fP.Views
                 VerticalContentAlignment = VerticalAlignment.Center,
                 Text = _character.SireName ?? string.Empty
             };
+            ApplyThemeResources(_sireInput);
             _sireInput.TextChanged += (s, e) =>
             {
                 _character.SireName = _sireInput.Text;
@@ -235,6 +716,7 @@ namespace VtM_LoCh_fP.Views
                     VerticalContentAlignment = VerticalAlignment.Center,
                     ToolTip = "Введите целочисленное значение от 4 до 15. Поколение показывает удалённость от Каина: чем меньше число, тем ближе Сородич к нему. Большинство Сородичей — 13-го поколения. Значения округляются до ближайшего доступного поколения."
                 };
+                ApplyThemeResources(_generationInput);
                 _generationInput.Text = _character.Generation.HasValue ? _character.Generation.Value.ToString() : string.Empty;
                 _generationInput.TextChanged += (s, e) => UpdateGeneration(_generationInput.Text);
                 _generationInput.LostFocus += (s, e) => { if (_character.Generation.HasValue) _generationInput.Text = _character.Generation.Value.ToString(); };
@@ -252,6 +734,7 @@ namespace VtM_LoCh_fP.Views
                     Padding = new Thickness(6, 3, 6, 3),
                     ToolTip = "Поколение показывает удалённость от Каина. Большинство Сородичей — 13-го поколения и младше. Значения выше 13 относятся к строке «Тринадцатое и младше»."
                 };
+                ApplyThemeResources(_generationSelector);
                 if (_character.Generation.HasValue) _generationSelector.SelectedValue = _character.Generation.Value;
                 _generationSelector.SelectionChanged += (s, e) => UpdateGeneration(_generationSelector.SelectedValue == null ? string.Empty : _generationSelector.SelectedValue.ToString());
                 field.Children.Add(_generationSelector);
@@ -279,12 +762,24 @@ namespace VtM_LoCh_fP.Views
             var rule = GenerationService.Find(generation);
             if (rule == null) return;
             _character.Generation = generation;
+            if (!_applyingDerivedGeneration) _character.CreationState.BaseGeneration = generation;
             _character.BloodPoolMax = rule.BloodPoolMax;
             _character.BloodPerTurn = rule.BloodPerTurn;
             _character.TraitMax = rule.TraitMax;
             _character.DisciplineMax = rule.DisciplineMax;
             ApplyGenerationLimits();
             GenerationChanged?.Invoke();
+        }
+
+        public void ApplyDerivedGeneration(int generation)
+        {
+            if (_character == null) return;
+            generation = Math.Max(4, Math.Min(15, generation));
+            _applyingDerivedGeneration = true;
+            if (_generationInput != null) _generationInput.Text = generation.ToString();
+            if (_generationSelector != null) _generationSelector.SelectedValue = generation;
+            UpdateGeneration(generation.ToString());
+            _applyingDerivedGeneration = false;
         }
 
         private bool IsFreeNeonate()
@@ -309,6 +804,7 @@ namespace VtM_LoCh_fP.Views
                     BorderBrush = (Brush)FindResource("BorderBrush"),
                     VerticalContentAlignment = VerticalAlignment.Center
                 };
+                ApplyThemeResources(_clanInput);
                 _clanSuggestions = new ListBox
                 {
                     MaxHeight = 230,
@@ -317,10 +813,11 @@ namespace VtM_LoCh_fP.Views
                     Foreground = (Brush)FindResource("TextBrush"),
                     BorderBrush = (Brush)FindResource("BorderBrush")
                 };
+                ApplyThemeResources(_clanSuggestions, "CardBgBrush");
                 _clanSuggestions.ItemContainerStyle = new Style(typeof(ListBoxItem));
                 _clanSuggestions.ItemContainerStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(8, 6, 8, 6)));
-                _clanSuggestions.ItemContainerStyle.Setters.Add(new Setter(Control.BackgroundProperty, FindResource("CardBgBrush")));
-                _clanSuggestions.ItemContainerStyle.Setters.Add(new Setter(Control.ForegroundProperty, FindResource("TextBrush")));
+                _clanSuggestions.ItemContainerStyle.Setters.Add(new Setter(Control.BackgroundProperty, new DynamicResourceExtension("CardBgBrush")));
+                _clanSuggestions.ItemContainerStyle.Setters.Add(new Setter(Control.ForegroundProperty, new DynamicResourceExtension("TextBrush")));
                 _clanSuggestions.ItemContainerStyle.Setters.Add(new Setter(ToolTipService.ToolTipProperty, new Binding(".")));
                 _clanSuggestions.ItemContainerStyle.Setters.Add(new Setter(ToolTipService.InitialShowDelayProperty, 250));
                 _clanSuggestions.ItemContainerStyle.Setters.Add(new Setter(ToolTipService.ShowDurationProperty, 60000));
@@ -362,6 +859,7 @@ namespace VtM_LoCh_fP.Views
                 BorderBrush = (Brush)FindResource("BorderBrush"),
                 Padding = new Thickness(6, 3, 6, 3)
             };
+            ApplyThemeResources(_clanSelector);
             var tooltipTemplate = CreateClanTooltipTemplate();
             var tooltipStyle = new Style(typeof(ToolTip), (Style)FindResource("PopupToolTipStyle"));
             tooltipStyle.Setters.Add(new Setter(ContentControl.ContentTemplateProperty, tooltipTemplate));
@@ -451,6 +949,7 @@ namespace VtM_LoCh_fP.Views
             _character.ClanWeakness = string.Empty;
             SetWeaknessText(string.Empty);
             SocialAttributes.ForcedZeroName = null;
+            if (_character != null) ApplySavedAllocations();
             NosferatuPlasticSurgeryButton.Visibility = Visibility.Collapsed;
             VentrueTastePanel.Visibility = Visibility.Collapsed;
         }
@@ -522,6 +1021,7 @@ namespace VtM_LoCh_fP.Views
                 HorizontalContentAlignment = HorizontalAlignment.Left,
                 TextAlignment = TextAlignment.Left
             };
+            ApplyThemeResources(input);
             var list = new ListBox
             {
                 MaxHeight = 230, DisplayMemberPath = "Name",
@@ -529,10 +1029,11 @@ namespace VtM_LoCh_fP.Views
                 Foreground = (Brush)FindResource("TextBrush"),
                 BorderBrush = (Brush)FindResource("BorderBrush")
             };
+            ApplyThemeResources(list, "CardBgBrush");
             list.ItemContainerStyle = new Style(typeof(ListBoxItem));
             list.ItemContainerStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(8, 6, 8, 6)));
-            list.ItemContainerStyle.Setters.Add(new Setter(Control.BackgroundProperty, FindResource("CardBgBrush")));
-            list.ItemContainerStyle.Setters.Add(new Setter(Control.ForegroundProperty, FindResource("TextBrush")));
+            list.ItemContainerStyle.Setters.Add(new Setter(Control.BackgroundProperty, new DynamicResourceExtension("CardBgBrush")));
+            list.ItemContainerStyle.Setters.Add(new Setter(Control.ForegroundProperty, new DynamicResourceExtension("TextBrush")));
             list.ItemContainerStyle.Setters.Add(new Setter(ToolTipService.ToolTipProperty, new Binding("Description")));
             list.ItemContainerStyle.Setters.Add(new Setter(ToolTipService.InitialShowDelayProperty, 250));
             list.ItemContainerStyle.Setters.Add(new Setter(ToolTipService.ShowDurationProperty, 60000));
@@ -721,7 +1222,22 @@ namespace VtM_LoCh_fP.Views
 
         private void ApplyClan(ClanInfo clan, bool selectionChanged)
         {
+            string previousClanId = _currentClanId;
+            bool wasNosferatu = string.Equals(previousClanId, "nosferatu", StringComparison.OrdinalIgnoreCase);
             bool isNewClan = selectionChanged || !string.Equals(_currentClanId, clan.Id, StringComparison.OrdinalIgnoreCase);
+
+            // Предлагаем сбросить только характеристики. Способности и приоритеты
+            // не затрагиваются; при отказе характеристики сохраняют текущие значения
+            if (selectionChanged)
+            {
+                var resetResult = ThemedDialog.Show(
+                    Window.GetWindow(this),
+                    "Сбросить все Характеристики до базового значения 1? Способности и приоритеты не изменятся.",
+                    "Смена клана", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                if (resetResult == MessageBoxResult.Yes)
+                    ResetAttributesForClanChange();
+            }
+
             _currentClanId = clan.Id;
 
             if (isNewClan || _character.OriginalClanWeakness == null)
@@ -737,7 +1253,30 @@ namespace VtM_LoCh_fP.Views
 
             bool isNosferatu = string.Equals(clan.Id, "nosferatu", StringComparison.OrdinalIgnoreCase);
             bool plasticSurgeryDone = isNosferatu && _character.NosferatuPlasticSurgery;
-            SocialAttributes.ForcedZeroName = isNosferatu && !plasticSurgeryDone ? "Привлекательность" : null;
+            string forcedZeroAttribute = isNosferatu && !plasticSurgeryDone ? "Привлекательность" : null;
+            // При смене клана восстанавливаем сохранённые точки, а затем применяем
+            // ограничение Носферату. Так при уходе из клана точки не теряются.
+            SocialAttributes.ForcedZeroName = null;
+            ApplySavedAllocations();
+            // При уходе из Носферату Привлекательность возвращается к базовой
+            // точке 1, даже если в сохранённом распределении для неё было 0.
+            if (selectionChanged && wasNosferatu && !isNosferatu)
+            {
+                int baseValue = CharacterCreationRules.GetCreationLimit("attribute_base");
+                _character.CreationState.AttributeDots["Привлекательность"] = baseValue;
+                var attractivenessTrack = FindTracks(this).FirstOrDefault(t => t.Label == "Привлекательность");
+                if (attractivenessTrack != null) attractivenessTrack.SetTrackValue(baseValue);
+                _lastTrackValues["Привлекательность"] = baseValue;
+            }
+            AttachAllocationPersistence();
+            SocialAttributes.ForcedZeroName = forcedZeroAttribute;
+            if (forcedZeroAttribute != null)
+            {
+                _character.CreationState.AttributeDots[forcedZeroAttribute] = 0;
+                var forcedTrack = FindTracks(this).FirstOrDefault(t => t.Label == forcedZeroAttribute);
+                if (forcedTrack != null) forcedTrack.SetTrackValue(0);
+                _lastTrackValues[forcedZeroAttribute] = 0;
+            }
             NosferatuPlasticSurgeryButton.Visibility = isNosferatu
                 ? Visibility.Visible : Visibility.Collapsed;
             NosferatuPlasticSurgeryButton.Content = plasticSurgeryDone ? "Изуродовать себя" : "Пластическая хирургия";
@@ -748,6 +1287,68 @@ namespace VtM_LoCh_fP.Views
             VentrueTasteInput.IsReadOnly = _character.VentruePreyCategoryLocked;
             VentrueTasteInput.TextChanged -= VentrueTasteInput_TextChanged;
             VentrueTasteInput.TextChanged += VentrueTasteInput_TextChanged;
+            UpdateRedistributeAttributesButton(isNosferatu && !plasticSurgeryDone);
+        }
+
+        private void ResetAttributesForClanChange()
+        {
+            if (_character == null || _character.CreationState == null) return;
+            if (_character.CreationState.AttributeDots == null)
+                _character.CreationState.AttributeDots = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+            int baseValue = CharacterCreationRules.GetCreationLimit("attribute_base");
+            string[] attributeNames =
+            {
+                "Сила", "Ловкость", "Выносливость", "Обаяние", "Манипуляция",
+                "Привлекательность", "Восприятие", "Интеллект", "Смекалка"
+            };
+            foreach (string name in attributeNames)
+            {
+                _character.CreationState.AttributeDots[name] = baseValue;
+                _lastTrackValues[name] = baseValue;
+            }
+
+            // Возвращаем этап распределения характеристик: селекторы приоритетов
+            // и остатки очков снова доступны. Сами приоритеты и способности сохраняются.
+            _character.CreationState.InitialAllocationCompleted = false;
+
+            // Удаляем устаревшую запись о стартовой закупке характеристик.
+            // Новые значения равны базе, поэтому дополнительные пункты не потрачены.
+            if (_character.CreationState.InitialPurchases != null)
+                _character.CreationState.InitialPurchases.RemoveAll(p => p.Block == "Характеристики");
+
+            foreach (var track in FindTracks(this).Where(t => attributeNames.Contains(t.Label)))
+                track.SetTrackValue(baseValue);
+
+            UpdateInitialAllocationButton();
+            RefreshInitialBlockControls();
+        }
+
+        private void UpdateRedistributeAttributesButton(bool nosferatuLocked)
+        {
+            if (RedistributeAttributesButton == null || _character == null) return;
+            int attractiveness = CharacterCreationRules.GetCreationLimit("attribute_base");
+            int storedAttractiveness;
+            if (_character.CreationState.AttributeDots != null &&
+                _character.CreationState.AttributeDots.TryGetValue("Привлекательность", out storedAttractiveness))
+                attractiveness = storedAttractiveness;
+            bool needsRedistribution = nosferatuLocked &&
+                _character.CreationState.InitialAllocationCompleted &&
+                attractiveness > CharacterCreationRules.GetCreationLimit("attribute_base");
+            RedistributeAttributesButton.Visibility = needsRedistribution ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private void RedistributeAttributes_Click(object sender, RoutedEventArgs e)
+        {
+            if (_character == null) return;
+            var dialog = new InitialAllocationWindow(Window.GetWindow(this), _character,
+                attributesOnly: true, lockAttractiveness: true);
+            if (dialog.ShowDialog() == true)
+            {
+                ApplySavedAllocations();
+                AttachAllocationPersistence();
+                UpdateRedistributeAttributesButton(true);
+            }
         }
 
         private void SetWeaknessText(string value)
@@ -797,7 +1398,19 @@ namespace VtM_LoCh_fP.Views
 
             _character.NosferatuPlasticSurgery = !surgeryDone;
             SocialAttributes.ForcedZeroName = _character.NosferatuPlasticSurgery ? null : "Привлекательность";
+            var attractivenessTrack = FindTracks(this).FirstOrDefault(t =>
+                string.Equals(t.Label, "Привлекательность", StringComparison.OrdinalIgnoreCase));
+            if (attractivenessTrack != null)
+            {
+                int value = _character.NosferatuPlasticSurgery
+                    ? CharacterCreationRules.GetCreationLimit("attribute_base") : 0;
+                attractivenessTrack.SetTrackValue(value);
+                _character.CreationState.AttributeDots["Привлекательность"] = value;
+                _lastTrackValues["Привлекательность"] = value;
+            }
             NosferatuPlasticSurgeryButton.Content = _character.NosferatuPlasticSurgery ? "Изуродовать себя" : "Пластическая хирургия";
+            RefreshInitialBlockControls();
+            UpdateRedistributeAttributesButton(!_character.NosferatuPlasticSurgery);
         }
 
         private void VentrueTasteInput_TextChanged(object sender, TextChangedEventArgs e)

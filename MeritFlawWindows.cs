@@ -66,8 +66,8 @@ namespace VtM_LoCh_fP
             _emptyText.Visibility = available.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             int flaws = owned.Where(x => x.Type == "flaw").Sum(x => x.Cost);
             int merits = owned.Where(x => x.Type == "merit").Sum(x => x.Cost);
-            int free = _character.MeritFlawBasePoints + flaws - merits;
-            _pointsText.Text = "Свободные очки: " + free + "   ·   Недостатки: " + flaws + "   ·   Достоинства: " + merits;
+            _pointsText.Text = "Свободные пункты персонажа: " + _character.CreationState.FreebiePoints +
+                "   ·   Недостатки: " + flaws + "   ·   Достоинства: " + merits;
 
             foreach (var item in available)
             {
@@ -104,7 +104,7 @@ namespace VtM_LoCh_fP
                 int cost = detail.SelectedCost;
                 if (_character.MeritsFlaws == null)
                     _character.MeritsFlaws = new System.Collections.ObjectModel.ObservableCollection<CharacterMeritFlaw>();
-                _character.MeritsFlaws.Add(new CharacterMeritFlaw { Id = item.Id, Name = item.Name, Type = item.Type, Cost = cost, Description = item.Description });
+                _character.MeritsFlaws.Add(new CharacterMeritFlaw { Id = item.Id, Name = item.Name, Type = item.Type, Cost = cost, Description = item.Description, FreebieCharged = AppSettings.FreebiePurchasesEnabled });
                 RefreshList();
             }
         }
@@ -201,10 +201,8 @@ namespace VtM_LoCh_fP
             var info = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = MeritFlawPickerWindow.BrushResource("MutedBrush"), Margin = new Thickness(2, 4, 2, 0) };
             body.Children.Add(info);
             var owned = character.MeritsFlaws ?? new System.Collections.ObjectModel.ObservableCollection<CharacterMeritFlaw>();
-            int flaws = owned.Where(x => x.Type == "flaw").Sum(x => x.Cost);
-            int merits = owned.Where(x => x.Type == "merit").Sum(x => x.Cost);
-            int free = character.MeritFlawBasePoints + flaws - merits;
-            info.Text = "Свободные очки сейчас: " + free + ". После покупки: " + (definition.Type == "flaw" ? "очков станет больше." : "очков станет меньше.");
+            info.Text = "Свободные пункты персонажа: " + character.CreationState.FreebiePoints +
+                ". " + (definition.Type == "flaw" ? "Недостаток увеличит свободные пункты персонажа." : "Достоинство уменьшит свободные пункты персонажа.") ;
             root.Children.Add(new ScrollViewer { Content = body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
             Content = root;
         }
@@ -218,17 +216,24 @@ namespace VtM_LoCh_fP
                 ThemedDialog.Show(this, "Эта характеристика уже выбрана.", "Покупка", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
+            int free = _character.CreationState.FreebiePoints;
             int flaws = owned.Where(x => x.Type == "flaw").Sum(x => x.Cost);
             int merits = owned.Where(x => x.Type == "merit").Sum(x => x.Cost);
-            int free = _character.MeritFlawBasePoints + flaws - merits;
-            if (_definition.Type == "merit" && cost > free)
+            if (AppSettings.FreebiePurchasesEnabled && _definition.Type == "merit" && cost > free)
             {
                 ThemedDialog.Show(this, "Недостаточно свободных очков для покупки этого достоинства.", "Недостаточно очков", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
-            if (_definition.Type == "flaw" && AppSettings.RuleOfSeven && flaws + cost > 7)
+            if (_definition.Type == "flaw" && AppSettings.RuleOfSeven &&
+                flaws + cost > CharacterCreationRules.GetCreationLimit("flaws"))
             {
                 ThemedDialog.Show(this, "Правило Семи запрещает брать недостатки суммарной стоимостью более 7 очков.", "Правило Семи", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            if (_definition.Type == "merit" &&
+                merits + cost > CharacterCreationRules.GetCreationLimit("merits"))
+            {
+                ThemedDialog.Show(this, "Превышен лимит достоинств из базы правил.", "Лимит достоинств", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
             var conflicts = owned.Where(x => _definition.IncompatibleWith.Contains(x.Id, StringComparer.OrdinalIgnoreCase)).Select(x => x.Name).ToList();
@@ -244,6 +249,34 @@ namespace VtM_LoCh_fP
                 return;
             }
             SelectedCost = cost;
+            if (AppSettings.FreebiePurchasesEnabled)
+            {
+                int balanceDelta = _definition.Type == "flaw" ? -cost : cost;
+                _character.CreationState.FreebiePoints -= balanceDelta;
+                if (_character.CreationState.FreebiePurchases == null)
+                    _character.CreationState.FreebiePurchases = new System.Collections.Generic.List<CreationPurchase>();
+                _character.CreationState.FreebiePurchasesConfirmed = false;
+                if (_character.CreationState.ConfirmedFreebieBlocks == null) _character.CreationState.ConfirmedFreebieBlocks = new System.Collections.Generic.List<string>();
+                _character.CreationState.ConfirmedFreebieBlocks.RemoveAll(x => string.Equals(x, "Достоинства и недостатки", System.StringComparison.OrdinalIgnoreCase));
+                _character.CreationState.FreebiePurchases.Add(new CreationPurchase
+                {
+                    Block = "Достоинства и недостатки",
+                    ItemId = _definition.Id,
+                    ItemName = _definition.Name,
+                    PreviousValue = 0,
+                    NewValue = cost,
+                    Cost = balanceDelta,
+                    Source = "freebie"
+                });
+                if (_character.CreationState.PurchaseLedger == null)
+                    _character.CreationState.PurchaseLedger = new System.Collections.Generic.List<PurchaseTransaction>();
+                _character.CreationState.PurchaseLedger.Add(new PurchaseTransaction
+                {
+                    Order = _character.CreationState.NextPurchaseOrder++, Block = "Достоинства и недостатки",
+                    Category = _definition.Type, ItemId = _definition.Id, ItemName = _definition.Name,
+                    PreviousValue = 0, NewValue = cost, Resource = "freebie", Cost = balanceDelta
+                });
+            }
             DialogResult = true;
         }
     }

@@ -1,7 +1,7 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- ================= Общие поля ввода ================= -->
+    <!-- Общие поля ввода  -->
     <Style x:Key="FieldLabelStyleB" TargetType="TextBlock">
         <Setter Property="Foreground" Value="#8f2525"/>
         <Setter Property="FontSize" Value="22"/>
@@ -59,7 +59,7 @@
 
     <Style TargetType="ToolTip" BasedOn="{StaticResource PopupToolTipStyle}"/>
 
-    <!-- Поля ввода: единый вид на всех страницах и в окнах создания персонажа -->
+    <!-- Поля ввода -->
     <Style TargetType="TextBox">
         <Setter Property="Background" Value="{DynamicResource InputBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
@@ -80,7 +80,7 @@
         </Style.Triggers>
     </Style>
 
-    <!-- Окна и текст по умолчанию используют активную палитру темы. -->
+    <!-- Окна и текст по умолчанию используют палитру темы. -->
     <Style TargetType="{x:Type Window}">
         <Setter Property="Background" Value="{DynamicResource BgBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
@@ -88,6 +88,9 @@
     </Style>
     <Style TargetType="{x:Type TextBlock}">
         <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+    </Style>
+    <Style TargetType="{x:Type ContentPresenter}">
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource TextBrush}"/>
     </Style>
 
     <Style TargetType="{x:Type ComboBoxItem}">
@@ -156,6 +159,7 @@
                             </ToggleButton.Template>
                         </ToggleButton>
                         <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"
                                           Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
                                           ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}" IsHitTestVisible="False"/>
                         <Popup x:Name="PART_Popup" Placement="Bottom" AllowsTransparency="True" Focusable="False"
@@ -254,6 +258,7 @@
                             BorderThickness="{TemplateBinding BorderThickness}"
                             CornerRadius="5" Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"
                                           RecognizesAccessKey="True"/>
                     </Border>
                     <ControlTemplate.Triggers>
@@ -277,7 +282,7 @@
         </Setter>
     </Style>
 
-    <!-- ================= Точки (круглые пипсы) ================= -->
+    <!-- Пул -->
 
     <Style x:Key="DotPipStyle" TargetType="CheckBox">
         <Setter Property="Width" Value="24"/>
@@ -305,7 +310,7 @@
         </Setter>
     </Style>
 
-    <!-- ================= Квадраты (запас крови, воля) ================= -->
+    <!-- Кваратный Пул -->
 
     <Style x:Key="SquarePipStyle" TargetType="CheckBox">
         <Setter Property="Width" Value="24"/>
@@ -333,7 +338,7 @@
         </Setter>
     </Style>
 
-    <!-- ================= Здоровье: отметки выходят за рамку ================= -->
+    <!-- Здоровье -->
 
     <Style x:Key="HealthMarkButtonStyle" TargetType="Button">
         <Setter Property="Width" Value="30"/>
@@ -368,7 +373,7 @@
         </Setter>
     </Style>
 
-    <!-- ================= Секции (GroupBox) ================= -->
+    <!-- Груп Боксы -->
 
     <Style x:Key="SectionBoxStyle" TargetType="GroupBox">
         <Setter Property="Margin" Value="4,4,4,8"/>
@@ -384,10 +389,11 @@
                             Padding="{TemplateBinding Padding}">
                         <DockPanel>
                             <ContentPresenter DockPanel.Dock="Top" ContentSource="Header"
+                                              TextElement.Foreground="{DynamicResource HeadingBrush}"
                                               TextBlock.FontSize="16" TextBlock.FontWeight="Bold"
                                               TextBlock.Foreground="{DynamicResource HeadingBrush}"
                                               Margin="0,0,0,8"/>
-                            <ContentPresenter ContentSource="Content"/>
+                            <ContentPresenter ContentSource="Content" TextElement.Foreground="{DynamicResource TextBrush}"/>
                         </DockPanel>
                     </Border>
                 </ControlTemplate>
@@ -395,7 +401,7 @@
         </Setter>
     </Style>
 
-    <!-- ================= Кнопки панели ================= -->
+    <!-- Кнопочки -->
 
     <Style x:Key="ToolbarButtonStyle" TargetType="Button">
         <Setter Property="Padding" Value="16,8"/>
@@ -411,7 +417,8 @@
                     <Border x:Name="Frame" Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="4"
                             Padding="{TemplateBinding Padding}">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -423,13 +430,14 @@
         </Setter>
     </Style>
 
-    <!-- ================= Вкладки (подчиняются теме) ================= -->
+    <!-- Вкладки -->
 
     <Style x:Key="SheetTabItemStyle" TargetType="TabItem">
         <Setter Property="FontSize" Value="16"/>
         <Setter Property="Padding" Value="18,10,18,10"/>
         <Setter Property="Margin" Value="0,0,5,0"/>
         <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Foreground" Value="{DynamicResource MutedBrush}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="TabItem">
@@ -437,21 +445,21 @@
                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1,1,1,0"
                             CornerRadius="6,6,0,0" Padding="{TemplateBinding Padding}">
                         <ContentPresenter x:Name="Header" ContentSource="Header"
-                                          TextBlock.Foreground="{DynamicResource MutedBrush}"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"
                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsSelected" Value="True">
                             <Setter TargetName="Root" Property="Background" Value="{DynamicResource AccentBrush}"/>
                             <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
-                            <Setter TargetName="Header" Property="TextBlock.Foreground" Value="{DynamicResource OnAccentBrush}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource SelectedTabTextBrush}"/>
                         </Trigger>
                         <MultiTrigger>
                             <MultiTrigger.Conditions>
                                 <Condition Property="IsSelected" Value="False"/>
                                 <Condition Property="IsMouseOver" Value="True"/>
                             </MultiTrigger.Conditions>
-                            <Setter TargetName="Header" Property="TextBlock.Foreground" Value="{DynamicResource AccentBrush}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
                         </MultiTrigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

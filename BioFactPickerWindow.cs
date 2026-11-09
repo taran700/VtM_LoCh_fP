@@ -31,7 +31,7 @@ namespace VtM_LoCh_fP
 
         public BioFactEntry Result { get; private set; }
 
-        public BioFactPickerWindow(CharacterProfile character)
+        public BioFactPickerWindow(CharacterProfile character, int maximumLevel = 5)
         {
             _freeMode = string.Equals(character.CreationMode, "Свободный Неонат", StringComparison.OrdinalIgnoreCase);
             _definitions = BioFactService.GetAll();
@@ -80,7 +80,7 @@ namespace VtM_LoCh_fP
             }
 
             var levelRow = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 3, 0, 6) };
-            _levelTrack = new TrackControl { Label = "Уровень", Count = 5, LabelWidth = 90, Width = 255, HorizontalAlignment = HorizontalAlignment.Left, Cascade = true };
+            _levelTrack = new TrackControl { Label = "Уровень", Count = Math.Max(0, Math.Min(5, maximumLevel)), LabelWidth = 90, Width = 255, HorizontalAlignment = HorizontalAlignment.Left, Cascade = true };
             _levelTrack.ValueChanged += (s, e) => UpdatePreview();
             levelRow.Children.Add(_levelTrack);
             selectionPanel.Children.Add(levelRow);
@@ -245,9 +245,9 @@ namespace VtM_LoCh_fP
                 return;
             }
             int selectedLevel = _levelTrack.Value;
-            if (selectedLevel < 1 || selectedLevel > 5)
+            if (selectedLevel < 1 || selectedLevel > _levelTrack.Count)
             {
-                ThemedDialog.Show(this, "Укажите уровень факта биографии.", "Факт биографии", MessageBoxButton.OK, MessageBoxImage.Information);
+                ThemedDialog.Show(this, "Доступных точек для нового факта биографии больше нет.", "Факт биографии", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
             Result = new BioFactEntry

@@ -3,14 +3,21 @@ using System.ComponentModel;
 
 namespace VtM_LoCh_fP.ViewModels
 {
-    /// <summary>Одна точка или один квадрат в дорожке значений.</summary>
+    /// Одна точка или один квадрат в дорожке значений
     public sealed class PipItem : INotifyPropertyChanged
     {
         private bool _isChecked;
+        private bool _isEnabled = true;
 
         public PipItem(int index) => Index = index;
 
         public int Index { get; }
+
+        public bool IsEnabled
+        {
+            get => _isEnabled;
+            set { if (_isEnabled == value) return; _isEnabled = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsEnabled))); }
+        }
 
         public bool IsChecked
         {
@@ -26,7 +33,7 @@ namespace VtM_LoCh_fP.ViewModels
         public event PropertyChangedEventHandler PropertyChanged;
     }
 
-    /// <summary>Один слот здоровья: 0 — пусто, 1 — лёгкое, 2 — тяжёлое, 3 — губительное.</summary>
+    /// Один слот здоровья: 0 — пусто, 1 — лёгкое, 2 — тяжёлое, 3 — губительное
     public sealed class WoundLevel : INotifyPropertyChanged
     {
         private int _state;
@@ -52,7 +59,7 @@ namespace VtM_LoCh_fP.ViewModels
         public event PropertyChangedEventHandler PropertyChanged;
     }
 
-    /// <summary>Общий список уровней здоровья V20.</summary>
+    /// Общий список уровней здоровья V20
     public static class WoundLevels
     {
         public static ObservableCollection<WoundLevel> CreateDefault() => new ObservableCollection<WoundLevel>

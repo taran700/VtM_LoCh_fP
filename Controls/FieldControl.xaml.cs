@@ -1,10 +1,10 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Controls;
 using System;
 
 namespace VtM_LoCh_fP.Controls
 {
-    /// <summary>Подпись и поле ввода под ней. Обычное или многострочное.</summary>
+    /// <summary>Поля ввода</summary>
     public partial class FieldControl : UserControl
     {
         public static readonly DependencyProperty LabelProperty =
@@ -52,7 +52,13 @@ namespace VtM_LoCh_fP.Controls
             set => Input.Text = value;
         }
 
-        /// <summary>Режимы, которые нельзя выразить биндингом напрямую (enum'ы).</summary>
+        public bool IsReadOnly
+        {
+            get => Input.IsReadOnly;
+            set => Input.IsReadOnly = value;
+        }
+
+        /// <summary>Энум (без биндинга)</summary>
         public TextWrapping WrapMode => Multiline ? TextWrapping.Wrap : TextWrapping.NoWrap;
 
         public ScrollBarVisibility ScrollMode =>

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -11,6 +12,8 @@ namespace VtM_LoCh_fP.Views
     public partial class PageThreeView : UserControl
     {
         private CharacterProfile _character;
+        public event Action InitialPurchaseProgressChanged;
+        public event Func<string, string, int, int, bool> AdvancementCheck;
         public PageThreeView() { InitializeComponent(); }
 
         public void InitializeCharacter(CharacterProfile character)
@@ -19,6 +22,15 @@ namespace VtM_LoCh_fP.Views
             if(_character.Disciplines==null)_character.Disciplines=new System.Collections.ObjectModel.ObservableCollection<CharacterDiscipline>();
             if(_character.CustomDisciplines==null)_character.CustomDisciplines=new System.Collections.ObjectModel.ObservableCollection<DisciplineDefinition>();
             if(_character.Rituals==null)_character.Rituals=new System.Collections.ObjectModel.ObservableCollection<CharacterRitual>();
+            foreach (var group in _character.Disciplines.GroupBy(x => x.DisciplineId, StringComparer.OrdinalIgnoreCase))
+            {
+                bool first = true;
+                foreach (var path in group)
+                {
+                    if (!first) path.IsSecondaryPath = true;
+                    first = false;
+                }
+            }
             RenderDisciplines();
         }
 
@@ -30,7 +42,23 @@ namespace VtM_LoCh_fP.Views
         private void OpenDisciplineCatalog_Click(object sender,RoutedEventArgs e)
         {
             if(_character==null)return;
-            var all=DisciplineService.GetAll().ToList();all.AddRange(_character.CustomDisciplines);
+            if (string.IsNullOrWhiteSpace(_character.ClanName))
+            {
+                ThemedDialog.Show(Window.GetWindow(this), "Сначала выберите клан на первой вкладке листа персонажа, затем можно будет выбрать дисциплину.", "Не выбран клан", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var all=DisciplineService.GetAll().ToList();
+            all.AddRange(_character.CustomDisciplines);
+            var knownClan = ClanService.GetClans().FirstOrDefault(x => string.Equals(x.Name, _character.ClanName, StringComparison.OrdinalIgnoreCase));
+            bool isCaitiff = _character.ClanName.IndexOf("каити", StringComparison.OrdinalIgnoreCase) >= 0;
+            // У обычного известного клана доступны только его клановые дисциплины
+            // Пользовательский клан и каитиф не ограничиваются каталогом клановых дисциплин
+            if (knownClan != null && !isCaitiff)
+            {
+                var clanIds = new System.Collections.Generic.HashSet<string>(DisciplineService.GetClanDisciplineIds(_character.ClanName), StringComparer.OrdinalIgnoreCase);
+                all = all.Where(x => clanIds.Contains(x.Id)).ToList();
+            }
             var chosen=DisciplineWindows.Choose(Window.GetWindow(this),all,DisciplineService.GetClanDisciplineIds(_character.ClanName),
                 string.Equals(_character.CreationMode,"Свободный Неонат",StringComparison.OrdinalIgnoreCase),
                 custom=>{var existing=_character.CustomDisciplines.FirstOrDefault(x=>x.Id==custom.Id);if(existing==null)_character.CustomDisciplines.Add(custom);});
@@ -39,7 +67,15 @@ namespace VtM_LoCh_fP.Views
                 x.DisciplineId==chosen.Id &&
                 string.Equals(x.PathId ?? string.Empty, chosen.PathId ?? string.Empty, StringComparison.OrdinalIgnoreCase));
             if(selected==null)
-                _character.Disciplines.Add(new CharacterDiscipline{DisciplineId=chosen.Id,Name=chosen.Name,Level=0,IsCustom=chosen.IsCustom,PathId=chosen.PathId,PathName=chosen.PathName});
+            {
+                bool secondaryPath = _character.Disciplines.Any(x =>
+                    string.Equals(x.DisciplineId, chosen.Id, StringComparison.OrdinalIgnoreCase));
+                _character.Disciplines.Add(new CharacterDiscipline
+                {
+                    DisciplineId=chosen.Id, Name=chosen.Name, Level=0, IsCustom=chosen.IsCustom,
+                    PathId=chosen.PathId, PathName=chosen.PathName, IsSecondaryPath=secondaryPath
+                });
+            }
             else if(!string.IsNullOrEmpty(chosen.PathId))
             {
                 selected.PathId=chosen.PathId;
@@ -47,6 +83,7 @@ namespace VtM_LoCh_fP.Views
                 selected.Name=chosen.Name;
             }
             RenderDisciplines();
+            InitialPurchaseProgressChanged?.Invoke();
         }
 
         private void StudyRitual_Click(object sender, RoutedEventArgs e)
@@ -80,6 +117,7 @@ namespace VtM_LoCh_fP.Views
                             int index=_character.CustomDisciplines.IndexOf(definition);
                             if(index>=0)_character.CustomDisciplines[index]=edited;
                             item.DisciplineId=edited.Id;item.Name=edited.Name;RenderDisciplines();
+                            InitialPurchaseProgressChanged?.Invoke();
                         }
                     };
                     top.Children.Add(edit);
@@ -89,26 +127,138 @@ namespace VtM_LoCh_fP.Views
                     displayName += ". "+item.PathName;
                 top.Children.Add(new TextBlock{Text=displayName,FontSize=18,FontWeight=FontWeights.SemiBold,VerticalAlignment=VerticalAlignment.Center,TextWrapping=TextWrapping.Wrap});
                 root.Children.Add(top);
-                int count=GetDisciplinePointCount(definition);
-                var track=new TrackControl{Label="",Count=count,Cascade=true,LabelWidth=0,Margin=new Thickness(0,8,0,0),Height=48,HorizontalAlignment=HorizontalAlignment.Left};
-                track.SetTrackValue(Math.Max(0,Math.Min(count,item.Level)));
-                track.ValueChanged+=(s,e)=>{item.Level=Math.Min(count,track.Value);RenderCards();};
+                int count = GetDisciplinePointCount(definition);
+                item.Level = Math.Max(0, Math.Min(count, item.Level));
+                var track=new TrackControl{Label="",Count=count,Cascade=true,LegacyCascade=true,LabelWidth=0,Margin=new Thickness(0,8,0,0),Height=48,HorizontalAlignment=HorizontalAlignment.Left};
+                track.SetTrackValue(item.Level);
+                track.IsEnabled = true;
+                track.MaxValue = count;
+                track.ValueChanged+=(s,e)=>
+                {
+                    int previous = item.Level;
+                    int next = Math.Min(count, track.Value);
+                    if (!_character.CreationState.ConfirmedInitialBlocks.Contains("disciplines") && next > previous)
+                    {
+                        int remaining;
+                        if (_character.CreationState.InitialDisciplineBlockEverConfirmed && _character.CreationState.InitialDisciplineDots != null)
+                        {
+                            int initialCurrent;
+                            _character.CreationState.InitialDisciplineDots.TryGetValue((item.IsSecondaryPath && !string.IsNullOrWhiteSpace(item.PathName) ? item.Name + " — " + item.PathName : item.Name), out initialCurrent);
+                            int initialOther = _character.CreationState.InitialDisciplineDots.Where(x => !string.Equals(x.Key, (item.IsSecondaryPath && !string.IsNullOrWhiteSpace(item.PathName) ? item.Name + " — " + item.PathName : item.Name), StringComparison.OrdinalIgnoreCase)).Sum(x => Math.Max(0, x.Value));
+                            remaining = Math.Max(0, CharacterCreationRules.GetCreationLimit("disciplines") - initialOther - initialCurrent);
+                            int paidDots = _character.CreationState.PurchaseLedger == null ? 0 : _character.CreationState.PurchaseLedger
+                                .Where(t => string.Equals(t.ItemName, (item.IsSecondaryPath && !string.IsNullOrWhiteSpace(item.PathName) ? item.Name + " — " + item.PathName : item.Name), StringComparison.OrdinalIgnoreCase) && t.Resource != "initial_pool")
+                                .Sum(t => Math.Max(0, t.NewValue - t.PreviousValue));
+                            next = Math.Min(next, paidDots + initialCurrent + remaining);
+                        }
+                        else
+                        {
+                            remaining = Math.Max(0, CharacterCreationRules.GetCreationLimit("disciplines") - _character.Disciplines.Where(x => !ReferenceEquals(x, item)).Sum(x => Math.Max(0, x.Level)) - previous);
+                            next = Math.Min(next, previous + remaining);
+                        }
+                    }
+                    if (next != track.Value) track.SetTrackValue(next);
+                    bool freebieMode = string.Equals(_character.CreationMode, "Свободный Неонат", StringComparison.OrdinalIgnoreCase) &&
+                        (AppSettings.NeonatePurchaseMode == "Свободные пункты → опыт" || AppSettings.NeonatePurchaseMode == "Только свободные пункты");
+                    if (next > previous && freebieMode && _character.CreationState.FreebiePoints >= CharacterCreationRules.GetFreebieCost("discipline") &&
+                        string.IsNullOrWhiteSpace(item.Justification))
+                    {
+                        ThemedDialog.Show(Window.GetWindow(this), "Укажите обоснование изучения этой дисциплины перед покупкой за свободные пункты.", "Требуется обоснование", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        track.SetTrackValue(previous);
+                        return;
+                    }
+                    string advancementKey = item.IsSecondaryPath ? "secondary_path" : "discipline";
+                    string advancementName = item.IsSecondaryPath && !string.IsNullOrWhiteSpace(item.PathName)
+                        ? item.Name + " — " + item.PathName : item.Name;
+                    bool hasRecordedPurchase = _character.CreationState.PurchaseLedger != null && _character.CreationState.PurchaseLedger.Any(t => string.Equals(t.ItemName, advancementName, StringComparison.OrdinalIgnoreCase));
+                    if (next != previous && (_character.CreationState.ConfirmedInitialBlocks.Contains("disciplines") || (hasRecordedPurchase && next < previous)) &&
+                        AdvancementCheck != null && !AdvancementCheck(advancementKey, advancementName, previous, next))
+                    { track.SetTrackValue(previous); return; }
+                    item.Level=next;
+                    if (!_character.CreationState.ConfirmedInitialBlocks.Contains("disciplines") &&
+                        _character.CreationState.InitialDisciplineBlockEverConfirmed && _character.CreationState.InitialDisciplineDots != null)
+                    {
+                        string ledgerName = item.IsSecondaryPath && !string.IsNullOrWhiteSpace(item.PathName) ? item.Name + " — " + item.PathName : item.Name;
+                        int paidDots = _character.CreationState.PurchaseLedger == null ? 0 : _character.CreationState.PurchaseLedger
+                            .Where(t => string.Equals(t.ItemName, ledgerName, StringComparison.OrdinalIgnoreCase) && t.Resource != "initial_pool")
+                            .Sum(t => Math.Max(0, t.NewValue - t.PreviousValue));
+                        _character.CreationState.InitialDisciplineDots[ledgerName] = Math.Max(0, next - paidDots);
+                    }
+                    RenderDisciplines();
+                    InitialPurchaseProgressChanged?.Invoke();
+                };
                 root.Children.Add(track);
+                root.Children.Add(new TextBlock { Text = "Обоснование изучения дисциплины", Margin = new Thickness(0, 8, 0, 3), Foreground = BrushResource("MutedBrush") });
+                var justification = new TextBox
+                {
+                    Text = item.Justification ?? string.Empty,
+                    MinHeight = 48,
+                    AcceptsReturn = true,
+                    TextWrapping = TextWrapping.Wrap,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+                };
+                justification.TextChanged += (s, e) => item.Justification = justification.Text;
+                root.Children.Add(justification);
                 Grid.SetColumn(root, 0);
                 layout.Children.Add(root);
                 var remove = CreateDeleteIconButton("Удалить дисциплину", 64);
+                remove.IsEnabled = true;
                 remove.Margin = new Thickness(10, 0, 0, 0);
-                remove.Click += (s,e)=>{_character.Disciplines.Remove(item);RenderDisciplines();};
+                remove.Click += (s,e)=>
+                {
+                    string advancementName = item.IsSecondaryPath && !string.IsNullOrWhiteSpace(item.PathName) ? item.Name + " — " + item.PathName : item.Name;
+                    string advancementKey = item.IsSecondaryPath ? "secondary_path" : "discipline";
+                    bool hasRecordedPurchase = _character.CreationState.PurchaseLedger != null && _character.CreationState.PurchaseLedger.Any(t => string.Equals(t.ItemName, advancementName, StringComparison.OrdinalIgnoreCase));
+                    if (item.Level > 0 && hasRecordedPurchase && AdvancementCheck != null && !AdvancementCheck(advancementKey, advancementName, item.Level, 0)) return;
+                    _character.Disciplines.Remove(item); RenderDisciplines();
+                    InitialPurchaseProgressChanged?.Invoke();
+                };
                 Grid.SetColumn(remove, 1);
                 layout.Children.Add(remove);
                 border.Child=layout;SelectedDisciplinesPanel.Children.Add(border);
             }
             bool hasRitualDiscipline = _character.Disciplines.Any(x => DisciplineService.GetRituals(x.DisciplineId).Count > 0);
+            OpenDisciplineCatalogButton.IsEnabled = true;
             StudyRitualButton.Visibility = hasRitualDiscipline ? Visibility.Visible : Visibility.Collapsed;
             RitualsGroupBox.Visibility = hasRitualDiscipline || _character.Rituals.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
             if(_character.Disciplines.Count==0)SelectedDisciplinesPanel.Children.Add(new TextBlock{Text="Дисциплины ещё не выбраны.",Foreground=BrushResource("MutedBrush"),Margin=new Thickness(2,4,2,2)});
+            int usedDots = _character.CreationState.InitialDisciplineBlockEverConfirmed
+                ? (_character.CreationState.InitialDisciplineDots == null ? 0 : _character.CreationState.InitialDisciplineDots.Values.Sum())
+                : _character.Disciplines.Sum(x => Math.Max(0, x.Level));
+            int poolDots = CharacterCreationRules.GetCreationLimit("disciplines");
+            DisciplinesRemainingLabel.Text = "Осталось точек: " + Math.Max(0, poolDots - usedDots);
+            bool confirmed = _character.CreationState.ConfirmedInitialBlocks.Contains("disciplines");
+            DisciplinesRemainingLabel.Visibility = confirmed ? Visibility.Collapsed : Visibility.Visible;
+            ConfirmDisciplinesButton.Visibility = confirmed ? Visibility.Collapsed : Visibility.Visible;
             RenderCards();
             RenderRitualCards();
+        }
+
+        private void ConfirmDisciplines_Click(object sender, RoutedEventArgs e)
+        {
+            if (_character == null) return;
+            if (_character.CreationState.InitialPurchases == null) _character.CreationState.InitialPurchases = new List<CreationPurchase>();
+            _character.CreationState.InitialPurchases.RemoveAll(p => p.Block == "Дисциплины");
+            _character.CreationState.PurchaseLedger.RemoveAll(t => t.Resource == "initial_pool" && t.Block == "Дисциплины");
+            if (_character.CreationState.InitialDisciplineDots == null) _character.CreationState.InitialDisciplineDots = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            bool hadInitialDisciplineSnapshot = _character.CreationState.InitialDisciplineBlockEverConfirmed;
+            if (!hadInitialDisciplineSnapshot) _character.CreationState.InitialDisciplineDots.Clear();
+            foreach (var discipline in _character.Disciplines)
+            {
+                string snapshotKey = discipline.IsSecondaryPath && !string.IsNullOrWhiteSpace(discipline.PathName) ? discipline.Name + " — " + discipline.PathName : discipline.Name;
+                if (!hadInitialDisciplineSnapshot && !_character.CreationState.InitialDisciplineDots.ContainsKey(snapshotKey))
+                    _character.CreationState.InitialDisciplineDots[snapshotKey] = discipline.Level;
+                int initialLevel;
+                if (!_character.CreationState.InitialDisciplineDots.TryGetValue(snapshotKey, out initialLevel)) initialLevel = 0;
+                _character.CreationState.InitialPurchases.Add(new CreationPurchase { Block = "Дисциплины", ItemId = discipline.DisciplineId, ItemName = snapshotKey, PreviousValue = 0, NewValue = initialLevel, Cost = 0, Source = "initial" });
+                for (int level = 0; level < initialLevel; level++)
+                    _character.CreationState.PurchaseLedger.Add(new PurchaseTransaction { Order = _character.CreationState.NextPurchaseOrder++, Block = "Дисциплины", Category = "discipline", ItemId = discipline.DisciplineId, ItemName = snapshotKey, PreviousValue = level, NewValue = level + 1, Resource = "initial_pool", Cost = 0 });
+            }
+            _character.CreationState.InitialDisciplineBlockEverConfirmed = true;
+            _character.CreationState.ConfirmInitialBlock("disciplines");
+            RenderDisciplines();
+            InitialPurchaseProgressChanged?.Invoke();
+            (Window.GetWindow(this) as MainWindow)?.RefreshGenerationFromCharacter();
         }
 
         private void RenderRitualCards()
