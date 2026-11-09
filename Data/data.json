@@ -10977,7 +10977,10 @@
       "virtues": 7,
       "merits": 7,
       "flaws": 7,
-      "freebies": 15
+      "freebies": 15,
+      "attribute_base": 1,
+      "virtue_base": 1,
+      "ability_creation_max": 3
     },
     "formulas": {
       "initiative": {
@@ -11327,7 +11330,8 @@
         "secondary_path": 4,
         "virtue": 2,
         "willpower": 1,
-        "humanity_path": 2
+        "humanity_path": 2,
+        "discipline_multiplier": 6
       },
       "initial_stats": {
         "humanity": "Совесть + Самоконтроль",
@@ -11394,6 +11398,15 @@
           "note": "Ритуалы Тауматургии в книге распределены по уровням 1–5 (стр. 228–240). Приведённые ритуалы 3–5 уровней соответствуют описанию."
         }
       ]
+    },
+    "freebie_costs": {
+      "attribute": 5,
+      "ability": 2,
+      "discipline": 7,
+      "background": 1,
+      "virtue": 2,
+      "humanity_path": 2,
+      "willpower": 1
     }
   }
 }

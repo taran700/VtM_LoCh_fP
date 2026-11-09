@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -15,10 +15,10 @@ namespace VtM_LoCh_fP.Controls
         SquaresH
     }
 
-    /// <summary>
-    /// Дорожка значений: подпись (возможно редактируемая) и ряд точек либо квадратов.
-    /// Отметка каскадная: клик закрашивает фишку и всё левее, снятие очищает всё правее.
-    /// </summary>
+
+    /// Дорожка значений: подпись и ряд точек либо квадратов
+    /// Отметка: клик закрашивает пул и всё левее, снятие очищает всё правее
+  
     public partial class TrackControl : UserControl
     {
         public static readonly DependencyProperty LabelProperty =
@@ -29,11 +29,15 @@ namespace VtM_LoCh_fP.Controls
             DependencyProperty.Register(nameof(Count), typeof(int), typeof(TrackControl),
                 new PropertyMetadata(5, OnCountChanged));
 
+        public static readonly DependencyProperty MaxValueProperty =
+            DependencyProperty.Register(nameof(MaxValue), typeof(int), typeof(TrackControl),
+                new PropertyMetadata(int.MaxValue, OnMaxValueChanged));
+
         public static readonly DependencyProperty ShapeProperty =
             DependencyProperty.Register(nameof(Shape), typeof(PipShape), typeof(TrackControl),
                 new PropertyMetadata(PipShape.Dots, OnShapeChanged));
 
-        /// <summary>Число колонок для квадратов: 0 — один ряд, 5 — два ряда по пять.</summary>
+        /// Число колонок для квадратов: 0 — один ряд, 5 — два ряда по пять
         public static readonly DependencyProperty ColumnsProperty =
             DependencyProperty.Register(nameof(Columns), typeof(int), typeof(TrackControl),
                 new PropertyMetadata(0, OnColumnsChanged));
@@ -50,6 +54,10 @@ namespace VtM_LoCh_fP.Controls
             DependencyProperty.Register(nameof(Cascade), typeof(bool), typeof(TrackControl),
                 new PropertyMetadata(true));
 
+        public static readonly DependencyProperty LegacyCascadeProperty =
+            DependencyProperty.Register(nameof(LegacyCascade), typeof(bool), typeof(TrackControl),
+                new PropertyMetadata(false));
+
         public static readonly DependencyProperty ItemsProperty =
             DependencyProperty.Register(nameof(Items), typeof(ObservableCollection<PipItem>), typeof(TrackControl),
                 new PropertyMetadata(null));
@@ -59,7 +67,7 @@ namespace VtM_LoCh_fP.Controls
                 new PropertyMetadata(false, OnForcedZeroChanged));
 
         private bool _syncing;
-        private bool _userInputInProgress;
+        private bool _legacyUserInputInProgress;
         private Popup _descriptionPopup;
 
         public string InfoDescription { get; set; }
@@ -86,6 +94,12 @@ namespace VtM_LoCh_fP.Controls
         {
             get => (int)GetValue(CountProperty);
             set => SetValue(CountProperty, value);
+        }
+
+        public int MaxValue
+        {
+            get => (int)GetValue(MaxValueProperty);
+            set => SetValue(MaxValueProperty, value);
         }
 
         public PipShape Shape
@@ -116,6 +130,12 @@ namespace VtM_LoCh_fP.Controls
         {
             get => (bool)GetValue(CascadeProperty);
             set => SetValue(CascadeProperty, value);
+        }
+
+        public bool LegacyCascade
+        {
+            get => (bool)GetValue(LegacyCascadeProperty);
+            set => SetValue(LegacyCascadeProperty, value);
         }
 
         public ObservableCollection<PipItem> Items
@@ -161,6 +181,9 @@ namespace VtM_LoCh_fP.Controls
             track.SetTrackValue(System.Math.Min(previousValue, track.Count));
         }
 
+        private static void OnMaxValueChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+            => ((TrackControl)d).ApplyMaxValue();
+
         private static void OnShapeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
             => ((TrackControl)d).ApplyShape();
 
@@ -183,6 +206,15 @@ namespace VtM_LoCh_fP.Controls
             for (int i = 0; i < count; i++) items.Add(new PipItem(i));
             Items = items;
             if (IsForcedZero) ApplyForcedZero();
+            ApplyMaxValue();
+        }
+
+        private void ApplyMaxValue()
+        {
+            if (Items == null) return;
+            int maximum = System.Math.Max(0, System.Math.Min(Count, MaxValue));
+            foreach (PipItem item in Items)
+                item.IsEnabled = item.IsChecked || item.Index < maximum;
         }
 
         private void ApplyShape()
@@ -206,7 +238,6 @@ namespace VtM_LoCh_fP.Controls
             SquareItemsH.IsEnabled = !IsForcedZero;
             LabelText.TextDecorations = null;
             ForcedZeroStrike.Visibility = IsForcedZero ? Visibility.Visible : Visibility.Collapsed;
-            ForcedZeroStrikeSecond.Visibility = IsForcedZero ? Visibility.Visible : Visibility.Collapsed;
             if (!IsForcedZero || Items == null) return;
 
             _syncing = true;
@@ -223,31 +254,71 @@ namespace VtM_LoCh_fP.Controls
 
         private void Pip_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
-            _userInputInProgress = true;
+            if (_syncing || Items == null || !Cascade) return;
+            var pip = FindPipItem(e.OriginalSource as DependencyObject);
+            if (pip == null || !pip.IsEnabled) return;
+            if (LegacyCascade)
+            {
+                _legacyUserInputInProgress = true;
+                return;
+            }
+
+            // Обрабатываем нажатие до стандартного переключения CheckBox.
+            // Иначе WPF сначала снимет саму точку, хотя по новому правилу
+            // она должна остаться закрашенной, если справа ещё есть точки.
+            e.Handled = true;
+            ApplyUserClick(pip);
         }
 
         private void Pip_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
-            if (e.Key == System.Windows.Input.Key.Space || e.Key == System.Windows.Input.Key.Enter)
-                _userInputInProgress = true;
+            if (_syncing || Items == null || !Cascade ||
+                (e.Key != System.Windows.Input.Key.Space && e.Key != System.Windows.Input.Key.Enter)) return;
+            var pip = FindPipItem(e.OriginalSource as DependencyObject);
+            if (pip == null || !pip.IsEnabled) return;
+            if (LegacyCascade)
+            {
+                _legacyUserInputInProgress = true;
+                return;
+            }
+            e.Handled = true;
+            ApplyUserClick(pip);
         }
 
-        private void Pip_Checked(object sender, RoutedEventArgs e) => ApplyCascade(e, true);
+        private void Pip_Checked(object sender, RoutedEventArgs e) => ApplyLegacyCascade(e, true);
+        private void Pip_Unchecked(object sender, RoutedEventArgs e) => ApplyLegacyCascade(e, false);
 
-        private void Pip_Unchecked(object sender, RoutedEventArgs e) => ApplyCascade(e, false);
-
-        private void ApplyCascade(RoutedEventArgs e, bool isChecked)
+        private void ApplyLegacyCascade(RoutedEventArgs e, bool isChecked)
         {
-            if (!_userInputInProgress || _syncing || !Cascade || Items == null) return;
+            if (!_legacyUserInputInProgress || _syncing || !LegacyCascade || Items == null) return;
             if (!(e.OriginalSource is FrameworkElement source) || !(source.DataContext is PipItem pip)) return;
-            // Программная пересборка дорожки тоже поднимает событие — реагируем только на реальный клик.
             if (pip.IsChecked != isChecked) return;
+            int value = isChecked ? pip.Index + 1 : pip.Index;
+            SetTrackValue(value);
+            ApplyMaxValue();
+            _legacyUserInputInProgress = false;
+            ValueChanged?.Invoke(this, System.EventArgs.Empty);
+        }
 
-            int value = TrackLogic.ValueAfterToggle(pip.Index, isChecked);
-            _syncing = true;
-            for (int i = 0; i < Items.Count; i++) Items[i].IsChecked = i < value;
-            _syncing = false;
-            _userInputInProgress = false;
+        private PipItem FindPipItem(DependencyObject source)
+        {
+            while (source != null)
+            {
+                if (source is FrameworkElement element && element.DataContext is PipItem item)
+                    return item;
+                source = source is Visual || source is System.Windows.Media.Media3D.Visual3D
+                    ? VisualTreeHelper.GetParent(source)
+                    : LogicalTreeHelper.GetParent(source);
+            }
+            return null;
+        }
+
+        private void ApplyUserClick(PipItem pip)
+        {
+            int next = TrackLogic.ValueAfterClick(Value, pip.Index);
+
+            SetTrackValue(next);
+            ApplyMaxValue();
             ValueChanged?.Invoke(this, System.EventArgs.Empty);
         }
 

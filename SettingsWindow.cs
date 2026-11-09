@@ -1,15 +1,19 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media.Imaging;
 
 namespace VtM_LoCh_fP
 {
     internal sealed class SettingsWindow : Window
     {
         private readonly ComboBox _theme, _points, _healing, _ruleOfSeven;
+        private readonly ComboBox _storytellerPrices;
+        private readonly ComboBox _neonatePurchaseMode;
 
         public SettingsWindow()
         {
-            Title = "Настройки";
+            Title = "Вампстройки";
+            Icon = new BitmapImage(new System.Uri("pack://application:,,,/Resources/Vampiric.ico", System.UriKind.Absolute));
             Width = 460;
             Height = 540;
             MinHeight = 540;
@@ -62,7 +66,9 @@ namespace VtM_LoCh_fP
                     Items = { "Сир, я сделаю сам", "Работать Гуль!" },
                     SelectedItem = AppSettings.WoundHealingMode,
                     Height = 36
-                });
+                },"«Сир, я сделаю сам» — отметка раны снимается без автоматической траты крови. «Работать Гуль!» — лечение списывает кровь по правилам V20.");
+
+
 
             AddSetting(panel, "Правило Семи в Недостатках",
                 _ruleOfSeven = new ComboBox
@@ -73,14 +79,25 @@ namespace VtM_LoCh_fP
                 },
                 "Правило запрещает брать на себя недостатки сумма стоимости которых более 7");
 
+           
+            
+            AddSetting(panel, "Автоматическая закупка (только Свободный Неонат)",
+                _neonatePurchaseMode = new ComboBox
+                {
+                    Items = { "Свободные пункты затем опыт", "Только свободные пункты", "Только опыт", "Без автоматической закупки" },
+                    SelectedItem = AppSettings.NeonatePurchaseMode,
+                    Height = 36
+                },
+                "При смешанном режиме сначала списываются свободные пункты. Если их нет используется опыт. В режиме Птенца опыт обязателен независимо от этой настройки.");
             panel.Children.Add(new TextBlock
             {
-                Text = "«Сир, я сделаю сам» — отметка раны снимается без автоматической траты крови. «Работать Гуль!» — лечение списывает кровь по правилам V20.",
+                Text = "Эта настройка применяется только в режиме «Свободный Неонат». При смешанном режиме сначала списываются свободные пункты. Если их нет используется опыт.",
                 TextWrapping = TextWrapping.Wrap,
                 Foreground = (System.Windows.Media.Brush)Application.Current.Resources["MutedBrush"],
-                Margin = new Thickness(0, 8, 0, 18),
-                Opacity = 1
+                Margin = new Thickness(0, 0, 0, 14)
             });
+
+            
 
             Content = root;
         }
@@ -98,12 +115,28 @@ namespace VtM_LoCh_fP
             panel.Children.Add(combo);
         }
 
+        private static CheckBox AddToggle(Panel panel, string label, bool value)
+        {
+            var check = new CheckBox
+            {
+                Content = label,
+                IsChecked = value,
+                Margin = new Thickness(0, 0, 0, 10),
+                Foreground = (System.Windows.Media.Brush)Application.Current.Resources["TextBrush"]
+            };
+            panel.Children.Add(check);
+            return check;
+        }
+
         private void Save_Click(object sender, RoutedEventArgs e)
         {
             AppSettings.DarkTheme = _theme.SelectedIndex == 1;
             AppSettings.GenerationPointIncrease = (_points.SelectedItem as string) != "Отключено";
             AppSettings.WoundHealingMode = _healing.SelectedItem as string ?? "Работать Гуль!";
             AppSettings.RuleOfSeven = (_ruleOfSeven.SelectedItem as string) == "Мы чтим книгу!";
+            AppSettings.NeonatePurchaseMode = _neonatePurchaseMode.SelectedItem as string ?? "Свободные пункты затем опыт";
+            AppSettings.FreebiePurchasesEnabled = AppSettings.NeonatePurchaseMode == "Свободные пункты затем опыт" || AppSettings.NeonatePurchaseMode == "Только свободные пункты";
+            AppSettings.ExperiencePurchasesEnabled = AppSettings.NeonatePurchaseMode == "Свободные пункты затем опыт" || AppSettings.NeonatePurchaseMode == "Только опыт";
             AppSettings.Save();
             DialogResult = true;
         }

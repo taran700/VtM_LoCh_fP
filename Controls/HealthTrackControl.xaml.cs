@@ -45,7 +45,7 @@ namespace VtM_LoCh_fP.Controls
             bool aggravatedMode = AllowAggravatedDamage != null && AllowAggravatedDamage();
             if (aggravatedMode)
             {
-                // Губительное повреждение всегда занимает верхний слот.
+                // Губительное повреждение всегда занимает верхний слот
                 var states = Levels.Select(x => x.State).ToList();
                 states.Insert(0, 3);
                 states = states.Take(7).ToList();
@@ -53,13 +53,13 @@ namespace VtM_LoCh_fP.Controls
             }
             else if (level.State == 0)
             {
-                // Пока есть лёгкие повреждения, новое попадание повышает самое верхнее из них.
+                // Пока есть лёгкие повреждения, новое попадание повышает самое верхнее из них
                 var light = Levels.FirstOrDefault(x => x.State == 1);
                 if (light != null) light.State = 2;
                 else level.State = 1;
             }
             else if (level.State == 1) level.State = 2;
-            // Левый клик наносит или повышает повреждение; снятие — только ПКМ.
+            // Левый клик наносит или повышает повреждение; снятие — только ПКМ
 
             Normalize(); StateChanged?.Invoke();
         }
@@ -69,14 +69,14 @@ namespace VtM_LoCh_fP.Controls
             e.Handled = true;
             var clicked = (sender as FrameworkElement)?.DataContext as WoundLevel;
             if (clicked == null || !Levels.Any(x => x.State > 0)) return;
-            // Лечение всегда идёт от самых лёгких ран к самым тяжёлым, независимо от нажатого слота.
+            // Лечение всегда идёт от самых лёгких ран к самым тяжёлым, независимо от нажатого слота
             var level = Levels.LastOrDefault(x => x.State == 1) ??
                         Levels.LastOrDefault(x => x.State == 2) ??
                         Levels.LastOrDefault(x => x.State == 3);
             if (level == null) return;
 
-            // В обоих режимах лечение происходит сразу, без окна подтверждения.
-            // В режиме «Сир, я сделаю сам» кровь игрок списывает самостоятельно.
+
+            // В режиме «Сир, я сделаю сам» кровь приложение не списывает
             bool automaticPayment = HealingMode == null || HealingMode() == "Работать Гуль!";
             int cost = level.State == 3 ? 5 : 1;
             if (automaticPayment && (TrySpendBlood == null || !TrySpendBlood(cost)))

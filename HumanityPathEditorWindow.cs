@@ -37,7 +37,6 @@ namespace VtM_LoCh_fP
             var scroll = new ScrollViewer { Content = content, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
             root.Children.Add(scroll);
 
-            // Название оформлено как компактный заголовок, а не как большое многострочное поле.
             var name = new TextBox
             {
                 Text = current == null ? string.Empty : current.Name,

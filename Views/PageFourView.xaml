@@ -1,4 +1,4 @@
-﻿<UserControl x:Class="VtM_LoCh_fP.Views.PageFourView"
+<UserControl x:Class="VtM_LoCh_fP.Views.PageFourView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:VtM_LoCh_fP.Controls">
@@ -28,16 +28,6 @@
                     </StackPanel>
                 </GroupBox>
             </Grid>
-
-            <GroupBox Header="ОЧКИ ДОСТОИНСТВ И НЕДОСТАТКОВ" Style="{StaticResource SectionBoxStyle}">
-                <DockPanel LastChildFill="False">
-                    <TextBlock x:Name="FreePointsText" Text="Свободные очки: 15" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
-                        <TextBlock Text="Базовые очки:" VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}" Margin="12,0,6,0"/>
-                        <TextBox x:Name="BasePointsInput" Width="58" MinHeight="30" Text="15" TextAlignment="Center" VerticalContentAlignment="Center" TextChanged="BasePointsInput_TextChanged"/>
-                    </StackPanel>
-                </DockPanel>
-            </GroupBox>
 
             <GroupBox Header="БИОГРАФИЯ" Style="{StaticResource SectionBoxStyle}" Margin="4,8,4,8" Height="440">
                 <Grid>
