@@ -168,4 +168,4 @@ character_<id>.json
 
 *VtM_LoCh_fP — инструмент для тех, кто хочет уделять больше времени истории своего персонажа, а не заполнению таблиц.*
 
-**Good hunting, Kindred.**
+**Bonum venandi, Nepos Cain.**
