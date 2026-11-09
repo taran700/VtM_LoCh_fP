@@ -68,6 +68,8 @@ namespace VtM_LoCh_fP
         public int LevelCount { get; set; }
         public string PathId { get; set; }
         public string PathName { get; set; }
+        public string Justification { get; set; }
+        public bool IsSecondaryPath { get; set; }
     }
     internal static class DisciplineService
     {

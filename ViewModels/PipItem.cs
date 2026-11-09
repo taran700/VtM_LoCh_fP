@@ -7,10 +7,17 @@ namespace VtM_LoCh_fP.ViewModels
     public sealed class PipItem : INotifyPropertyChanged
     {
         private bool _isChecked;
+        private bool _isEnabled = true;
 
         public PipItem(int index) => Index = index;
 
         public int Index { get; }
+
+        public bool IsEnabled
+        {
+            get => _isEnabled;
+            set { if (_isEnabled == value) return; _isEnabled = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsEnabled))); }
+        }
 
         public bool IsChecked
         {

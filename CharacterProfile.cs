@@ -1,10 +1,11 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 
 namespace VtM_LoCh_fP
 {
     public sealed class CharacterProfile
     {
         public string Name { get; set; }
+        public CharacterCreationState CreationState { get; set; } = new CharacterCreationState();
         public string CreationMode { get; set; }
         public string ClanName { get; set; }
         public int? Generation { get; set; } = 13;
@@ -39,7 +40,6 @@ namespace VtM_LoCh_fP
         public bool NosferatuPlasticSurgery { get; set; }
         public ObservableCollection<BioFactEntry> BiographyFacts { get; set; } = new ObservableCollection<BioFactEntry>();
         public ObservableCollection<CharacterMeritFlaw> MeritsFlaws { get; set; } = new ObservableCollection<CharacterMeritFlaw>();
-        public int MeritFlawBasePoints { get; set; } = 15;
         public string BiographyBirthDate { get; set; }
         public string BiographyDeathDate { get; set; }
         public string BiographyTrueAge { get; set; }

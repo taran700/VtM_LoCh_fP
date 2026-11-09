@@ -25,7 +25,7 @@
                         <DockPanel LastChildFill="False" Margin="0,0,0,5" VerticalAlignment="Center">
                             <TextBlock Text="Факты биографии" Style="{StaticResource FieldLabelStyleB}" FontSize="22"
                                        VerticalAlignment="Center"/>
-                            <Button Content="＋ Добавить факт"
+                            <Button x:Name="AddBioFactButton" Content="＋ Добавить факт"
                                     Style="{StaticResource ToolbarButtonStyle}"
                                     Padding="12,6" Margin="12,0,0,0"
                                     FontWeight="SemiBold" FontSize="14"
@@ -33,6 +33,8 @@
                                     Click="AddBioFact_Click"/>
                         </DockPanel>
                         <StackPanel x:Name="BioFactsPanel"/>
+                        <TextBlock x:Name="BackgroundRemainingLabel" Margin="0,6,0,3"/>
+                        <Button x:Name="ConfirmBackgroundsButton" Content="Подтвердить факты биографии" Padding="10,5" HorizontalAlignment="Left" Click="ConfirmBackgrounds_Click"/>
                     </StackPanel>
 
                     <StackPanel Grid.Column="1">
@@ -44,6 +46,8 @@
                                 <sys:String>Смелость</sys:String>
                             </controls:TrackListControl.Names>
                         </controls:TrackListControl>
+                        <TextBlock x:Name="VirtuesRemainingLabel" Margin="0,6,0,3"/>
+                        <Button x:Name="ConfirmVirtuesButton" Content="Подтвердить добродетели" Padding="10,5" HorizontalAlignment="Left" Click="ConfirmVirtues_Click"/>
                     </StackPanel>
                 </Grid>
             </GroupBox>
@@ -170,8 +174,8 @@
                     
                     </Grid.ColumnDefinitions>
                
-                    <controls:FieldControl Grid.Column="0" Label="Опыт"/>
-                    <controls:FieldControl Grid.Column="1" Label="Свободные пункты"/>
+                    <controls:FieldControl x:Name="ExperienceInput" Grid.Column="0" Label="Опыт"/>
+                    <controls:FieldControl x:Name="FreebiePointsInput" Grid.Column="1" Label="Свободные пункты"/>
                    
                 </Grid>
             </GroupBox>

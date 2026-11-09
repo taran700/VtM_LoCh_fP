@@ -17,10 +17,14 @@ namespace VtM_LoCh_fP.Views
         private bool _loadingHumanityPath;
         private List<HumanityPathDefinition> _humanityPaths;
         private HumanityPathDefinition _selectedOfficialPath;
+        public event Action InitialPurchaseProgressChanged;
+        public event Func<string, string, int, int, bool> AdvancementCheck;
+        public event Func<string, string, int, int, bool> VirtueAdvancementCheck;
 
         public PageTwoView()
         {
             InitializeComponent();
+            Loaded += (s, e) => { EnsureVirtueTracks(); EnsureWillpowerTrack(); };
             _humanityPaths = HumanityPathService.GetAll();
             HumanityPathCombo.ItemsSource = _humanityPaths;
             HumanityPathSuggestions.ItemsSource = _humanityPaths;
@@ -44,6 +48,15 @@ namespace VtM_LoCh_fP.Views
             HealthTrack.AllowAggravatedDamage = () => AggravatedDamageToggle != null && AggravatedDamageToggle.IsChecked == true;
             HealthTrack.StateChanged = SaveHealthStates;
             BloodTrack.ValueChanged += (s, e) => UpdateHealthHeader();
+            WillpowerPermanentTrack.ValueChanged += (s, e) =>
+            {
+                if (_character == null) return;
+                int oldValue; _character.CreationState.OtherDots.TryGetValue("willpower_permanent", out oldValue);
+                if (WillpowerPermanentTrack.Value != oldValue && _character.CreationState.ConfirmedInitialBlocks.Contains("virtues") &&
+                    AdvancementCheck != null && !AdvancementCheck("willpower", "Постоянная сила воли", oldValue, WillpowerPermanentTrack.Value))
+                { WillpowerPermanentTrack.SetTrackValue(oldValue); return; }
+                _character.CreationState.OtherDots["willpower_permanent"] = WillpowerPermanentTrack.Value;
+            };
         }
 
         public void InitializeCharacter(CharacterProfile character)
@@ -55,16 +68,203 @@ namespace VtM_LoCh_fP.Views
                 _character.CustomHumanityHierarchy = new List<HumanityPathSinEntry>();
             if (_character.HealthDamageStates == null)
                 _character.HealthDamageStates = new System.Collections.ObjectModel.ObservableCollection<int>();
+            if (_character.CreationState == null) _character.CreationState = new CharacterCreationState();
+            if (_character.CreationState.OtherDots == null) _character.CreationState.OtherDots = new Dictionary<string, int>();
+            ExperienceInput.InputText = _character.CreationState.ExperiencePoints.ToString();
+            FreebiePointsInput.InputText = _character.CreationState.FreebiePoints.ToString();
+            FreebiePointsInput.IsReadOnly = !IsFreeNeonate;
+            ExperienceInput.InputTextChanged += (s, e) =>
+            {
+                if (_character == null) return;
+                int value;
+                if (int.TryParse(ExperienceInput.InputText, out value) && value >= 0)
+                    _character.CreationState.ExperiencePoints = value;
+            };
+            FreebiePointsInput.InputTextChanged += (s, e) =>
+            {
+                if (_character == null || !IsFreeNeonate) return;
+                int value;
+                if (int.TryParse(FreebiePointsInput.InputText, out value) && value >= 0)
+                    _character.CreationState.FreebiePoints = value;
+            };
+            _character.CreationState.PropertyChanged -= CreationState_PropertyChanged;
+            _character.CreationState.PropertyChanged += CreationState_PropertyChanged;
             AggravatedDamageToggle.IsChecked = _character.AllowAggravatedDamage;
             HealthTrack.LoadStates(_character.HealthDamageStates);
             UpdateHealthHeader();
             RenderBioFacts();
             LoadHumanityPath();
+            foreach (string virtueName in VirtuesTrackList.Names)
+            {
+                string key = "virtue:" + virtueName;
+                if (!_character.CreationState.OtherDots.ContainsKey(key))
+                    _character.CreationState.OtherDots[key] = CharacterCreationRules.GetCreationLimit("virtue_base");
+            }
+            if (!_character.CreationState.OtherDots.ContainsKey("willpower_permanent"))
+                _character.CreationState.OtherDots["willpower_permanent"] = GetVirtueRating("Смелость");
+            Dispatcher.BeginInvoke(new Action(() => { EnsureVirtueTracks(); EnsureWillpowerTrack(); }), DispatcherPriority.Loaded);
         }
 
 
 
 
+
+        private void CreationState_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (_character == null) return;
+            if (e.PropertyName == nameof(CharacterCreationState.FreebiePoints))
+            {
+                string value = _character.CreationState.FreebiePoints.ToString();
+                if (FreebiePointsInput.InputText != value)
+                    FreebiePointsInput.InputText = value;
+            }
+            else if (e.PropertyName == nameof(CharacterCreationState.ExperiencePoints))
+            {
+                string value = _character.CreationState.ExperiencePoints.ToString();
+                if (ExperienceInput.InputText != value)
+                    ExperienceInput.InputText = value;
+            }
+        }
+
+        public void RefreshVirtueTracks()
+        {
+            EnsureVirtueTracks();
+        }
+
+        private void EnsureVirtueTracks()
+        {
+            if (_character == null || VirtuesTrackList == null) return;
+            foreach (var track in FindTracks(VirtuesTrackList))
+            {
+                string key = "virtue:" + track.Label;
+                int value;
+                if (_character.CreationState.OtherDots.TryGetValue(key, out value))
+                    track.SetTrackValue(value);
+                else
+                {
+                    int baseDots = CharacterCreationRules.GetCreationLimit("virtue_base");
+                    track.SetTrackValue(baseDots);
+                    _character.CreationState.OtherDots[key] = baseDots;
+                }
+                track.ValueChanged -= VirtueTrack_ValueChanged;
+                track.ValueChanged += VirtueTrack_ValueChanged;
+            }
+            RefreshInitialBlockControls();
+            ApplyVirtuePoolLimits();
+            InitialPurchaseProgressChanged?.Invoke();
+        }
+
+        private void VirtueTrack_ValueChanged(object sender, EventArgs e)
+        {
+            var track = sender as TrackControl;
+            if (track == null || _character == null) return;
+            string key = "virtue:" + track.Label;
+            int previous;
+            _character.CreationState.OtherDots.TryGetValue(key, out previous);
+            if (_character.CreationState.ConfirmedInitialBlocks.Contains("virtues") && track.Value != previous &&
+                VirtueAdvancementCheck != null && !VirtueAdvancementCheck("virtue", track.Label, previous, track.Value))
+            { track.SetTrackValue(previous); return; }
+            if (!_character.CreationState.ConfirmedInitialBlocks.Contains("virtues"))
+            {
+                int remaining = Math.Max(0, CharacterCreationRules.GetCreationLimit("virtues") - GetVirtueExtraDots());
+                int clamped = Math.Min(track.Value, previous + remaining);
+                if (clamped != track.Value) track.SetTrackValue(clamped);
+            }
+            _character.CreationState.OtherDots[key] = track.Value;
+            RefreshInitialBlockControls();
+            ApplyVirtuePoolLimits();
+            InitialPurchaseProgressChanged?.Invoke();
+        }
+
+        private void EnsureWillpowerTrack()
+        {
+            if (_character == null || WillpowerPermanentTrack == null) return;
+            int value;
+            if (_character.CreationState.OtherDots.TryGetValue("willpower_permanent", out value))
+                WillpowerPermanentTrack.SetTrackValue(value);
+        }
+
+        public List<string> GetVirtueNames()
+        {
+            return VirtuesTrackList.Names.ToList();
+        }
+
+        public int GetVirtueRating(string name)
+        {
+            int value;
+            return _character != null && _character.CreationState.OtherDots.TryGetValue("virtue:" + name, out value) ? value : 1;
+        }
+
+        public void SetVirtueRating(string name, int value)
+        {
+            if (_character == null) return;
+            int previous = GetVirtueRating(name);
+            if (_character.CreationState.ConfirmedInitialBlocks.Contains("virtues") && value != previous &&
+                VirtueAdvancementCheck != null && !VirtueAdvancementCheck("virtue", name, previous, value)) return;
+            if (!_character.CreationState.ConfirmedInitialBlocks.Contains("virtues"))
+            {
+                int baseTotal = VirtuesTrackList.Names.Count * CharacterCreationRules.GetCreationLimit("virtue_base");
+                int remaining = Math.Max(0, CharacterCreationRules.GetCreationLimit("virtues") - GetVirtueExtraDots());
+                value = Math.Min(value, previous + remaining);
+            }
+            _character.CreationState.OtherDots["virtue:" + name] = value;
+            foreach (var track in FindTracks(VirtuesTrackList))
+                if (string.Equals(track.Label, name, StringComparison.OrdinalIgnoreCase)) track.SetTrackValue(value);
+            InitialPurchaseProgressChanged?.Invoke();
+        }
+
+        public int GetWillpowerPermanent()
+        {
+            int value;
+            return _character != null && _character.CreationState.OtherDots.TryGetValue("willpower_permanent", out value) ? value : 0;
+        }
+
+        public void SetWillpowerPermanent(int value)
+        {
+            if (_character == null) return;
+            _character.CreationState.OtherDots["willpower_permanent"] = value;
+            WillpowerPermanentTrack.SetTrackValue(value);
+        }
+
+        public void SetHumanityPathRating(int value)
+        {
+            if (_character == null) return;
+            _character.HumanityPathRating = value;
+            HumanityPathTrack.SetTrackValue(value);
+        }
+
+        private int GetVirtueTotal()
+        {
+            int total = 0;
+            foreach (string name in VirtuesTrackList.Names)
+                total += GetVirtueRating(name);
+            return total;
+        }
+
+        public int GetVirtueExtraDots()
+        {
+            if (_character == null) return 0;
+            int total = 0;
+            foreach (string virtueName in VirtuesTrackList.Names)
+            {
+                int value;
+                if (_character.CreationState.OtherDots.TryGetValue("virtue:" + virtueName, out value)) total += value;
+                else total += CharacterCreationRules.GetCreationLimit("virtue_base");
+            }
+            return Math.Max(0, total - VirtuesTrackList.Names.Count * CharacterCreationRules.GetCreationLimit("virtue_base"));
+        }
+
+        private static IEnumerable<TrackControl> FindTracks(DependencyObject parent)
+        {
+            if (parent == null) yield break;
+            int count = VisualTreeHelper.GetChildrenCount(parent);
+            for (int i = 0; i < count; i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+                if (child is TrackControl track) yield return track;
+                foreach (var nested in FindTracks(child)) yield return nested;
+            }
+        }
 
         public void ApplyTraitPointLimit(int max)
         {
@@ -207,6 +407,7 @@ namespace VtM_LoCh_fP.Views
             VirtuesTrackList.Names.Add(string.IsNullOrWhiteSpace(first) ? "Совесть" : first);
             VirtuesTrackList.Names.Add(string.IsNullOrWhiteSpace(second) ? "Самоконтроль" : second);
             VirtuesTrackList.Names.Add("Смелость");
+            Dispatcher.BeginInvoke(new Action(EnsureVirtueTracks), DispatcherPriority.Loaded);
         }
 
         private void HumanityPathInput_TextChanged(object sender, TextChangedEventArgs e)
@@ -321,14 +522,20 @@ namespace VtM_LoCh_fP.Views
 
         private void HumanityPathTrack_ValueChanged(object sender, EventArgs e)
         {
-            if (!_loadingHumanityPath && _character != null)
-                _character.HumanityPathRating = HumanityPathTrack.Value;
+            if (_loadingHumanityPath || _character == null) return;
+            int previous = _character.HumanityPathRating;
+            if (HumanityPathTrack.Value != previous && _character.CreationState.ConfirmedInitialBlocks.Contains("virtues") &&
+                AdvancementCheck != null && !AdvancementCheck("humanity_path", HumanityPathName.Text, previous, HumanityPathTrack.Value))
+            { HumanityPathTrack.SetTrackValue(previous); return; }
+            _character.HumanityPathRating = HumanityPathTrack.Value;
         }
 
         private void AddBioFact_Click(object sender, RoutedEventArgs e)
         {
             if (_character == null) return;
-            var picker = new BioFactPickerWindow(_character) { Owner = Window.GetWindow(this) };
+            int availableBackgroundDots = Math.Max(0, CharacterCreationRules.GetCreationLimit("backgrounds") - _character.BiographyFacts.Sum(x => Math.Max(0, x.Level)));
+            if (!_character.CreationState.ConfirmedInitialBlocks.Contains("backgrounds") && availableBackgroundDots <= 0) return;
+            var picker = new BioFactPickerWindow(_character, 5) { Owner = Window.GetWindow(this) };
             if (picker.ShowDialog() != true || picker.Result == null) return;
             foreach (var existing in _character.BiographyFacts)
             {
@@ -338,7 +545,22 @@ namespace VtM_LoCh_fP.Views
                     return;
                 }
             }
+            if (!_character.CreationState.ConfirmedInitialBlocks.Contains("backgrounds"))
+            {
+                int remaining = Math.Max(0, CharacterCreationRules.GetCreationLimit("backgrounds") - _character.BiographyFacts.Sum(x => Math.Max(0, x.Level)));
+                picker.Result.Level = Math.Min(picker.Result.Level, remaining);
+                if (picker.Result.Level == 0) return;
+            }
+            if (_character.CreationState.ConfirmedInitialBlocks.Contains("backgrounds") && picker.Result.Level > 0 &&
+                AdvancementCheck != null && !AdvancementCheck("background", picker.Result.Name, 0, picker.Result.Level))
+                return;
             _character.BiographyFacts.Add(picker.Result);
+            (Window.GetWindow(this) as MainWindow)?.RefreshGenerationFromCharacter();
+            RenderBioFacts();
+        }
+
+        public void RefreshBiographyFacts()
+        {
             RenderBioFacts();
         }
 
@@ -356,12 +578,15 @@ namespace VtM_LoCh_fP.Views
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                 var removeIcon = new TextBlock { Text = "\uE74D", FontFamily = new FontFamily("Segoe MDL2 Assets"), FontSize = 16, Foreground = new SolidColorBrush(Color.FromRgb(190, 35, 35)), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
                 var remove = new Button { Content = removeIcon, Width = 30, Height = 30, Margin = new Thickness(0, 0, 7, 0), Padding = new Thickness(0), Background = Brushes.Transparent, BorderBrush = Brushes.Transparent, BorderThickness = new Thickness(0), Cursor = Cursors.Hand, ToolTip = "Удалить факт" };
+                remove.IsEnabled = true;
                 remove.Click += (s, e) =>
                 {
                     string message = fact.IsCustom ? "Удалить пользовательский факт «" + fact.Name + "»? Вместе с ним будут безвозвратно удалены его основное описание и все описания уровней." : "Удалить факт «" + fact.Name + "» из биографии?";
                     var answer = ThemedDialog.Show(Window.GetWindow(this), message, "Удаление факта биографии", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                     if (answer != MessageBoxResult.Yes) return;
-                    _character.BiographyFacts.Remove(fact); RenderBioFacts();
+                    _character.BiographyFacts.Remove(fact);
+                    (Window.GetWindow(this) as MainWindow)?.RefreshGenerationFromCharacter();
+                    RenderBioFacts();
                 };
                 Grid.SetColumn(remove, 0); row.Children.Add(remove);
                 var definition = BioFactService.Find(fact.Name);
@@ -369,13 +594,100 @@ namespace VtM_LoCh_fP.Views
                 if (fact.LevelDescriptions != null) levelInfo.AddRange(fact.LevelDescriptions.Select(x => new TrackLevelDescription { Level = x.Level, Description = x.Description }));
                 if (fact.HolisticDescriptions != null) foreach (var item in fact.HolisticDescriptions) if (!levelInfo.Any(x => x.Level == item.Level)) levelInfo.Add(new TrackLevelDescription { Level = item.Level, Description = item.Description });
                 if (definition != null && definition.Levels != null) foreach (var item in definition.Levels) if (!levelInfo.Any(x => x.Level == item.Level)) levelInfo.Add(item);
-                var track = new TrackControl { Label = fact.Name, Count = 5, LabelWidth = 170, Cascade = true, HorizontalAlignment = HorizontalAlignment.Left, InfoDescription = !string.IsNullOrWhiteSpace(fact.CustomDescription) ? fact.CustomDescription : definition == null ? null : definition.Description, InfoLevels = levelInfo };
+                int backgroundMax = 5;
+                var track = new TrackControl { Label = fact.Name, Count = backgroundMax, LabelWidth = 170, Cascade = true, HorizontalAlignment = HorizontalAlignment.Left, InfoDescription = !string.IsNullOrWhiteSpace(fact.CustomDescription) ? fact.CustomDescription : definition == null ? null : definition.Description, InfoLevels = levelInfo };
                 track.SetTrackValue(fact.Level);
-                track.ValueChanged += (s, e) => fact.Level = track.Value;
+                track.IsEnabled = true;
+                track.ValueChanged += (s, e) =>
+                {
+                    int previous = fact.Level;
+                    if (track.Value != previous && _character.CreationState.ConfirmedInitialBlocks.Contains("backgrounds") &&
+                        AdvancementCheck != null && !AdvancementCheck("background", fact.Name, previous, track.Value))
+                    { track.SetTrackValue(previous); return; }
+                    int next = track.Value;
+                    if (!_character.CreationState.ConfirmedInitialBlocks.Contains("backgrounds") && next > previous)
+                    {
+                        int remaining = Math.Max(0, CharacterCreationRules.GetCreationLimit("backgrounds") - _character.BiographyFacts.Where(x => !ReferenceEquals(x, fact)).Sum(x => Math.Max(0, x.Level)) - previous);
+                        next = Math.Min(next, previous + remaining);
+                        if (next != track.Value) track.SetTrackValue(next);
+                    }
+                    fact.Level = next;
+                    RenderBioFacts();
+                    (Window.GetWindow(this) as MainWindow)?.RefreshGenerationFromCharacter();
+                };
                 Grid.SetColumn(track, 1); row.Children.Add(track); card.Child = row; BioFactsPanel.Children.Add(card);
+            }
+            RefreshInitialBlockControls();
+            InitialPurchaseProgressChanged?.Invoke();
+        }
+
+        private void RefreshInitialBlockControls()
+        {
+            if (_character == null || VirtuesRemainingLabel == null) return;
+            int virtuePool = CharacterCreationRules.GetCreationLimit("virtues");
+            int virtueUsed = GetVirtueExtraDots();
+            int backgroundPool = CharacterCreationRules.GetCreationLimit("backgrounds");
+            int backgroundUsed = _character.BiographyFacts == null ? 0 : _character.BiographyFacts.Sum(x => Math.Max(0, x.Level));
+            VirtuesRemainingLabel.Text = "Осталось точек: " + Math.Max(0, virtuePool - virtueUsed);
+            BackgroundRemainingLabel.Text = "Осталось точек: " + Math.Max(0, backgroundPool - backgroundUsed);
+            bool virtuesDone = _character.CreationState.ConfirmedInitialBlocks.Contains("virtues");
+            bool backgroundsDone = _character.CreationState.ConfirmedInitialBlocks.Contains("backgrounds");
+            VirtuesRemainingLabel.Visibility = virtuesDone ? Visibility.Collapsed : Visibility.Visible;
+            ConfirmVirtuesButton.Visibility = virtuesDone ? Visibility.Collapsed : Visibility.Visible;
+            BackgroundRemainingLabel.Visibility = backgroundsDone ? Visibility.Collapsed : Visibility.Visible;
+            ConfirmBackgroundsButton.Visibility = backgroundsDone ? Visibility.Collapsed : Visibility.Visible;
+            ApplyVirtuePoolLimits();
+            if (AddBioFactButton != null)
+                AddBioFactButton.IsEnabled = backgroundsDone || backgroundPool - backgroundUsed > 0;
+        }
+
+        private void ApplyVirtuePoolLimits()
+        {
+            if (_character == null || VirtuesTrackList == null) return;
+            int remaining = Math.Max(0, CharacterCreationRules.GetCreationLimit("virtues") - GetVirtueExtraDots());
+            ApplyVirtueLimitsRecursive(VirtuesTrackList, remaining);
+        }
+
+        private void ApplyVirtueLimitsRecursive(DependencyObject parent, int remaining)
+        {
+            for (int i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                var child = System.Windows.Media.VisualTreeHelper.GetChild(parent, i);
+                var track = child as TrackControl;
+                if (track != null)
+                {
+                    track.MaxValue = track.Count;
+                    track.IsEnabled = true;
+                }
+                else ApplyVirtueLimitsRecursive(child, remaining);
             }
         }
 
+        private void ConfirmVirtues_Click(object sender, RoutedEventArgs e)
+        {
+            if (_character == null) return;
+            int courage = GetVirtueRating("Смелость");
+            SetWillpowerPermanent(courage);
+            if (_character.CreationState.InitialPurchases == null) _character.CreationState.InitialPurchases = new List<CreationPurchase>();
+            foreach (var virtueName in GetVirtueNames())
+            {
+                int rating = GetVirtueRating(virtueName);
+                _character.CreationState.InitialPurchases.Add(new CreationPurchase { Block = "Добродетели", ItemId = virtueName, ItemName = virtueName, PreviousValue = 0, NewValue = rating, Cost = 0, Source = "initial" });
+            }
+            _character.CreationState.InitialPurchases.Add(new CreationPurchase { Block = "Сила воли", ItemId = "willpower_permanent", ItemName = "Сила воли", PreviousValue = 0, NewValue = courage, Cost = 0, Source = "initial" });
+            _character.CreationState.ConfirmInitialBlock("virtues");
+            RefreshInitialBlockControls(); InitialPurchaseProgressChanged?.Invoke();
+            (Window.GetWindow(this) as MainWindow)?.RefreshGenerationFromCharacter();
+        }
+        private void ConfirmBackgrounds_Click(object sender, RoutedEventArgs e)
+        {
+            if (_character == null) return;
+            if (_character.CreationState.InitialPurchases == null) _character.CreationState.InitialPurchases = new List<CreationPurchase>();
+            foreach (var fact in _character.BiographyFacts)
+                _character.CreationState.InitialPurchases.Add(new CreationPurchase { Block = "Факты биографии", ItemId = fact.Name, ItemName = fact.Name, PreviousValue = 0, NewValue = fact.Level, Cost = 0, Source = "initial" });
+            _character.CreationState.ConfirmInitialBlock("backgrounds");
+            RenderBioFacts(); InitialPurchaseProgressChanged?.Invoke();
+        }
 
         private void AggravatedDamageToggle_Changed(object sender, RoutedEventArgs e)
         {

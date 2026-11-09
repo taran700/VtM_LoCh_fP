@@ -71,6 +71,9 @@
     <Compile Include="ThemeManager.cs" />
     <Compile Include="AppSettings.cs" />
     <Compile Include="CharacterProfile.cs" />
+    <Compile Include="CharacterCreationRules.cs" />
+    <Compile Include="InitialAllocationWindow.cs" />
+    <Compile Include="PurchaseWindows.cs" />
     <Compile Include="BioFactEntry.cs" />
     <Compile Include="MeritFlawService.cs" />
     <Compile Include="MeritFlawWindows.cs" />

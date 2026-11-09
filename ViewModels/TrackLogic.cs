@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace VtM_LoCh_fP.ViewModels
@@ -10,13 +10,17 @@ namespace VtM_LoCh_fP.ViewModels
     public static class TrackLogic
     {
         /// <summary>
-        /// Отметка точки: отмеченная точка закрашивает себя и все левее,
-        /// снятая — очищает себя и все правее.
+        /// Клик по пустой точке заполняет её и все точки левее.
+        /// Клик по закрашенной точке оставляет её закрашенной и очищает точки правее;
+        /// если это последняя закрашенная точка, она снимается.
         /// </summary>
-        internal static int ValueAfterToggle(int zeroBasedIndex, bool isChecked)
+        internal static int ValueAfterClick(int currentValue, int zeroBasedIndex)
         {
+            if (currentValue < 0) throw new ArgumentOutOfRangeException(nameof(currentValue));
             if (zeroBasedIndex < 0) throw new ArgumentOutOfRangeException(nameof(zeroBasedIndex));
-            return isChecked ? zeroBasedIndex + 1 : zeroBasedIndex;
+            if (zeroBasedIndex < currentValue && zeroBasedIndex == currentValue - 1)
+                return currentValue - 1;
+            return zeroBasedIndex + 1;
         }
 
         /// <summary>Цикл отметки здоровья: 0 → 1 палка → 2 палки (крест) → 0.</summary>

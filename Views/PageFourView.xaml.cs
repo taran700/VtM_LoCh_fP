@@ -21,14 +21,11 @@ namespace VtM_LoCh_fP.Views
         public void InitializeCharacter(CharacterProfile character)
         {
             _character = character;
+            if (_character.CreationState == null)
+                _character.CreationState = new CharacterCreationState();
             if (_character.MeritsFlaws == null)
                 _character.MeritsFlaws = new System.Collections.ObjectModel.ObservableCollection<CharacterMeritFlaw>();
-            if (_character.MeritFlawBasePoints < 0)
-                _character.MeritFlawBasePoints = 15;
-
             _loading = true;
-            BasePointsInput.Visibility = IsFreeNeonate ? Visibility.Visible : Visibility.Collapsed;
-            BasePointsInput.Text = _character.MeritFlawBasePoints.ToString();
             SetField("BirthDate", _character.BiographyBirthDate);
             SetField("DeathDate", _character.BiographyDeathDate);
             SetField("TrueAge", _character.BiographyTrueAge);
@@ -50,6 +47,7 @@ namespace VtM_LoCh_fP.Views
         {
             if (_character == null) return;
             new MeritFlawPickerWindow(Window.GetWindow(this), _character, "flaw").ShowDialog();
+            (Window.GetWindow(this) as MainWindow)?.RefreshGenerationFromCharacter();
             RenderMeritsFlaws();
         }
 
@@ -57,6 +55,12 @@ namespace VtM_LoCh_fP.Views
         {
             if (_character == null) return;
             new MeritFlawPickerWindow(Window.GetWindow(this), _character, "merit").ShowDialog();
+            (Window.GetWindow(this) as MainWindow)?.RefreshGenerationFromCharacter();
+            RenderMeritsFlaws();
+        }
+
+        public void RefreshMeritsFlaws()
+        {
             RenderMeritsFlaws();
         }
 
@@ -67,7 +71,6 @@ namespace VtM_LoCh_fP.Views
             RenderList(MeritsPanel, _character.MeritsFlaws.Where(x => x.Type == "merit").ToList());
             int flaws = _character.MeritsFlaws.Where(x => x.Type == "flaw").Sum(x => x.Cost);
             int merits = _character.MeritsFlaws.Where(x => x.Type == "merit").Sum(x => x.Cost);
-            FreePointsText.Text = "Свободные очки: " + (_character.MeritFlawBasePoints + flaws - merits) + "   ·   Недостатки: +" + flaws + "   ·   Достоинства: -" + merits;
         }
 
         private void RenderList(Panel panel, System.Collections.Generic.IList<CharacterMeritFlaw> entries)
@@ -118,18 +121,22 @@ namespace VtM_LoCh_fP.Views
             var window = new MeritFlawDescriptionWindow(Window.GetWindow(this), entry, () =>
             {
                 _character.MeritsFlaws.Remove(entry);
+                // Возвращаем общий баланс по той же записи, которая была создана при покупке.
+                var purchase = _character.CreationState.FreebiePurchases.FirstOrDefault(x =>
+                    x.Block == "Достоинства и недостатки" && string.Equals(x.ItemId, entry.Id, StringComparison.OrdinalIgnoreCase));
+                if (purchase != null)
+                {
+                    _character.CreationState.FreebiePoints += purchase.Cost;
+                    _character.CreationState.FreebiePurchases.Remove(purchase);
+                }
+                else if (entry.FreebieCharged)
+                {
+                    _character.CreationState.FreebiePoints += entry.Type == "flaw" ? -entry.Cost : entry.Cost;
+                }
                 RenderMeritsFlaws();
+                (Window.GetWindow(this) as MainWindow)?.RefreshGenerationFromCharacter();
             });
             window.ShowDialog();
-        }
-
-        private void BasePointsInput_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            if (_loading || _character == null || !IsFreeNeonate) return;
-            int value;
-            if (!int.TryParse(BasePointsInput.Text, out value) || value < 0 || value > 99) return;
-            _character.MeritFlawBasePoints = value;
-            RenderMeritsFlaws();
         }
 
         private void BiographyField_InputTextChanged(object sender, TextChangedEventArgs e)

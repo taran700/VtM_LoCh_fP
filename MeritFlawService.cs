@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -82,5 +82,6 @@ namespace VtM_LoCh_fP
         public string Type { get; set; }
         public int Cost { get; set; }
         public string Description { get; set; }
+        public bool FreebieCharged { get; set; }
     }
 }

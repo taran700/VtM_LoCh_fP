@@ -1,4 +1,4 @@
-<UserControl x:Class="VtM_LoCh_fP.Views.PageOneView"
+﻿<UserControl x:Class="VtM_LoCh_fP.Views.PageOneView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:sys="clr-namespace:System;assembly=mscorlib"
@@ -6,11 +6,17 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="12,10,12,16">
 
-            <DockPanel Margin="4,0,4,10">
+            <DockPanel Margin="4,0,4,10" LastChildFill="True">
                 <TextBlock DockPanel.Dock="Right" Text="1/6" FontSize="14" FontWeight="Bold"
-                           Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center"/>
+                           Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,14,0">
+                    <Button x:Name="InitialAllocationButton" Content="Распределить точки" Padding="12,5" Margin="0,0,8,0"
+                            Click="OpenInitialAllocation_Click"/>
+                    <Button x:Name="FreebieJournalButton" Content="Просмотреть закуп за свободные пункты" Padding="12,5"
+                            Visibility="Collapsed" Click="FreebieJournal_Click"/>
+                </StackPanel>
                 <TextBlock Text="ЛИСТ ПЕРСОНАЖА" FontSize="24" FontWeight="Bold"
-                           Foreground="{DynamicResource HeadingBrush}"/>
+                           Foreground="{DynamicResource HeadingBrush}" VerticalAlignment="Center"/>
             </DockPanel>
 
             <!-- ===== О персонаже ===== -->
@@ -80,7 +86,18 @@
             </GroupBox>
 
             <!-- ===== Характеристики ===== -->
-            <GroupBox Header="ХАРАКТЕРИСТИКИ" Style="{StaticResource SectionBoxStyle}">
+            <GroupBox Style="{StaticResource SectionBoxStyle}">
+                <GroupBox.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="ХАРАКТЕРИСТИКИ" VerticalAlignment="Center"/>
+                        <Button x:Name="RedistributeAttributesButton" Content="Перераспределить"
+                                Margin="12,0,0,0" Padding="10,3" Visibility="Collapsed"
+                                Click="RedistributeAttributes_Click"/>
+                    </StackPanel>
+                </GroupBox.Header>
+                <StackPanel>
+                <TextBlock x:Name="AttributesAllocationHelp" Margin="2,0,2,8" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}"
+                           Text="Приоритеты: первичная — 7, вторичная — 5, третичная — 3 пункта. У каждой характеристики уже есть 1 базовый пункт. Распределяйте пункты внутри своей группы."/>
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -90,7 +107,8 @@
 
                     <StackPanel Grid.Column="0" Margin="0,0,45,0">
                         <TextBlock Text="Физические" Style="{StaticResource FieldLabelStyleB}"/>
-                        <controls:TrackListControl x:Name="PhysicalAttributesTrackList" Count="5" LabelWidth="120" Cascade="True">
+                        <ComboBox x:Name="PhysicalPriority" MinHeight="28" Margin="0,0,0,5"/>
+                        <TextBlock x:Name="PhysicalRemainingText" Margin="0,0,0,5" FontSize="11" Foreground="{DynamicResource MutedBrush}"/><controls:TrackListControl x:Name="PhysicalAttributesTrackList" Count="5" LabelWidth="120" Cascade="True">
                             <controls:TrackListControl.Names>
                                 <sys:String>Сила</sys:String>
                                 <sys:String>Ловкость</sys:String>
@@ -101,7 +119,8 @@
 
                     <StackPanel Grid.Column="1">
                         <TextBlock Text="Социальные" Style="{StaticResource FieldLabelStyleB}"/>
-                        <controls:TrackListControl x:Name="SocialAttributes" Count="5" LabelWidth="120" Cascade="True" >
+                        <ComboBox x:Name="SocialPriority" MinHeight="28" Margin="0,0,0,5"/>
+                        <TextBlock x:Name="SocialRemainingText" Margin="0,0,0,5" FontSize="11" Foreground="{DynamicResource MutedBrush}"/><controls:TrackListControl x:Name="SocialAttributes" Count="5" LabelWidth="165" Cascade="True" >
                             <controls:TrackListControl.Names>
                                 <sys:String>Обаяние</sys:String>
                                 <sys:String>Манипуляция</sys:String>
@@ -119,7 +138,8 @@
 
                     <StackPanel Grid.Column="2">
                         <TextBlock Text="Ментальные" Style="{StaticResource FieldLabelStyleB}"/>
-                        <controls:TrackListControl x:Name="MentalAttributesTrackList" Count="5" LabelWidth="120" Cascade="True">
+                        <ComboBox x:Name="MentalPriority" MinHeight="28" Margin="0,0,0,5"/>
+                        <TextBlock x:Name="MentalRemainingText" Margin="0,0,0,5" FontSize="11" Foreground="{DynamicResource MutedBrush}"/><controls:TrackListControl x:Name="MentalAttributesTrackList" Count="5" LabelWidth="120" Cascade="True">
                             <controls:TrackListControl.Names>
                                 <sys:String>Восприятие</sys:String>
                                 <sys:String>Интеллект</sys:String>
@@ -128,73 +148,94 @@
                         </controls:TrackListControl>
                     </StackPanel>
                 </Grid>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+
+                </StackPanel>
+                </StackPanel>
             </GroupBox>
 
             <!-- ===== Способности ===== -->
             <GroupBox Header="СПОСОБНОСТИ" Style="{StaticResource SectionBoxStyle}">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock x:Name="AbilitiesAllocationHelp" Margin="2,0,2,10" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}"
+                               Text="Приоритеты: первичная — 13, вторичная — 9, третичная — 5 пунктов. Выберите таланты, навыки и знания. Максимум одной способности на этом этапе — 3."/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
 
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Text="Таланты"  Style="{StaticResource FieldLabelStyleB}"/>
-                        <controls:TrackListControl x:Name="TalentsTrackList" Cascade="True" Count="5" LabelWidth="150">
-                            <controls:TrackListControl.Names>
-                                <sys:String>Атлетика</sys:String>
-                                <sys:String>Бдительность</sys:String>
-                                <sys:String>Драка</sys:String>
-                                <sys:String>Запугивание</sys:String>
-                                <sys:String>Красноречие</sys:String>
-                                <sys:String>Лидерство</sys:String>
-                                <sys:String>Уличное чутьё</sys:String>
-                                <sys:String>Хитрость</sys:String>
-                                <sys:String>Шестое чувство</sys:String>
-                                <sys:String>Эмпатия</sys:String>
-                            </controls:TrackListControl.Names>
-                        </controls:TrackListControl>
-                    </StackPanel>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Таланты" Style="{StaticResource FieldLabelStyleB}"/>
+                            <ComboBox x:Name="TalentsPriority" MinHeight="28" Margin="0,0,0,5"/>
+                        <TextBlock x:Name="TalentsRemainingText" Margin="0,0,0,5" FontSize="11" Foreground="{DynamicResource MutedBrush}"/>
+                            <controls:TrackListControl x:Name="TalentsTrackList" Cascade="True" Count="5" LabelWidth="150">
+                                <controls:TrackListControl.Names>
+                                    <sys:String>Атлетика</sys:String>
+                                    <sys:String>Бдительность</sys:String>
+                                    <sys:String>Драка</sys:String>
+                                    <sys:String>Запугивание</sys:String>
+                                    <sys:String>Красноречие</sys:String>
+                                    <sys:String>Лидерство</sys:String>
+                                    <sys:String>Уличное чутьё</sys:String>
+                                    <sys:String>Хитрость</sys:String>
+                                    <sys:String>Шестое чувство</sys:String>
+                                    <sys:String>Эмпатия</sys:String>
+                                </controls:TrackListControl.Names>
+                            </controls:TrackListControl>
+                        </StackPanel>
 
-                    <StackPanel Grid.Column="1">
-                        <TextBlock Text="Навыки" Style="{StaticResource FieldLabelStyleB}" RenderTransformOrigin="0.5,0.5" VerticalAlignment="Center"/>
-                        <controls:TrackListControl x:Name="SkillsTrackList" Cascade="True" Count="5" LabelWidth="120">
-                            <controls:TrackListControl.Names>
-                                <sys:String>Вождение</sys:String>
-                                <sys:String>Воровство</sys:String>
-                                <sys:String>Выживание</sys:String>
-                                <sys:String>Исполнение</sys:String>
-                                <sys:String>Обращение с животными</sys:String>
-                                <sys:String>Ремесло</sys:String>
-                                <sys:String>Скрытность</sys:String>
-                                <sys:String>Стрельба</sys:String>
-                                <sys:String>Фехтование</sys:String>
-                                <sys:String>Этикет</sys:String>
-                            </controls:TrackListControl.Names>
-                        </controls:TrackListControl>
-                    </StackPanel>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="Навыки" Style="{StaticResource FieldLabelStyleB}"
+                           VerticalAlignment="Center"/>
+                            <ComboBox x:Name="SkillsPriority" MinHeight="28" Margin="0,0,0,5"/>
+                        <TextBlock x:Name="SkillsRemainingText" Margin="0,0,0,5" FontSize="11" Foreground="{DynamicResource MutedBrush}"/>
+                            <controls:TrackListControl x:Name="SkillsTrackList" Cascade="True" Count="5" LabelWidth="120">
+                                <controls:TrackListControl.Names>
+                                    <sys:String>Вождение</sys:String>
+                                    <sys:String>Воровство</sys:String>
+                                    <sys:String>Выживание</sys:String>
+                                    <sys:String>Исполнение</sys:String>
+                                    <sys:String>Обращение с животными</sys:String>
+                                    <sys:String>Ремесло</sys:String>
+                                    <sys:String>Скрытность</sys:String>
+                                    <sys:String>Стрельба</sys:String>
+                                    <sys:String>Фехтование</sys:String>
+                                    <sys:String>Этикет</sys:String>
+                                </controls:TrackListControl.Names>
+                            </controls:TrackListControl>
+                        </StackPanel>
 
-                    <StackPanel Grid.Column="2">
-                        <TextBlock Text="Знания" Style="{StaticResource FieldLabelStyleB}"/>
-                        <controls:TrackListControl x:Name="KnowledgeTrackList" Cascade="True" Count="5" LabelWidth="180">
-                            <controls:TrackListControl.Names>
-                                <sys:String>Гуманитарные науки</sys:String>
-                                <sys:String>Естественные науки</sys:String>
-                                <sys:String>Законы</sys:String>
-                                <sys:String>Информатика</sys:String>
-                                <sys:String>Медицина</sys:String>
-                                <sys:String>Оккультизм</sys:String>
-                                <sys:String>Политика</sys:String>
-                                <sys:String>Расследование</sys:String>
-                                <sys:String>Финансы</sys:String>
-                                <sys:String>Электроника</sys:String>
-                            </controls:TrackListControl.Names>
-                        </controls:TrackListControl>
-                    </StackPanel>
-                </Grid>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Знания" Style="{StaticResource FieldLabelStyleB}"/>
+                            <ComboBox x:Name="KnowledgePriority" MinHeight="28" Margin="0,0,0,5"/>
+                        <TextBlock x:Name="KnowledgeRemainingText" Margin="0,0,0,5" FontSize="11" Foreground="{DynamicResource MutedBrush}"/>
+                            <controls:TrackListControl x:Name="KnowledgeTrackList" Cascade="True" Count="5" LabelWidth="180">
+                                <controls:TrackListControl.Names>
+                                    <sys:String>Гуманитарные науки</sys:String>
+                                    <sys:String>Естественные науки</sys:String>
+                                    <sys:String>Законы</sys:String>
+                                    <sys:String>Информатика</sys:String>
+                                    <sys:String>Медицина</sys:String>
+                                    <sys:String>Оккультизм</sys:String>
+                                    <sys:String>Политика</sys:String>
+                                    <sys:String>Расследование</sys:String>
+                                    <sys:String>Финансы</sys:String>
+                                    <sys:String>Электроника</sys:String>
+                                </controls:TrackListControl.Names>
+                            </controls:TrackListControl>
+                        </StackPanel>
+                    </Grid>
+
+                    <Button x:Name="ConfirmAllocationInlineButton"
+                Content="Подтвердить распределение характеристик и способностей"
+                HorizontalAlignment="Right"
+                Margin="0,10,0,0"
+                Padding="12,6"
+                Click="ConfirmAllocationInline_Click"/>
+                </StackPanel>
             </GroupBox>
-
 
         </StackPanel>
     </ScrollViewer>

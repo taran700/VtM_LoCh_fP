@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Controls;
 using System;
 
@@ -50,6 +50,12 @@ namespace VtM_LoCh_fP.Controls
         {
             get => Input.Text;
             set => Input.Text = value;
+        }
+
+        public bool IsReadOnly
+        {
+            get => Input.IsReadOnly;
+            set => Input.IsReadOnly = value;
         }
 
         /// <summary>Режимы, которые нельзя выразить биндингом напрямую (enum'ы).</summary>

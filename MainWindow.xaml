@@ -20,8 +20,11 @@
                 CornerRadius="6" Padding="14,10" Margin="0,0,0,12">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Content="Настройки" Style="{StaticResource ToolbarButtonStyle}"
-                            Click="Settings_Click"/>
+                    <Button x:Name="InitialPurchaseButton" Content="Проверить стартовую закупку" Style="{StaticResource ToolbarButtonStyle}"
+                            Margin="0,0,8,0" Click="InitialPurchase_Click" Visibility="Collapsed"/>
+                    <Button x:Name="FreebieJournalButton" Content="Просмотреть закуп за свободные пункты" Style="{StaticResource ToolbarButtonStyle}"
+                            Margin="0,0,8,0" Visibility="Collapsed" Click="FreebieJournal_Click"/>
+                    <Button Content="Настройки" Style="{StaticResource ToolbarButtonStyle}" Click="Settings_Click"/>
                 </StackPanel>
                 <TextBlock 
                            Foreground="{DynamicResource HeadingBrush}"
