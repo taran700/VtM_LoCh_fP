@@ -19,7 +19,6 @@
                            Foreground="{DynamicResource HeadingBrush}" VerticalAlignment="Center"/>
             </DockPanel>
 
-            <!-- ===== О персонаже ===== -->
             <GroupBox Header="О персонаже" Style="{StaticResource SectionBoxStyle}">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -33,7 +32,7 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <controls:FieldControl Grid.Row="0" Grid.Column="0" Label="Имя Персонажа"/>
+                    <ContentControl x:Name="NameFieldHost" Grid.Row="0" Grid.Column="0"/>
                     <controls:FieldControl Grid.Row="0" Grid.Column="1" Label="Игрок"/>
                     <controls:FieldControl Grid.Row="0" Grid.Column="2" Label="Хроника"/>
                     <ContentControl x:Name="NatureFieldHost" Grid.Row="1" Grid.Column="0"/>
@@ -45,7 +44,6 @@
                 </Grid>
             </GroupBox>
 
-            <!-- ===== Клан и хроника ===== -->
             <GroupBox Header="Клан и хроника" Style="{StaticResource SectionBoxStyle}">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -85,7 +83,6 @@
                 </Grid>
             </GroupBox>
 
-            <!-- ===== Характеристики ===== -->
             <GroupBox Style="{StaticResource SectionBoxStyle}">
                 <GroupBox.Header>
                     <StackPanel Orientation="Horizontal">
@@ -154,7 +151,6 @@
                 </StackPanel>
             </GroupBox>
 
-            <!-- ===== Способности ===== -->
             <GroupBox Header="СПОСОБНОСТИ" Style="{StaticResource SectionBoxStyle}">
                 <StackPanel>
                     <TextBlock x:Name="AbilitiesAllocationHelp" Margin="2,0,2,10" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}"

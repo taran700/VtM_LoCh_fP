@@ -11,7 +11,6 @@ using VtM_LoCh_fP.Controls;
 
 namespace VtM_LoCh_fP.Views
 {
-    /// <summary>Страница 1: лист персонажа.</summary>
     public partial class PageOneView : UserControl
     {
         private CharacterProfile _character;
@@ -37,6 +36,7 @@ namespace VtM_LoCh_fP.Views
         private Button _sireDescriptionButton;
         private bool _applyingDerivedGeneration;
         public event Action GenerationChanged;
+        public event Action<string> CharacterNameChanged;
         public event Action InitialPurchaseRequested;
         public event Action FreebieJournalRequested;
         public event Func<string, string, int, int, bool> AdvancementCheck;
@@ -81,7 +81,11 @@ namespace VtM_LoCh_fP.Views
             if (_character == null) return;
             bool initialDone = _character.CreationState.InitialAllocationCompleted;
             if (ConfirmAllocationInlineButton != null) ConfirmAllocationInlineButton.Visibility = initialDone ? Visibility.Collapsed : Visibility.Visible;
-            foreach (var combo in GetPriorityCombos()) combo.Visibility = initialDone ? Visibility.Collapsed : Visibility.Visible;
+            foreach (var combo in GetPriorityCombos())
+            {
+                combo.Visibility = initialDone ? Visibility.Collapsed : Visibility.Visible;
+                combo.IsEnabled = !_character.CreationState.InitialAllocationEverCompleted;
+            }
             RefreshInitialBlockControls();
             if (FreebieJournalButton != null)
                 FreebieJournalButton.Visibility = _character.CreationState.FreebiePoints <= 0 && !_character.CreationState.FreebiePurchasesConfirmed
@@ -138,20 +142,18 @@ namespace VtM_LoCh_fP.Views
                 TalentsRemainingText, SkillsRemainingText, KnowledgeRemainingText };
             var target = targets[index];
             if (target == null || _character == null) return;
-
-            // Берём значения из CreationState, а не из VisualTree: элементы TrackControl
-            // могут находиться внутри шаблонов ItemsControl и не всегда обнаруживаются
-            // обычным обходом визуального дерева.
             var values = attributes
                 ? _character.CreationState.AttributeDots
                 : _character.CreationState.AbilityDots;
             int baseValue = attributes ? CharacterCreationRules.GetCreationLimit("attribute_base") : 0;
             int spent = 0;
+            var initialValues = attributes ? _character.CreationState.InitialAttributeDots : _character.CreationState.InitialAbilityDots;
             foreach (string name in names)
             {
                 int value;
-                if (!values.TryGetValue(name, out value)) value = baseValue;
-                spent += Math.Max(0, value - baseValue);
+                if (_character.CreationState.InitialAllocationEverCompleted && initialValues != null && initialValues.TryGetValue(name, out value))
+                    spent += Math.Max(0, value);
+                else if (values.TryGetValue(name, out value)) spent += Math.Max(0, value - baseValue);
             }
 
             int pool = GetInitialGroupPool(priority, attributes);
@@ -191,7 +193,7 @@ namespace VtM_LoCh_fP.Views
         private void InlinePriority_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             var combo = sender as ComboBox;
-            if (combo == null || _character == null || _loadingInlinePriorities || _character.CreationState.InitialAllocationCompleted || combo.SelectedIndex < 0) return;
+            if (combo == null || _character == null || _loadingInlinePriorities || _character.CreationState.InitialAllocationCompleted || _character.CreationState.InitialAllocationEverCompleted || combo.SelectedIndex < 0) return;
             var all = GetPriorityCombos();
             int index = Array.IndexOf(all, combo);
             int start = index < 3 ? 0 : 3;
@@ -218,8 +220,16 @@ namespace VtM_LoCh_fP.Views
             {
                 int value = attributes && track.IsForcedZero ? 0 : baseValue;
                 track.SetTrackValue(value);
-                if (attributes) _character.CreationState.AttributeDots[track.Label] = value;
-                else _character.CreationState.AbilityDots[track.Label] = value;
+                if (attributes)
+                {
+                    _character.CreationState.AttributeDots[track.Label] = value;
+                    if (_character.CreationState.InitialAttributeDots != null) _character.CreationState.InitialAttributeDots[track.Label] = 0;
+                }
+                else
+                {
+                    _character.CreationState.AbilityDots[track.Label] = value;
+                    if (_character.CreationState.InitialAbilityDots != null) _character.CreationState.InitialAbilityDots[track.Label] = 0;
+                }
                 _lastTrackValues[track.Label] = value;
             }
         }
@@ -285,9 +295,13 @@ namespace VtM_LoCh_fP.Views
         private int GetInitialGroupSpent(string[] names, bool attributes, TrackControl except = null)
         {
             int baseValue = attributes ? CharacterCreationRules.GetCreationLimit("attribute_base") : 0;
-            return FindTracks(this)
-                .Where(t => t != except && names.Contains(t.Label))
-                .Sum(t => Math.Max(0, t.Value - baseValue));
+            if (_character.CreationState.InitialAllocationEverCompleted)
+            {
+                var initialValues = attributes ? _character.CreationState.InitialAttributeDots : _character.CreationState.InitialAbilityDots;
+                return names.Where(name => except == null || !string.Equals(name, except.Label, StringComparison.OrdinalIgnoreCase))
+                    .Sum(name => { int value; return initialValues != null && initialValues.TryGetValue(name, out value) ? Math.Max(0, value) : 0; });
+            }
+            return FindTracks(this).Where(t => t != except && names.Contains(t.Label)).Sum(t => Math.Max(0, t.Value - baseValue));
         }
 
         private bool ValidateInitialGroupBudgets(out string message)
@@ -298,7 +312,10 @@ namespace VtM_LoCh_fP.Views
                 bool attributes = i < 3;
                 string[] names = attributes ? InitialAttributeGroups[i] : InitialAbilityGroups[i - 3];
                 int baseValue = attributes ? CharacterCreationRules.GetCreationLimit("attribute_base") : 0;
-                int spent = FindTracks(this).Where(t => names.Contains(t.Label)).Sum(t => Math.Max(0, t.Value - baseValue));
+                var initialValues = attributes ? _character.CreationState.InitialAttributeDots : _character.CreationState.InitialAbilityDots;
+                int spent = _character.CreationState.InitialAllocationEverCompleted && initialValues != null
+                    ? names.Sum(name => { int v; return initialValues.TryGetValue(name, out v) ? Math.Max(0, v) : 0; })
+                    : FindTracks(this).Where(t => names.Contains(t.Label)).Sum(t => Math.Max(0, t.Value - baseValue));
                 int pool = GetInitialGroupPool(combos[i], attributes);
                 if (spent != pool)
                 {
@@ -330,7 +347,20 @@ namespace VtM_LoCh_fP.Views
             if (_character.CreationState.Priorities == null) _character.CreationState.Priorities = new Dictionary<string, string>();
             string[] keys = { "attributes.Физические", "attributes.Социальные", "attributes.Ментальные", "abilities.Таланты", "abilities.Навыки", "abilities.Знания" };
             for (int i = 0; i < combos.Length; i++) _character.CreationState.Priorities[keys[i]] = combos[i].SelectedItem.ToString();
+            bool wasInitialAllocationCompleted = _character.CreationState.InitialAllocationEverCompleted;
             _character.CreationState.InitialAllocationCompleted = true;
+            _character.CreationState.InitialAllocationEverCompleted = true;
+            if (_character.CreationState.InitialAttributeDots == null) _character.CreationState.InitialAttributeDots = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            if (_character.CreationState.InitialAbilityDots == null) _character.CreationState.InitialAbilityDots = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            if (!wasInitialAllocationCompleted)
+            {
+                _character.CreationState.InitialAttributeDots.Clear();
+                _character.CreationState.InitialAbilityDots.Clear();
+            }
+            if (_character.CreationState.PurchaseLedger == null) _character.CreationState.PurchaseLedger = new List<PurchaseTransaction>();
+            // Пересобираем только записи стартового распределения характеристик/способностей
+            _character.CreationState.PurchaseLedger.RemoveAll(t => t.Resource == "initial_pool" &&
+                (t.Block == "Характеристики" || t.Block == "Способности"));
             if (_character.CreationState.InitialPurchases == null) _character.CreationState.InitialPurchases = new List<CreationPurchase>();
             _character.CreationState.InitialPurchases.RemoveAll(p => p.Block == "Характеристики" || p.Block == "Способности");
             foreach (var track in FindTracks(this))
@@ -338,16 +368,38 @@ namespace VtM_LoCh_fP.Views
                 if (new[] { "Сила", "Ловкость", "Выносливость", "Обаяние", "Манипуляция", "Привлекательность", "Восприятие", "Интеллект", "Смекалка" }.Contains(track.Label))
                 {
                     _character.CreationState.AttributeDots[track.Label] = track.Value;
-                    _character.CreationState.InitialPurchases.Add(new CreationPurchase { Block = "Характеристики", ItemId = track.Label, ItemName = track.Label, PreviousValue = 0, NewValue = track.Value, Cost = 0, Source = "initial" });
+                    int attributeBase = CharacterCreationRules.GetCreationLimit("attribute_base");
+                    if (!wasInitialAllocationCompleted)
+                        _character.CreationState.InitialAttributeDots[track.Label] = Math.Max(0, track.Value - attributeBase);
+                    int initialAttributeValue = attributeBase + (_character.CreationState.InitialAttributeDots.ContainsKey(track.Label) ? _character.CreationState.InitialAttributeDots[track.Label] : 0);
+                    _character.CreationState.InitialPurchases.Add(new CreationPurchase { Block = "Характеристики", ItemId = track.Label, ItemName = track.Label, PreviousValue = attributeBase, NewValue = initialAttributeValue, Cost = 0, Source = "initial" });
+                    for (int level = attributeBase; level < initialAttributeValue; level++)
+                        RecordInitialAllocationPoint("Характеристики", "attribute", track.Label, level, level + 1);
                 }
                 else
                 {
                     _character.CreationState.AbilityDots[track.Label] = track.Value;
-                    _character.CreationState.InitialPurchases.Add(new CreationPurchase { Block = "Способности", ItemId = track.Label, ItemName = track.Label, PreviousValue = 0, NewValue = track.Value, Cost = 0, Source = "initial" });
+                    if (!wasInitialAllocationCompleted)
+                        _character.CreationState.InitialAbilityDots[track.Label] = track.Value;
+                    int initialAbilityValue = _character.CreationState.InitialAbilityDots.ContainsKey(track.Label) ? _character.CreationState.InitialAbilityDots[track.Label] : 0;
+                    _character.CreationState.InitialPurchases.Add(new CreationPurchase { Block = "Способности", ItemId = track.Label, ItemName = track.Label, PreviousValue = 0, NewValue = initialAbilityValue, Cost = 0, Source = "initial" });
+                    for (int level = 0; level < initialAbilityValue; level++)
+                        RecordInitialAllocationPoint("Способности", "ability", track.Label, level, level + 1);
                 }
             }
             UpdateInitialAllocationButton();
             ApplyGenerationLimits();
+        }
+
+        private void RecordInitialAllocationPoint(string block, string category, string itemName, int previous, int next)
+        {
+            var state = _character.CreationState;
+            state.PurchaseLedger.Add(new PurchaseTransaction
+            {
+                Order = state.NextPurchaseOrder++, Block = block, Category = category,
+                ItemId = itemName, ItemName = itemName, PreviousValue = previous, NewValue = next,
+                Resource = "initial_pool", Cost = 0
+            });
         }
 
         private ToolTip CreateVentrueTasteToolTip()
@@ -376,10 +428,25 @@ namespace VtM_LoCh_fP.Views
             };
         }
 
+        private void ApplyThemeResources(Control control, string backgroundKey = "InputBrush")
+        {
+            if (control == null) return;
+            control.SetResourceReference(Control.ForegroundProperty, "TextBrush");
+            control.SetResourceReference(Control.BackgroundProperty, backgroundKey);
+            control.SetResourceReference(Control.BorderBrushProperty, "BorderBrush");
+        }
+
         public void InitializeCharacter(CharacterProfile character)
         {
             _character = character;
             LoadInlinePriorities();
+            var nameField = new FieldControl { Label = "Имя Персонажа", InputText = _character.Name ?? string.Empty };
+            nameField.InputTextChanged += (sender, args) =>
+            {
+                _character.Name = nameField.InputText;
+                CharacterNameChanged?.Invoke(_character.Name);
+            };
+            NameFieldHost.Content = nameField;
             _character.CreationState.PropertyChanged += (s, e) =>
             {
                 if (e.PropertyName == nameof(CharacterCreationState.FreebiePoints) || e.PropertyName == nameof(CharacterCreationState.FreebiePurchasesConfirmed))
@@ -427,8 +494,8 @@ namespace VtM_LoCh_fP.Views
                 ? (_character.TraitMax > 0 ? _character.TraitMax : 5)
                 : 5;
 
-            // Во время создания атрибуты ограничены 5, способности — 3.
-            // После подтверждения стартовой закупки применяется лимит поколения.
+            // Во время создания атрибуты ограничены 5, способности — 3
+            // После подтверждения стартовой закупки применяется лимит поколения
             int attributeMax = _character.CreationState.InitialAllocationCompleted ? max : Math.Min(5, max);
             PhysicalAttributesTrackList.Count = attributeMax;
             SocialAttributes.Count = attributeMax;
@@ -448,9 +515,7 @@ namespace VtM_LoCh_fP.Views
 
         private void ApplySavedAllocations()
         {
-            // Применение сохранённого распределения (в том числе перераспределения
-            // характеристик для Носферату) не является прокачкой и не должно
-            // запускать списание свободных пунктов или опыта.
+            // Применение сохранённого распределения (в том числе перераспределения характеристик для Носферату) не является прокачкой и не должно запускать списание свободных пунктов или опыта.
             foreach (var track in FindTracks(this))
                 track.ValueChanged -= AllocationTrack_ValueChanged;
             foreach (var track in FindTracks(this))
@@ -481,7 +546,8 @@ namespace VtM_LoCh_fP.Views
             string[] attrs = { "Сила", "Ловкость", "Выносливость", "Обаяние", "Манипуляция", "Привлекательность", "Восприятие", "Интеллект", "Смекалка" };
             bool isAttribute = attrs.Contains(track.Label);
             int previous = _lastTrackValues.ContainsKey(track.Label) ? _lastTrackValues[track.Label] : track.Value;
-            if (track.Value != previous && _character.CreationState.InitialAllocationCompleted)
+            if (track.Value != previous && (_character.CreationState.InitialAllocationCompleted ||
+                (_character.CreationState.InitialAllocationEverCompleted && track.Value < previous)))
             {
                 bool allowed = AdvancementCheck == null || AdvancementCheck(attrs.Contains(track.Label) ? "attribute" : "ability", track.Label, previous, track.Value);
                 if (!allowed)
@@ -507,13 +573,26 @@ namespace VtM_LoCh_fP.Views
                     int pool = GetInitialGroupPool(priority, isAttributeGroup);
                     int alreadySpent = GetInitialGroupSpent(groupNames, isAttributeGroup, track);
                     int remaining = Math.Max(0, pool - alreadySpent);
-                    int allowedValue = baseValue + remaining;
+                    int paidDots = _character.CreationState.InitialAllocationEverCompleted && _character.CreationState.PurchaseLedger != null
+                        ? _character.CreationState.PurchaseLedger.Where(t => string.Equals(t.ItemName, track.Label, StringComparison.OrdinalIgnoreCase) && t.Resource != "initial_pool")
+                            .Sum(t => Math.Max(0, t.NewValue - t.PreviousValue)) : 0;
+                    int allowedValue = baseValue + paidDots + remaining;
                     if (track.Value > allowedValue)
                         track.SetTrackValue(allowedValue);
                 }
             }
             if (attrs.Contains(track.Label)) _character.CreationState.AttributeDots[track.Label] = track.Value;
             else _character.CreationState.AbilityDots[track.Label] = track.Value;
+            if (_character.CreationState.InitialAllocationEverCompleted && !_character.CreationState.InitialAllocationCompleted)
+            {
+                int baseValue = attrs.Contains(track.Label) ? CharacterCreationRules.GetCreationLimit("attribute_base") : 0;
+                int paidDots = _character.CreationState.PurchaseLedger == null ? 0 : _character.CreationState.PurchaseLedger
+                    .Where(t => string.Equals(t.ItemName, track.Label, StringComparison.OrdinalIgnoreCase) && t.Resource != "initial_pool")
+                    .Sum(t => Math.Max(0, t.NewValue - t.PreviousValue));
+                int initialDots = Math.Max(0, track.Value - baseValue - paidDots);
+                if (attrs.Contains(track.Label)) _character.CreationState.InitialAttributeDots[track.Label] = initialDots;
+                else _character.CreationState.InitialAbilityDots[track.Label] = initialDots;
+            }
             _lastTrackValues[track.Label] = track.Value;
             RefreshInitialBlockControls();
         }
@@ -544,6 +623,7 @@ namespace VtM_LoCh_fP.Views
                 VerticalContentAlignment = VerticalAlignment.Center,
                 Text = _character.SireName ?? string.Empty
             };
+            ApplyThemeResources(_sireInput);
             _sireInput.TextChanged += (s, e) =>
             {
                 _character.SireName = _sireInput.Text;
@@ -636,6 +716,7 @@ namespace VtM_LoCh_fP.Views
                     VerticalContentAlignment = VerticalAlignment.Center,
                     ToolTip = "Введите целочисленное значение от 4 до 15. Поколение показывает удалённость от Каина: чем меньше число, тем ближе Сородич к нему. Большинство Сородичей — 13-го поколения. Значения округляются до ближайшего доступного поколения."
                 };
+                ApplyThemeResources(_generationInput);
                 _generationInput.Text = _character.Generation.HasValue ? _character.Generation.Value.ToString() : string.Empty;
                 _generationInput.TextChanged += (s, e) => UpdateGeneration(_generationInput.Text);
                 _generationInput.LostFocus += (s, e) => { if (_character.Generation.HasValue) _generationInput.Text = _character.Generation.Value.ToString(); };
@@ -653,6 +734,7 @@ namespace VtM_LoCh_fP.Views
                     Padding = new Thickness(6, 3, 6, 3),
                     ToolTip = "Поколение показывает удалённость от Каина. Большинство Сородичей — 13-го поколения и младше. Значения выше 13 относятся к строке «Тринадцатое и младше»."
                 };
+                ApplyThemeResources(_generationSelector);
                 if (_character.Generation.HasValue) _generationSelector.SelectedValue = _character.Generation.Value;
                 _generationSelector.SelectionChanged += (s, e) => UpdateGeneration(_generationSelector.SelectedValue == null ? string.Empty : _generationSelector.SelectedValue.ToString());
                 field.Children.Add(_generationSelector);
@@ -722,6 +804,7 @@ namespace VtM_LoCh_fP.Views
                     BorderBrush = (Brush)FindResource("BorderBrush"),
                     VerticalContentAlignment = VerticalAlignment.Center
                 };
+                ApplyThemeResources(_clanInput);
                 _clanSuggestions = new ListBox
                 {
                     MaxHeight = 230,
@@ -730,10 +813,11 @@ namespace VtM_LoCh_fP.Views
                     Foreground = (Brush)FindResource("TextBrush"),
                     BorderBrush = (Brush)FindResource("BorderBrush")
                 };
+                ApplyThemeResources(_clanSuggestions, "CardBgBrush");
                 _clanSuggestions.ItemContainerStyle = new Style(typeof(ListBoxItem));
                 _clanSuggestions.ItemContainerStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(8, 6, 8, 6)));
-                _clanSuggestions.ItemContainerStyle.Setters.Add(new Setter(Control.BackgroundProperty, FindResource("CardBgBrush")));
-                _clanSuggestions.ItemContainerStyle.Setters.Add(new Setter(Control.ForegroundProperty, FindResource("TextBrush")));
+                _clanSuggestions.ItemContainerStyle.Setters.Add(new Setter(Control.BackgroundProperty, new DynamicResourceExtension("CardBgBrush")));
+                _clanSuggestions.ItemContainerStyle.Setters.Add(new Setter(Control.ForegroundProperty, new DynamicResourceExtension("TextBrush")));
                 _clanSuggestions.ItemContainerStyle.Setters.Add(new Setter(ToolTipService.ToolTipProperty, new Binding(".")));
                 _clanSuggestions.ItemContainerStyle.Setters.Add(new Setter(ToolTipService.InitialShowDelayProperty, 250));
                 _clanSuggestions.ItemContainerStyle.Setters.Add(new Setter(ToolTipService.ShowDurationProperty, 60000));
@@ -775,6 +859,7 @@ namespace VtM_LoCh_fP.Views
                 BorderBrush = (Brush)FindResource("BorderBrush"),
                 Padding = new Thickness(6, 3, 6, 3)
             };
+            ApplyThemeResources(_clanSelector);
             var tooltipTemplate = CreateClanTooltipTemplate();
             var tooltipStyle = new Style(typeof(ToolTip), (Style)FindResource("PopupToolTipStyle"));
             tooltipStyle.Setters.Add(new Setter(ContentControl.ContentTemplateProperty, tooltipTemplate));
@@ -936,6 +1021,7 @@ namespace VtM_LoCh_fP.Views
                 HorizontalContentAlignment = HorizontalAlignment.Left,
                 TextAlignment = TextAlignment.Left
             };
+            ApplyThemeResources(input);
             var list = new ListBox
             {
                 MaxHeight = 230, DisplayMemberPath = "Name",
@@ -943,10 +1029,11 @@ namespace VtM_LoCh_fP.Views
                 Foreground = (Brush)FindResource("TextBrush"),
                 BorderBrush = (Brush)FindResource("BorderBrush")
             };
+            ApplyThemeResources(list, "CardBgBrush");
             list.ItemContainerStyle = new Style(typeof(ListBoxItem));
             list.ItemContainerStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(8, 6, 8, 6)));
-            list.ItemContainerStyle.Setters.Add(new Setter(Control.BackgroundProperty, FindResource("CardBgBrush")));
-            list.ItemContainerStyle.Setters.Add(new Setter(Control.ForegroundProperty, FindResource("TextBrush")));
+            list.ItemContainerStyle.Setters.Add(new Setter(Control.BackgroundProperty, new DynamicResourceExtension("CardBgBrush")));
+            list.ItemContainerStyle.Setters.Add(new Setter(Control.ForegroundProperty, new DynamicResourceExtension("TextBrush")));
             list.ItemContainerStyle.Setters.Add(new Setter(ToolTipService.ToolTipProperty, new Binding("Description")));
             list.ItemContainerStyle.Setters.Add(new Setter(ToolTipService.InitialShowDelayProperty, 250));
             list.ItemContainerStyle.Setters.Add(new Setter(ToolTipService.ShowDurationProperty, 60000));
@@ -1140,7 +1227,7 @@ namespace VtM_LoCh_fP.Views
             bool isNewClan = selectionChanged || !string.Equals(_currentClanId, clan.Id, StringComparison.OrdinalIgnoreCase);
 
             // Предлагаем сбросить только характеристики. Способности и приоритеты
-            // не затрагиваются; при отказе характеристики сохраняют текущие значения.
+            // не затрагиваются; при отказе характеристики сохраняют текущие значения
             if (selectionChanged)
             {
                 var resetResult = ThemedDialog.Show(

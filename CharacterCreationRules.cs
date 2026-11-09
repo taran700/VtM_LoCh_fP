@@ -5,9 +5,9 @@ using System.ComponentModel;
 
 namespace VtM_LoCh_fP
 {
-    /// <summary>
-    /// Состояние создания и развития персонажа. Правила лимитов и стоимости читаются из Data/data.json.
-    /// </summary>
+
+    /// Состояние создания и развития персонажа. Правила лимитов и стоимости читаются из Data/data.json
+
     public sealed class CharacterCreationState : INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler PropertyChanged;
@@ -26,14 +26,29 @@ namespace VtM_LoCh_fP
         public List<CreationPurchase> FreebiePurchases { get; set; } = new List<CreationPurchase>();
         public List<CreationPurchase> InitialPurchases { get; set; } = new List<CreationPurchase>();
         public List<ExperiencePurchase> ExperiencePurchases { get; set; } = new List<ExperiencePurchase>();
+        // Единый журнал происхождения каждой потраченной точки. Пока живёт в памяти;
+        public List<PurchaseTransaction> PurchaseLedger { get; set; } = new List<PurchaseTransaction>();
+        public long NextPurchaseOrder { get; set; } = 1;
+        public bool IsRestoringPurchase { get; set; }
+        public Dictionary<string, int> InitialVirtueRatings { get; set; } = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        public Dictionary<string, int> InitialBackgroundDots { get; set; } = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        public Dictionary<string, int> InitialDisciplineDots { get; set; } = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        public bool InitialVirtueBlockEverConfirmed { get; set; }
+        public bool InitialBackgroundBlockEverConfirmed { get; set; }
+        public bool InitialDisciplineBlockEverConfirmed { get; set; }
         public int? BaseGeneration { get; set; }
         public bool InitialAllocationCompleted { get; set; }
+        public bool InitialAllocationEverCompleted { get; set; }
+        public Dictionary<string, int> InitialAttributeDots { get; set; } = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        public Dictionary<string, int> InitialAbilityDots { get; set; } = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         public bool InitialPurchaseConfirmed { get; set; }
         public List<string> ConfirmedInitialBlocks { get; set; } = new List<string>();
         public void UnconfirmInitialBlock(string key)
         {
-            if (InitialPurchaseConfirmed || ConfirmedInitialBlocks == null) return;
+            if (ConfirmedInitialBlocks == null) return;
             ConfirmedInitialBlocks.RemoveAll(x => string.Equals(x, key, StringComparison.OrdinalIgnoreCase));
+            string[] all = { "virtues", "backgrounds", "disciplines" };
+            InitialPurchaseConfirmed = all.All(k => ConfirmedInitialBlocks.Contains(k, StringComparer.OrdinalIgnoreCase));
         }
         public void ConfirmInitialBlock(string key)
         {
@@ -76,6 +91,21 @@ namespace VtM_LoCh_fP
         public string Source { get; set; } = "initial";
     }
 
+    public sealed class PurchaseTransaction
+    {
+        public long Order { get; set; }
+        public string Block { get; set; }
+        public string Category { get; set; }
+        public string ItemId { get; set; }
+        public string ItemName { get; set; }
+        public int PreviousValue { get; set; }
+        public int NewValue { get; set; }
+        public string Resource { get; set; } 
+        public int Cost { get; set; }
+        public bool AffectsVirtueDerivedValues { get; set; }
+        public DateTime TimestampUtc { get; set; } = DateTime.UtcNow;
+    }
+
     public sealed class ExperiencePurchase
     {
         public string Category { get; set; }
@@ -84,6 +114,7 @@ namespace VtM_LoCh_fP
         public int NewValue { get; set; }
         public int Cost { get; set; }
         public string Source { get; set; } = "experience";
+        public DateTime TimestampUtc { get; set; } = DateTime.UtcNow;
     }
 
     public static class CharacterCreationRules
@@ -162,7 +193,7 @@ namespace VtM_LoCh_fP
             dynamic root = DataRules.Load();
             dynamic rules = root.ContainsKey("base_rules") ? root["base_rules"] : root;
             // Общие цены свободных пунктов; для старых файлов данных сохраняем
-            // совместимость с таблицей каитифов.
+            // совместимость с таблицей каитифов
             try
             {
                 dynamic costs = rules["freebie_costs"];

@@ -7,12 +7,9 @@ using System.Windows.Markup;
 
 namespace VtM_LoCh_fP.Controls
 {
-    /// <summary>
-    /// Список однотипных дорожек значений. Названия задаются прямо во вью:
-    /// &lt;controls:TrackListControl Count="5"&gt;
-    ///     &lt;sys:String&gt;Сила&lt;/sys:String&gt;
-    /// &lt;/controls:TrackListControl&gt;
-    /// </summary>
+
+    /// Список однотипных дорожек значений. Названия задаются прямо во вьювсах
+
     [ContentProperty(nameof(Names))]
     public partial class TrackListControl : UserControl
     {
@@ -51,7 +48,6 @@ namespace VtM_LoCh_fP.Controls
             Loaded += (sender, args) => ApplyForcedZeroName();
         }
 
-        /// <summary>Подписи дорожек. Заполняются содержимым тега в XAML.</summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Content)]
         public ObservableCollection<string> Names { get; }
 

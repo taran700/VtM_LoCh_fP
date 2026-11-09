@@ -1,4 +1,4 @@
-﻿<UserControl x:Class="VtM_LoCh_fP.Views.PageTwoView"
+<UserControl x:Class="VtM_LoCh_fP.Views.PageTwoView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:sys="clr-namespace:System;assembly=mscorlib"
@@ -9,7 +9,7 @@
                 <TextBlock DockPanel.Dock="Right" Text="2/6" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center"/>
                 <TextBlock Text="ПРЕИМУЩЕСТВА" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource HeadingBrush}"/>
             </DockPanel>
-            <!-- ===== Преимущества ===== -->
+
             <GroupBox Header="ПРЕИМУЩЕСТВА" Style="{StaticResource SectionBoxStyle}">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -52,10 +52,6 @@
                 </Grid>
             </GroupBox>
 
-            <!-- ===== Состояние персонажа =====
-                 Воля: постоянная и временная — одна строка строго под другой,
-                 для этого у обеих дорожек одинаковая ширина подписи и одинаковое
-                 число точек. Кровь: 10 квадратов всегда в два ряда по пять. -->
             <GroupBox  Header="МЕНТАЛЬНЫЙ РЕСУРС" 
                       Style="{StaticResource SectionBoxStyle}"  >
                 <Grid>
@@ -174,8 +170,16 @@
                     
                     </Grid.ColumnDefinitions>
                
-                    <controls:FieldControl x:Name="ExperienceInput" Grid.Column="0" Label="Опыт"/>
-                    <controls:FieldControl x:Name="FreebiePointsInput" Grid.Column="1" Label="Свободные пункты"/>
+                    <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                        <controls:FieldControl x:Name="ExperienceInput" Label="Опыт"/>
+                        <Button Content="Подробнее о закупе" HorizontalAlignment="Right" Padding="10,4" Margin="0,4,0,0"
+                                Click="ExperiencePrices_Click"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                        <controls:FieldControl x:Name="FreebiePointsInput" Label="Свободные пункты"/>
+                        <Button Content="Подробнее о закупе" HorizontalAlignment="Right" Padding="10,4" Margin="0,4,0,0"
+                                Click="FreebiePrices_Click"/>
+                    </StackPanel>
                    
                 </Grid>
             </GroupBox>

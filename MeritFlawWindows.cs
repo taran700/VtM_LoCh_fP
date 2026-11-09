@@ -268,6 +268,14 @@ namespace VtM_LoCh_fP
                     Cost = balanceDelta,
                     Source = "freebie"
                 });
+                if (_character.CreationState.PurchaseLedger == null)
+                    _character.CreationState.PurchaseLedger = new System.Collections.Generic.List<PurchaseTransaction>();
+                _character.CreationState.PurchaseLedger.Add(new PurchaseTransaction
+                {
+                    Order = _character.CreationState.NextPurchaseOrder++, Block = "Достоинства и недостатки",
+                    Category = _definition.Type, ItemId = _definition.Id, ItemName = _definition.Name,
+                    PreviousValue = 0, NewValue = cost, Resource = "freebie", Cost = balanceDelta
+                });
             }
             DialogResult = true;
         }

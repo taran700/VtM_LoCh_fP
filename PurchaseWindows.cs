@@ -106,9 +106,10 @@ namespace VtM_LoCh_fP
                 ThemedDialog.Show(this, "Недостаточно опыта.", "Покупка", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
-            if (!AppSettings.ExperiencePurchasesEnabled)
+            bool isFreeNeonate = string.Equals(_character.CreationMode, "Свободный Неонат", StringComparison.OrdinalIgnoreCase);
+            if (isFreeNeonate && !AppSettings.ExperiencePurchasesEnabled)
             {
-                ThemedDialog.Show(this, "Закуп за опыт отключён в настройках.", "Покупка", MessageBoxButton.OK, MessageBoxImage.Information);
+                ThemedDialog.Show(this, "Закуп за опыт отключён в настройках Неоната.", "Покупка", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
             int previous = item.CurrentValue;
@@ -118,12 +119,30 @@ namespace VtM_LoCh_fP
                 _character.CreationState.ExperiencePurchases = new List<ExperiencePurchase>();
             _character.CreationState.ExperiencePurchases.Add(new ExperiencePurchase
             {
-                Category = item.Category, ItemName = item.Name, PreviousValue = previous, NewValue = next, Cost = cost, Source = "experience"
+                Category = item.CostKey, ItemName = item.Name, PreviousValue = previous, NewValue = next, Cost = cost, Source = "experience"
             });
+            AddLedger(item, previous, next, "experience", cost);
             item.CurrentValue = next;
             _options.Items.Refresh();
             UpdateInfo();
             ThemedDialog.Show(this, item.Name + " повышено до " + next + ". Потрачено опыта: " + cost + ".", "Покупка завершена", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void AddLedger(AdvancementOption item, int previous, int next, string resource, int cost)
+        {
+            var state = _character.CreationState;
+            if (state.PurchaseLedger == null) state.PurchaseLedger = new List<PurchaseTransaction>();
+            string block = item.Category == "Характеристика" ? "Характеристики" :
+                item.Category == "Способность" ? "Способности" : item.Category == "Добродетель" ? "Добродетели" :
+                item.Category.IndexOf("Дисциплина", StringComparison.OrdinalIgnoreCase) >= 0 || item.CostKey == "secondary_path" ? "Дисциплины" :
+                item.Category.IndexOf("Фон", StringComparison.OrdinalIgnoreCase) >= 0 ? "Фоны" :
+                item.Category == "Сила воли" ? "Сила воли" : "Путь";
+            state.PurchaseLedger.Add(new PurchaseTransaction
+            {
+                Order = state.NextPurchaseOrder++, Block = block, Category = item.CostKey,
+                ItemId = item.Name, ItemName = item.Name, PreviousValue = previous, NewValue = next,
+                Resource = resource, Cost = cost, AffectsVirtueDerivedValues = item.CostKey == "virtue"
+            });
         }
 
         private static Brush Brush(string key) => Application.Current.Resources[key] as Brush ?? Brushes.Gray;
@@ -212,7 +231,8 @@ namespace VtM_LoCh_fP
                 _resetAction?.Invoke(block, selected);
             }
             else _resetAction?.Invoke(block, selected);
-            _character.CreationState.FreebiePoints += selected.Sum(x => x.Cost);
+            if (_resetAction == null)
+                _character.CreationState.FreebiePoints += selected.Sum(x => x.Cost);
             _character.CreationState.FreebiePurchasesConfirmed = false;
             _confirmedBlocks.Remove(block);
             _character.CreationState.ConfirmedFreebieBlocks.RemoveAll(x => string.Equals(x, block, StringComparison.OrdinalIgnoreCase));
@@ -233,7 +253,7 @@ namespace VtM_LoCh_fP
         public FreebiePurchaseWindow(Window owner, CharacterProfile character, IEnumerable<AdvancementOption> options)
         {
             _character = character;
-            _items = options.Where(x => x.CurrentValue < x.Maximum).ToList();
+            _items = options.Where(x => x.CostKey != "background" && x.CurrentValue < x.Maximum).ToList();
             Title = "Покупка за свободные пункты";
             Width = 620; Height = 360; MinWidth = 500; MinHeight = 300;
             Owner = owner; WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -299,12 +319,30 @@ namespace VtM_LoCh_fP
                             item.Category == "Сила воли" ? "Сила воли" : "Путь",
                     ItemId = item.Name, ItemName = item.Name, PreviousValue = previous, NewValue = previous + 1, Cost = cost, Source = "freebie"
                 });
+                AddLedger(item, previous, previous + 1, "freebie", cost);
             }
             item.CurrentValue = previous + 1;
             _options.Items.Refresh();
             UpdateInfo();
             ThemedDialog.Show(this, item.Name + " повышено до " + item.CurrentValue + ".", "Покупка завершена", MessageBoxButton.OK, MessageBoxImage.Information);
         }
+        private void AddLedger(AdvancementOption item, int previous, int next, string resource, int cost)
+        {
+            var state = _character.CreationState;
+            if (state.PurchaseLedger == null) state.PurchaseLedger = new List<PurchaseTransaction>();
+            string block = item.Category == "Характеристика" ? "Характеристики" :
+                item.Category == "Способность" ? "Способности" : item.Category == "Добродетель" ? "Добродетели" :
+                item.Category.IndexOf("Дисциплина", StringComparison.OrdinalIgnoreCase) >= 0 || item.CostKey == "secondary_path" ? "Дисциплины" :
+                item.Category.IndexOf("Фон", StringComparison.OrdinalIgnoreCase) >= 0 ? "Фоны" :
+                item.Category == "Сила воли" ? "Сила воли" : "Путь";
+            state.PurchaseLedger.Add(new PurchaseTransaction
+            {
+                Order = state.NextPurchaseOrder++, Block = block, Category = item.CostKey,
+                ItemId = item.Name, ItemName = item.Name, PreviousValue = previous, NewValue = next,
+                Resource = resource, Cost = cost, AffectsVirtueDerivedValues = item.CostKey == "virtue"
+            });
+        }
+
         private static Brush Brush(string key) => Application.Current.Resources[key] as Brush ?? Brushes.Gray;
     }
 
@@ -393,4 +431,107 @@ namespace VtM_LoCh_fP
         private static Brush Brush(string key) => Application.Current.Resources[key] as Brush ?? Brushes.Gray;
     }
 
+
+
+    internal sealed class PurchasePriceInfoWindow : Window
+    {
+        public PurchasePriceInfoWindow(Window owner, bool experience)
+        {
+            Title = experience ? "Расценки закупа за опыт" : "Расценки свободных пунктов";
+            Width = 680;
+            Height = experience ? 590 : 470;
+            MinWidth = 560;
+            MinHeight = 380;
+            Owner = owner;
+            WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            ThemeManager.AttachWindow(this);
+
+            var root = new DockPanel { Margin = new Thickness(20) };
+            var footer = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+            var close = HumanityPathEditorWindow.MakeButton("Закрыть", true);
+            close.Click += (s, e) => Close();
+            footer.Children.Add(close);
+            DockPanel.SetDock(footer, Dock.Bottom);
+            root.Children.Add(footer);
+
+            var body = new StackPanel();
+            body.Children.Add(new TextBlock
+            {
+                Text = experience ? "Повышение за опыт" : "Свободные пункты — расценка",
+                FontSize = 20, FontWeight = FontWeights.Bold,
+                Foreground = Brush("HeadingBrush"), Margin = new Thickness(0, 0, 0, 14)
+            });
+
+            var rows = experience
+                ? new[] {
+                    new[] { "Новая способность", "3" },
+                    new[] { "Новая Дисциплина", "10" },
+                    new[] { "Новый путь Некромантии или Тауматургии", "7" },
+                    new[] { "Характеристика", "Текущее значение × 4" },
+                    new[] { "Способность", "Текущее значение × 2" },
+                    new[] { "Клановая Дисциплина", "Текущее значение × 5†" },
+                    new[] { "Сторонняя Дисциплина", "Текущее значение × 7†" },
+                    new[] { "Вторичный путь Некромантии или Тауматургии", "Текущее значение × 4" },
+                    new[] { "Добродетель", "Текущее значение × 2" },
+                    new[] { "Человечность или Путь Просветления", "Текущее значение × 2" },
+                    new[] { "Воля", "Текущее значение × 1" }
+                }
+                : new[] {
+                    new[] { "Характеристика", "5 за пункт" },
+                    new[] { "Способность", "2 за пункт" },
+                    new[] { "Дисциплина", "7 за пункт (требуется обоснование)" },
+                    new[] { "Факт биографии", "1 за пункт" },
+                    new[] { "Добродетель", "2 за пункт" },
+                    new[] { "Человечность", "2 за пункт" },
+                    new[] { "Воля", "1 за пункт" }
+                };
+
+            var headers = new[] { "Параметр", "Стоимость" };
+            body.Children.Add(EquipmentInfoWindows.Table(headers, rows,
+                new[] { 2.0, 3.0 }));
+
+            if (experience)
+            {
+                body.Children.Add(new TextBlock
+                {
+                    Text = "† Для Каитифов клановая и сторонняя Дисциплины стоят Текущее значение × 6.\nРазвитие Добродетелей за опыт не влияет на Человечность/Путь и Волю.",
+                    TextWrapping = TextWrapping.Wrap, Foreground = Brush("MutedBrush"), Margin = new Thickness(2, 4, 2, 0)
+                });
+            }
+            else
+            {
+                body.Children.Add(new TextBlock
+                {
+                    Text = "После завершения создания персонажа факты биографии изменять нельзя.",
+                    TextWrapping = TextWrapping.Wrap, Foreground = Brush("MutedBrush"), Margin = new Thickness(2, 4, 2, 0)
+                });
+            }
+            var scroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Content = body };
+            root.Children.Add(scroll);
+            Content = root;
+        }
+
+        private static void AddCell(Grid grid, string value, int row, int column, bool header)
+        {
+            var border = new Border
+            {
+                BorderBrush = Brush("BorderBrush"), BorderThickness = new Thickness(0, 0, 1, 1),
+                Padding = new Thickness(9, 7, 9, 7),
+                Background = header ? Brush("PanelBrush") : Brushes.Transparent
+            };
+            border.Child = new TextBlock
+            {
+                Text = value, TextWrapping = TextWrapping.Wrap,
+                FontWeight = header ? FontWeights.SemiBold : FontWeights.Normal,
+                Foreground = Brush(header ? "HeadingBrush" : "TextBrush")
+            };
+            Grid.SetRow(border, row); Grid.SetColumn(border, column); grid.Children.Add(border);
+        }
+
+        private static Brush Brush(string key)
+        {
+            return Application.Current != null && Application.Current.Resources.Contains(key)
+                ? Application.Current.Resources[key] as Brush ?? Brushes.Gray : Brushes.Gray;
+        }
+    }
 }

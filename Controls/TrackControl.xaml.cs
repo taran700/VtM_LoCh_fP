@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -15,10 +15,10 @@ namespace VtM_LoCh_fP.Controls
         SquaresH
     }
 
-    /// <summary>
-    /// Дорожка значений: подпись (возможно редактируемая) и ряд точек либо квадратов.
-    /// Отметка каскадная: клик закрашивает фишку и всё левее, снятие очищает всё правее.
-    /// </summary>
+
+    /// Дорожка значений: подпись и ряд точек либо квадратов
+    /// Отметка: клик закрашивает пул и всё левее, снятие очищает всё правее
+  
     public partial class TrackControl : UserControl
     {
         public static readonly DependencyProperty LabelProperty =
@@ -37,7 +37,7 @@ namespace VtM_LoCh_fP.Controls
             DependencyProperty.Register(nameof(Shape), typeof(PipShape), typeof(TrackControl),
                 new PropertyMetadata(PipShape.Dots, OnShapeChanged));
 
-        /// <summary>Число колонок для квадратов: 0 — один ряд, 5 — два ряда по пять.</summary>
+        /// Число колонок для квадратов: 0 — один ряд, 5 — два ряда по пять
         public static readonly DependencyProperty ColumnsProperty =
             DependencyProperty.Register(nameof(Columns), typeof(int), typeof(TrackControl),
                 new PropertyMetadata(0, OnColumnsChanged));
@@ -54,7 +54,6 @@ namespace VtM_LoCh_fP.Controls
             DependencyProperty.Register(nameof(Cascade), typeof(bool), typeof(TrackControl),
                 new PropertyMetadata(true));
 
-        // Для карточек дисциплин сохраняется прежняя каскадная механика.
         public static readonly DependencyProperty LegacyCascadeProperty =
             DependencyProperty.Register(nameof(LegacyCascade), typeof(bool), typeof(TrackControl),
                 new PropertyMetadata(false));
@@ -239,7 +238,6 @@ namespace VtM_LoCh_fP.Controls
             SquareItemsH.IsEnabled = !IsForcedZero;
             LabelText.TextDecorations = null;
             ForcedZeroStrike.Visibility = IsForcedZero ? Visibility.Visible : Visibility.Collapsed;
-            ForcedZeroStrikeSecond.Visibility = IsForcedZero ? Visibility.Visible : Visibility.Collapsed;
             if (!IsForcedZero || Items == null) return;
 
             _syncing = true;

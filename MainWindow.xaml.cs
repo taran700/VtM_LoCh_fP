@@ -2,12 +2,11 @@
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Documents;
-using System.Windows.Input;
 using System.Windows.Media;
 using System.Linq;
 using System.Collections.ObjectModel;
 using VtM_LoCh_fP.Controls;
+using System.Windows.Threading;
 using VtM_LoCh_fP.ViewModels;
 
 namespace VtM_LoCh_fP
@@ -19,16 +18,10 @@ namespace VtM_LoCh_fP
     public partial class MainWindow : Window
     {
         private bool _manualPurchaseInProgress;
-        private const double DragThreshold = 6.0;
-
-        private TabItem _draggedTab;
-        private Point _dragStart;
-        private DragAdorner _adorner;
-        private AdornerLayer _adornerLayer;
-        private bool _isDragging;
 
         private readonly CharacterProfile _character;
         private bool _initialCompletionApplied;
+        private readonly DispatcherTimer _autosaveTimer = new DispatcherTimer();
 
         internal MainWindow(CharacterProfile character)
         {
@@ -40,9 +33,13 @@ namespace VtM_LoCh_fP
             if (_character.CreationState.OtherDots == null) _character.CreationState.OtherDots = new Dictionary<string, int>();
             if (_character.CreationState.FreebiePurchases == null) _character.CreationState.FreebiePurchases = new List<CreationPurchase>();
             if (_character.CreationState.ExperiencePurchases == null) _character.CreationState.ExperiencePurchases = new List<ExperiencePurchase>();
+            if (_character.CreationState.PurchaseLedger == null) _character.CreationState.PurchaseLedger = new List<PurchaseTransaction>();
+            MigratePurchaseLedgerIfNeeded();
+            InitializeInitialAllocationSnapshots();
             if (_character.CreationState.ConfirmedFreebieBlocks == null) _character.CreationState.ConfirmedFreebieBlocks = new List<string>();
             if (_character.CreationState.ConfirmedInitialBlocks == null) _character.CreationState.ConfirmedInitialBlocks = new List<string>();
             CharacterPage.InitializeCharacter(character);
+            CharacterPage.CharacterNameChanged += name => Title = "VtM V20: " + name + " — " + _character.CreationMode;
             AdvantagesPage.InitializeCharacter(character);
             DisciplinesPage.InitializeCharacter(character);
             HistoryPage.InitializeCharacter(character);
@@ -77,6 +74,10 @@ namespace VtM_LoCh_fP
             };
             UpdateFreebieJournalButton();
             UpdateInitialPurchaseButton();
+            _autosaveTimer.Interval = TimeSpan.FromSeconds(2);
+            _autosaveTimer.Tick += (s, e) => CharacterSelectionWindow.SaveCharacters();
+            _autosaveTimer.Start();
+            Closed += (s, e) => { _autosaveTimer.Stop(); CharacterSelectionWindow.SaveCharacters(); };
         }
 
 
@@ -85,13 +86,22 @@ namespace VtM_LoCh_fP
             if (_manualPurchaseInProgress) return true;
             if (next < previous) { RefundAdvancement(costKey, itemName, previous, next); return true; }
             if (next == previous) return true;
+            bool derivedVirtueTrait = costKey == "humanity_path" || costKey == "willpower";
+            bool virtuesConfirmed = _character.CreationState.ConfirmedInitialBlocks.Contains("virtues");
+            if (!_character.CreationState.InitialAllocationCompleted && costKey != "attribute" && costKey != "ability" &&
+                !(derivedVirtueTrait && virtuesConfirmed))
+            {
+                ThemedDialog.Show(this, "Сначала завершите повторное распределение характеристик и способностей.", "Распределение не завершено", MessageBoxButton.OK, MessageBoxImage.Information);
+                return false;
+            }
 
             bool isFreeNeonate = string.Equals(_character.CreationMode, "Свободный Неонат", StringComparison.OrdinalIgnoreCase);
             bool isFledgling = string.Equals(_character.CreationMode, "Птенец на поводке Сира", StringComparison.OrdinalIgnoreCase);
             int increase = next - previous;
 
             string mode = AppSettings.NeonatePurchaseMode ?? "Свободные пункты → опыт";
-            bool useFreebies = isFreeNeonate && (mode == "Свободные пункты → опыт" || mode == "Только свободные пункты");
+            // Новые факты биографии всегда покупаются свободными пунктами — в обоих режимах.
+            bool useFreebies = costKey == "background" || (isFreeNeonate && (mode == "Свободные пункты → опыт" || mode == "Только свободные пункты"));
             bool useExperience = isFledgling || (isFreeNeonate && (mode == "Свободные пункты → опыт" || mode == "Только опыт"));
             if (isFreeNeonate && !useFreebies && !useExperience)
                 return true; // Вручную, без автоматического списания.
@@ -156,6 +166,8 @@ namespace VtM_LoCh_fP
                     Cost = spent,
                     Source = "freebie"
                 });
+                for (int level = 0; level < freebieLevels; level++)
+                    RecordTransaction(block, costKey, itemName, previous + level, previous + level + 1, "freebie", freebieUnitCost, costKey == "virtue");
             }
 
             if (experienceCost > 0)
@@ -172,45 +184,261 @@ namespace VtM_LoCh_fP
                     Cost = experienceCost,
                     Source = "experience"
                 });
+                int levelValue = previous + freebieLevels;
+                for (int level = levelValue; level < next; level++)
+                    RecordTransaction(BlockForCostKey(costKey), costKey, itemName, level, level + 1, "experience",
+                        CalculateExperienceCost(costKey, itemName, level, level + 1), costKey == "virtue");
             }
 
             return true;
         }
 
+        private void InitializeInitialAllocationSnapshots()
+        {
+            var state = _character.CreationState;
+            var initialRecords = state.InitialPurchases ?? new List<CreationPurchase>();
+            state.InitialVirtueBlockEverConfirmed = state.InitialVirtueBlockEverConfirmed || initialRecords.Any(p => p.Block == "Добродетели");
+            state.InitialBackgroundBlockEverConfirmed = state.InitialBackgroundBlockEverConfirmed || initialRecords.Any(p => p.Block == "Факты биографии");
+            state.InitialDisciplineBlockEverConfirmed = state.InitialDisciplineBlockEverConfirmed || initialRecords.Any(p => p.Block == "Дисциплины");
+            if (!state.InitialAllocationCompleted) return;
+            state.InitialAllocationEverCompleted = true;
+            if (state.InitialAttributeDots == null) state.InitialAttributeDots = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            if (state.InitialAbilityDots == null) state.InitialAbilityDots = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            if (state.InitialAttributeDots.Count == 0)
+                foreach (var group in state.PurchaseLedger.Where(t => t.Resource == "initial_pool" && t.Block == "Характеристики").GroupBy(t => t.ItemName, StringComparer.OrdinalIgnoreCase))
+                    state.InitialAttributeDots[group.Key] = group.Sum(t => Math.Max(0, t.NewValue - t.PreviousValue));
+            if (state.InitialAbilityDots.Count == 0)
+                foreach (var group in state.PurchaseLedger.Where(t => t.Resource == "initial_pool" && t.Block == "Способности").GroupBy(t => t.ItemName, StringComparer.OrdinalIgnoreCase))
+                    state.InitialAbilityDots[group.Key] = group.Sum(t => Math.Max(0, t.NewValue - t.PreviousValue));
+            if (state.InitialBackgroundDots == null) state.InitialBackgroundDots = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            if (state.InitialBackgroundDots.Count == 0)
+                foreach (var p in (state.InitialPurchases ?? new List<CreationPurchase>()).Where(x => x.Block == "Факты биографии")) state.InitialBackgroundDots[p.ItemName] = p.NewValue;
+            if (state.InitialDisciplineDots == null) state.InitialDisciplineDots = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            if (state.InitialDisciplineDots.Count == 0)
+                foreach (var p in (state.InitialPurchases ?? new List<CreationPurchase>()).Where(x => x.Block == "Дисциплины")) state.InitialDisciplineDots[p.ItemName] = p.NewValue;
+            if (state.InitialVirtueRatings == null) state.InitialVirtueRatings = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            if (state.InitialVirtueRatings.Count == 0)
+                foreach (var purchase in (state.InitialPurchases ?? new List<CreationPurchase>()).Where(p => p.Block == "Добродетели"))
+                    state.InitialVirtueRatings[purchase.ItemName] = purchase.NewValue;
+        }
+
+        private void MigratePurchaseLedgerIfNeeded()
+        {
+            var state = _character.CreationState;
+            if (state.PurchaseLedger.Count > 0) return;
+            // Старые записи не содержали порядка. Восстанавливаем порядок внутри каждого показателя
+            // по диапазону уровней; этого достаточно для корректного LIFO-сброса конкретного показателя.
+            foreach (var p in state.InitialPurchases ?? new List<CreationPurchase>())
+            {
+                string category = p.Block == "Характеристики" ? "attribute" : p.Block == "Способности" ? "ability" :
+                    p.Block == "Добродетели" ? "virtue" : p.Block == "Дисциплины" ? "discipline" : p.Block == "Факты биографии" ? "background" : null;
+                if (category == null) continue;
+                int baseValue = category == "attribute" ? CharacterCreationRules.GetCreationLimit("attribute_base") :
+                    category == "virtue" ? CharacterCreationRules.GetCreationLimit("virtue_base") : 0;
+                for (int level = Math.Max(baseValue, p.PreviousValue); level < p.NewValue; level++)
+                    state.PurchaseLedger.Add(new PurchaseTransaction { Order = state.NextPurchaseOrder++, Block = p.Block == "Факты биографии" ? "Фоны" : p.Block,
+                        Category = category, ItemId = p.ItemId, ItemName = p.ItemName, PreviousValue = level, NewValue = level + 1, Resource = "initial_pool", Cost = 0,
+                        AffectsVirtueDerivedValues = category == "virtue" });
+            }
+            foreach (var p in state.FreebiePurchases ?? new List<CreationPurchase>())
+            {
+                int span = p.NewValue - p.PreviousValue;
+                if (span <= 0) continue;
+                int unit = p.Cost / span;
+                for (int level = p.PreviousValue; level < p.NewValue; level++)
+                    state.PurchaseLedger.Add(new PurchaseTransaction { Order = state.NextPurchaseOrder++, Block = p.Block,
+                        ItemId = p.ItemId, ItemName = p.ItemName, PreviousValue = level, NewValue = level + 1, Resource = "freebie", Cost = unit });
+            }
+            foreach (var p in state.ExperiencePurchases ?? new List<ExperiencePurchase>())
+            {
+                string costKey = NormalizeCostKey(p.Category);
+                p.Category = costKey;
+                int span = p.NewValue - p.PreviousValue;
+                if (span <= 0) continue;
+                var levelCosts = Enumerable.Range(p.PreviousValue, span)
+                    .Select(level => CalculateExperienceCost(costKey, p.ItemName, level, level + 1)).ToList();
+                int expected = levelCosts.Sum();
+                int assigned = 0;
+                for (int index = 0; index < span; index++)
+                {
+                    int each = index == span - 1 ? p.Cost - assigned :
+                        (expected > 0 ? (int)Math.Round((double)p.Cost * levelCosts[index] / expected) : p.Cost / span);
+                    assigned += each;
+                    int level = p.PreviousValue + index;
+                    state.PurchaseLedger.Add(new PurchaseTransaction { Order = state.NextPurchaseOrder++, Block = BlockForCostKey(costKey),
+                        Category = costKey, ItemId = p.ItemName, ItemName = p.ItemName, PreviousValue = level, NewValue = level + 1, Resource = "experience", Cost = each,
+                        AffectsVirtueDerivedValues = costKey == "virtue" });
+                }
+            }
+            foreach (var group in state.PurchaseLedger.GroupBy(t => t.ItemName, StringComparer.OrdinalIgnoreCase))
+            {
+                var ordered = group.OrderBy(t => t.PreviousValue).ThenBy(t => t.Order).ToList();
+                long order = state.NextPurchaseOrder++;
+                foreach (var item in ordered) item.Order = order++;
+                state.NextPurchaseOrder = Math.Max(state.NextPurchaseOrder, order);
+            }
+        }
+
+        private static string NormalizeCostKey(string key)
+        {
+            if (string.IsNullOrWhiteSpace(key)) return key;
+            switch (key.Trim().ToLowerInvariant())
+            {
+                case "характеристика": case "характеристики": return "attribute";
+                case "способность": case "способности": return "ability";
+                case "добродетель": case "добродетели": return "virtue";
+                case "дисциплина": case "дисциплины": return "discipline";
+                case "фон": case "фоны": return "background";
+                case "сила воли": return "willpower";
+                case "путь": case "человечность": return "humanity_path";
+                default: return key;
+            }
+        }
+
+        private static string BlockForCostKey(string key)
+        {
+            return key == "attribute" ? "Характеристики" : key == "ability" ? "Способности" :
+                key == "virtue" ? "Добродетели" : (key == "discipline" || key == "secondary_path") ? "Дисциплины" :
+                key == "background" ? "Фоны" : key == "willpower" ? "Сила воли" : "Путь";
+        }
+
+        private void RecordTransaction(string block, string category, string itemName, int previous, int next, string resource, int cost, bool virtueDerived)
+        {
+            var state = _character.CreationState;
+            if (state.PurchaseLedger == null) state.PurchaseLedger = new List<PurchaseTransaction>();
+            state.PurchaseLedger.Add(new PurchaseTransaction
+            {
+                Order = state.NextPurchaseOrder++, Block = block, Category = category,
+                ItemId = itemName, ItemName = itemName, PreviousValue = previous, NewValue = next,
+                Resource = resource, Cost = cost, AffectsVirtueDerivedValues = virtueDerived
+            });
+        }
+
         private void RefundAdvancement(string costKey, string itemName, int oldValue, int newValue)
         {
+            var state = _character.CreationState;
+            if (state.PurchaseLedger == null) state.PurchaseLedger = new List<PurchaseTransaction>();
+            var matches = state.PurchaseLedger
+                .Where(t => string.Equals(t.ItemName, itemName, StringComparison.OrdinalIgnoreCase) &&
+                            t.NewValue > newValue && t.PreviousValue < oldValue)
+                .OrderByDescending(t => t.Order).ToList();
+
+            if (matches.Count > 0)
+            {
+                foreach (var transaction in matches)
+                {
+                    int from = Math.Max(newValue, transaction.PreviousValue);
+                    int to = Math.Min(oldValue, transaction.NewValue);
+                    if (to <= from) continue;
+                    int levels = to - from;
+                    int unitCost = transaction.NewValue > transaction.PreviousValue
+                        ? transaction.Cost / (transaction.NewValue - transaction.PreviousValue) : 0;
+                    int refund = levels * unitCost;
+                    if (transaction.Resource == "freebie") state.FreebiePoints += refund;
+                    else if (transaction.Resource == "experience") state.ExperiencePoints += refund;
+                    else if (transaction.Resource == "initial_pool")
+                    {
+                        if (transaction.Block == "Характеристики" || transaction.Block == "Способности")
+                        {
+                            // Возвращён стартовый пункт: снова показываем существующий inline-интерфейс.
+                            state.InitialAllocationCompleted = false;
+                            var initialValues = transaction.Block == "Характеристики" ? state.InitialAttributeDots : state.InitialAbilityDots;
+                            if (initialValues == null)
+                            {
+                                initialValues = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                                if (transaction.Block == "Характеристики") state.InitialAttributeDots = initialValues;
+                                else state.InitialAbilityDots = initialValues;
+                            }
+                            int initialValue;
+                            if (initialValues.TryGetValue(transaction.ItemName, out initialValue))
+                                initialValues[transaction.ItemName] = Math.Max(0, initialValue - levels);
+                        }
+                        else if (transaction.Block == "Добродетели")
+                        {
+                            state.UnconfirmInitialBlock("virtues");
+                            if (state.InitialVirtueRatings == null) state.InitialVirtueRatings = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                            int initialValue;
+                            if (state.InitialVirtueRatings.TryGetValue(transaction.ItemName, out initialValue))
+                                state.InitialVirtueRatings[transaction.ItemName] = Math.Max(CharacterCreationRules.GetCreationLimit("virtue_base"), initialValue - levels);
+                            AdvantagesPage.RecalculatePrimaryVirtueDerivedValues();
+                        }
+                        else if (transaction.Block == "Дисциплины")
+                        {
+                            state.UnconfirmInitialBlock("disciplines");
+                            if (state.InitialDisciplineDots == null) state.InitialDisciplineDots = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                            int initialValue;
+                            if (state.InitialDisciplineDots.TryGetValue(transaction.ItemName, out initialValue))
+                                state.InitialDisciplineDots[transaction.ItemName] = Math.Max(0, initialValue - levels);
+                            DisciplinesPage.RefreshGenerationLimits();
+                        }
+                        else if (transaction.Block == "Фоны")
+                        {
+                            state.UnconfirmInitialBlock("backgrounds");
+                            if (state.InitialBackgroundDots == null) state.InitialBackgroundDots = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                            int initialValue;
+                            if (state.InitialBackgroundDots.TryGetValue(transaction.ItemName, out initialValue))
+                                state.InitialBackgroundDots[transaction.ItemName] = Math.Max(0, initialValue - levels);
+                            AdvantagesPage.RefreshBiographyFacts();
+                        }
+                    }
+                    if (from <= transaction.PreviousValue) state.PurchaseLedger.Remove(transaction);
+                    else
+                    {
+                        transaction.NewValue = from;
+                        transaction.Cost = (from - transaction.PreviousValue) * unitCost;
+                    }
+                }
+                // Синхронизируем legacy-журналы, чтобы старые окна и списки не показывали уже отменённое.
+                TrimLegacyPurchaseRecords(itemName, newValue);
+                UpdateInitialPurchaseButton();
+                return;
+            }
+
+            // Совместимость с персонажами, созданными до появления единого журнала.
             int refundFreebies = 0;
-            var freebies = _character.CreationState.FreebiePurchases;
+            var freebies = state.FreebiePurchases;
             if (freebies != null)
             {
                 foreach (var purchase in freebies.Where(p => string.Equals(p.Source, "freebie", StringComparison.OrdinalIgnoreCase) && string.Equals(p.ItemName, itemName, StringComparison.OrdinalIgnoreCase) && p.NewValue > newValue && p.PreviousValue < oldValue).OrderByDescending(p => p.NewValue).ToList())
                 {
-                    int from = Math.Max(newValue, purchase.PreviousValue);
-                    int to = Math.Min(oldValue, purchase.NewValue);
+                    int from = Math.Max(newValue, purchase.PreviousValue), to = Math.Min(oldValue, purchase.NewValue);
                     if (to <= from) continue;
-                    int levels = to - from;
                     int unit = purchase.NewValue > purchase.PreviousValue ? purchase.Cost / (purchase.NewValue - purchase.PreviousValue) : 0;
-                    refundFreebies += levels * unit;
+                    refundFreebies += (to - from) * unit;
                     if (from <= purchase.PreviousValue) freebies.Remove(purchase);
-                    else { purchase.NewValue = from; purchase.Cost = Math.Max(0, (from - purchase.PreviousValue) * unit); }
+                    else { purchase.NewValue = from; purchase.Cost = (from - purchase.PreviousValue) * unit; }
                 }
             }
-            if (refundFreebies > 0) _character.CreationState.FreebiePoints += refundFreebies;
-
-            var experience = _character.CreationState.ExperiencePurchases;
+            if (refundFreebies > 0) state.FreebiePoints += refundFreebies;
+            var experience = state.ExperiencePurchases;
             if (experience != null)
             {
                 foreach (var purchase in experience.Where(p => string.Equals(p.Source, "experience", StringComparison.OrdinalIgnoreCase) && string.Equals(p.ItemName, itemName, StringComparison.OrdinalIgnoreCase) && p.NewValue > newValue && p.PreviousValue < oldValue).OrderByDescending(p => p.NewValue).ToList())
                 {
-                    int from = Math.Max(newValue, purchase.PreviousValue);
-                    int to = Math.Min(oldValue, purchase.NewValue);
+                    int from = Math.Max(newValue, purchase.PreviousValue), to = Math.Min(oldValue, purchase.NewValue);
                     if (to <= from) continue;
-                    int refund = CalculateExperienceCost(costKey, itemName, from, to);
-                    _character.CreationState.ExperiencePoints += refund;
+                    state.ExperiencePoints += CalculateExperienceCost(costKey, itemName, from, to);
                     if (from <= purchase.PreviousValue) experience.Remove(purchase);
                     else { purchase.NewValue = from; purchase.Cost = CalculateExperienceCost(costKey, itemName, purchase.PreviousValue, from); }
                 }
             }
+        }
+
+        private void TrimLegacyPurchaseRecords(string itemName, int newValue)
+        {
+            var state = _character.CreationState;
+            if (state.FreebiePurchases != null)
+                foreach (var p in state.FreebiePurchases.Where(x => string.Equals(x.ItemName, itemName, StringComparison.OrdinalIgnoreCase) && x.NewValue > newValue).ToList())
+                {
+                    if (p.PreviousValue >= newValue) state.FreebiePurchases.Remove(p);
+                    else { int span = p.NewValue - p.PreviousValue; int unit = span > 0 ? p.Cost / span : 0; p.NewValue = newValue; p.Cost = (newValue - p.PreviousValue) * unit; }
+                }
+            if (state.ExperiencePurchases != null)
+                foreach (var p in state.ExperiencePurchases.Where(x => string.Equals(x.ItemName, itemName, StringComparison.OrdinalIgnoreCase) && x.NewValue > newValue).ToList())
+                {
+                    if (p.PreviousValue >= newValue) state.ExperiencePurchases.Remove(p);
+                    else { p.NewValue = newValue; p.Cost = CalculateExperienceCost(p.Category, itemName, p.PreviousValue, newValue); }
+                }
         }
 
         private int CalculateExperienceCost(string costKey, string itemName, int currentValue, int targetValue)
@@ -245,6 +473,13 @@ namespace VtM_LoCh_fP
         private void UpdateInitialPurchaseButton()
         {
             CharacterPage?.RefreshPurchaseHeader();
+            if (_character != null && !_character.CreationState.InitialPurchaseConfirmed)
+            {
+                _initialCompletionApplied = false;
+                CharacterPage?.ApplyGenerationLimits();
+                AdvantagesPage?.ApplyTraitPointLimit(5);
+                DisciplinesPage?.RefreshGenerationLimits();
+            }
             if (_character != null && _character.CreationState.InitialPurchaseConfirmed && !_initialCompletionApplied)
             {
                 _initialCompletionApplied = true;
@@ -295,14 +530,20 @@ namespace VtM_LoCh_fP
 
         private void ExperiencePurchase_Click(object sender, RoutedEventArgs e)
         {
+            if (!_character.CreationState.InitialAllocationCompleted)
+            {
+                ThemedDialog.Show(this, "Сначала завершите повторное распределение характеристик и способностей.", "Распределение не завершено", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
             if (!_character.CreationState.InitialPurchaseConfirmed)
             {
                 ThemedDialog.Show(this, "Сначала завершите стартовую закупку и подтвердите её.", "Покупка за опыт", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
-            if (!AppSettings.ExperiencePurchasesEnabled)
+            bool isFreeNeonate = string.Equals(_character.CreationMode, "Свободный Неонат", StringComparison.OrdinalIgnoreCase);
+            if (isFreeNeonate && !AppSettings.ExperiencePurchasesEnabled)
             {
-                ThemedDialog.Show(this, "Закуп за опыт отключён в настройках.", "Покупка за опыт", MessageBoxButton.OK, MessageBoxImage.Information);
+                ThemedDialog.Show(this, "Закуп за опыт отключён в настройках Неоната.", "Покупка за опыт", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
             _manualPurchaseInProgress = true;
@@ -316,6 +557,11 @@ namespace VtM_LoCh_fP
 
         private void FreebiePurchase_Click(object sender, RoutedEventArgs e)
         {
+            if (!_character.CreationState.InitialAllocationCompleted)
+            {
+                ThemedDialog.Show(this, "Сначала завершите повторное распределение характеристик и способностей.", "Распределение не завершено", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
             if (!_character.CreationState.InitialPurchaseConfirmed)
             {
                 ThemedDialog.Show(this, "Сначала завершите стартовую закупку и подтвердите её.", "Покупка за свободные пункты", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -334,7 +580,7 @@ namespace VtM_LoCh_fP
             _manualPurchaseInProgress = true;
             try
             {
-                new FreebiePurchaseWindow(this, _character, BuildAdvancementOptions()).ShowDialog();
+                new FreebiePurchaseWindow(this, _character, BuildAdvancementOptions().Where(x => x.CostKey != "background")).ShowDialog();
             }
             finally { _manualPurchaseInProgress = false; }
             UpdateFreebieJournalButton();
@@ -475,52 +721,119 @@ namespace VtM_LoCh_fP
 
         private void ResetFreebieBlock(string block, List<CreationPurchase> purchases)
         {
+            var state = _character.CreationState;
+            var selectedNames = new HashSet<string>((purchases ?? new List<CreationPurchase>()).Select(p => p.ItemName), StringComparer.OrdinalIgnoreCase);
             if (block == "Достоинства и недостатки")
             {
+                foreach (var purchase in purchases ?? new List<CreationPurchase>())
+                {
+                    state.FreebiePoints += purchase.Cost;
+                    if (state.PurchaseLedger != null)
+                        state.PurchaseLedger.RemoveAll(t => t.Resource == "freebie" && string.Equals(t.ItemId, purchase.ItemId, StringComparison.OrdinalIgnoreCase));
+                }
                 HistoryPage.RefreshMeritsFlaws();
                 RefreshGenerationFromCharacter();
                 return;
             }
-            foreach (var itemGroup in purchases.GroupBy(x => x.ItemName))
+
+            // Сбрасываем весь блок, а не только записи Freebies: XP и первичные точки
+            // также возвращаются в свои исходные бюджеты в порядке LIFO.
+            var ledgerItems = state.PurchaseLedger == null
+                ? new List<string>()
+                : state.PurchaseLedger.Where(t => string.Equals(t.Block, block, StringComparison.OrdinalIgnoreCase)).Select(t => t.ItemName).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            foreach (string name in selectedNames) if (!ledgerItems.Contains(name, StringComparer.OrdinalIgnoreCase)) ledgerItems.Add(name);
+
+            foreach (string itemName in ledgerItems)
             {
-                var first = itemGroup.First();
+                var itemTransactions = state.PurchaseLedger == null ? new List<PurchaseTransaction>() :
+                    state.PurchaseLedger.Where(t => string.Equals(t.Block, block, StringComparison.OrdinalIgnoreCase) && string.Equals(t.ItemName, itemName, StringComparison.OrdinalIgnoreCase)).ToList();
+                int current = 0;
+                int baseline = itemTransactions.Count > 0 ? itemTransactions.Min(t => t.PreviousValue) :
+                    ((purchases ?? new List<CreationPurchase>()).FirstOrDefault(p => string.Equals(p.ItemName, itemName, StringComparison.OrdinalIgnoreCase))?.PreviousValue ?? 0);
+                string costKey = itemTransactions.Select(t => t.Category).FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
+
                 if (block == "Характеристики")
-                    _character.CreationState.AttributeDots[first.ItemName] = first.PreviousValue;
+                {
+                    state.AttributeDots.TryGetValue(itemName, out current);
+                    baseline = Math.Max(CharacterCreationRules.GetCreationLimit("attribute_base"), baseline);
+                    if (string.Equals(itemName, "Привлекательность", StringComparison.OrdinalIgnoreCase) &&
+                        !string.IsNullOrWhiteSpace(_character.ClanName) && _character.ClanName.IndexOf("Носферату", StringComparison.OrdinalIgnoreCase) >= 0 && !_character.NosferatuPlasticSurgery)
+                        baseline = 0;
+                    costKey = "attribute";
+                }
                 else if (block == "Способности")
-                    _character.CreationState.AbilityDots[first.ItemName] = first.PreviousValue;
+                {
+                    state.AbilityDots.TryGetValue(itemName, out current);
+                    costKey = "ability";
+                }
                 else if (block == "Добродетели")
-                    AdvantagesPage.SetVirtueRating(first.ItemName, first.PreviousValue);
+                {
+                    current = AdvantagesPage.GetVirtueRating(itemName);
+                    baseline = Math.Max(CharacterCreationRules.GetCreationLimit("virtue_base"), baseline);
+                    costKey = "virtue";
+                }
                 else if (block == "Дисциплины")
                 {
                     var discipline = _character.Disciplines.FirstOrDefault(x =>
-                        string.Equals(x.Name, first.ItemName, StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(x.Name + " — " + (x.PathName ?? string.Empty), first.ItemName, StringComparison.OrdinalIgnoreCase));
-                    if (discipline != null)
-                    {
-                        if (first.PreviousValue == 0) _character.Disciplines.Remove(discipline);
-                        else discipline.Level = first.PreviousValue;
-                    }
+                        string.Equals(x.Name, itemName, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(x.Name + " — " + (x.PathName ?? string.Empty), itemName, StringComparison.OrdinalIgnoreCase));
+                    if (discipline == null) continue;
+                    current = discipline.Level;
+                    costKey = discipline.IsSecondaryPath ? "secondary_path" : "discipline";
                 }
                 else if (block == "Фоны")
                 {
-                    var fact = _character.BiographyFacts.FirstOrDefault(x => x.Name == first.ItemName);
-                    if (fact != null)
-                    {
-                        if (first.PreviousValue == 0) _character.BiographyFacts.Remove(fact);
-                        else fact.Level = first.PreviousValue;
-                    }
+                    var fact = _character.BiographyFacts.FirstOrDefault(x => string.Equals(x.Name, itemName, StringComparison.OrdinalIgnoreCase));
+                    if (fact == null) continue;
+                    current = fact.Level;
+                    costKey = "background";
                 }
-                else if (block == "Сила воли" || block == "Путь")
+                else if (block == "Сила воли")
                 {
-                    if (block == "Сила воли") AdvantagesPage.SetWillpowerPermanent(first.PreviousValue);
-                    if (block == "Путь") AdvantagesPage.SetHumanityPathRating(first.PreviousValue);
+                    current = AdvantagesPage.GetWillpowerPermanent();
+                    costKey = "willpower";
                 }
+                else if (block == "Путь")
+                {
+                    current = _character.HumanityPathRating;
+                    costKey = "humanity_path";
+                }
+
+                if (current > baseline && !string.IsNullOrWhiteSpace(costKey))
+                    RefundAdvancement(costKey, itemName, current, baseline);
+
+                if (block == "Характеристики") state.AttributeDots[itemName] = baseline;
+                else if (block == "Способности") state.AbilityDots[itemName] = baseline;
+                else if (block == "Добродетели") AdvantagesPage.SetVirtueRating(itemName, baseline);
+                else if (block == "Дисциплины")
+                {
+                    var discipline = _character.Disciplines.FirstOrDefault(x => string.Equals(x.Name, itemName, StringComparison.OrdinalIgnoreCase) || string.Equals(x.Name + " — " + (x.PathName ?? string.Empty), itemName, StringComparison.OrdinalIgnoreCase));
+                    if (discipline != null) { if (baseline <= 0) _character.Disciplines.Remove(discipline); else discipline.Level = baseline; }
+                }
+                else if (block == "Фоны")
+                {
+                    var fact = _character.BiographyFacts.FirstOrDefault(x => string.Equals(x.Name, itemName, StringComparison.OrdinalIgnoreCase));
+                    if (fact != null) { if (baseline <= 0) _character.BiographyFacts.Remove(fact); else fact.Level = baseline; }
+                }
+                else if (block == "Сила воли") AdvantagesPage.SetWillpowerPermanent(baseline);
+                else if (block == "Путь") AdvantagesPage.SetHumanityPathRating(baseline);
             }
+
+            if (state.InitialPurchases != null)
+                state.InitialPurchases.RemoveAll(p => string.Equals(p.Block, block, StringComparison.OrdinalIgnoreCase) ||
+                    (block == "Фоны" && p.Block == "Факты биографии") || (block == "Добродетели" && p.Block == "Сила воли"));
+            if (state.PurchaseLedger != null)
+                state.PurchaseLedger.RemoveAll(t => string.Equals(t.Block, block, StringComparison.OrdinalIgnoreCase));
+            if (block == "Добродетели") state.UnconfirmInitialBlock("virtues");
+            if (block == "Дисциплины") state.UnconfirmInitialBlock("disciplines");
+            if (block == "Фоны") state.UnconfirmInitialBlock("backgrounds");
+
             CharacterPage.RefreshSavedAllocations();
             AdvantagesPage.RefreshVirtueTracks();
             AdvantagesPage.RefreshBiographyFacts();
             DisciplinesPage.RefreshGenerationLimits();
             RefreshGenerationFromCharacter();
+            UpdateInitialPurchaseButton();
         }
 
         private static IEnumerable<TrackControl> FindTracks(DependencyObject parent)
@@ -537,111 +850,16 @@ namespace VtM_LoCh_fP
 
         private void Settings_Click(object sender, RoutedEventArgs e)
         {
-            bool previousTheme = AppSettings.DarkTheme;
             var settings = new SettingsWindow { Owner = this };
 
             if (settings.ShowDialog() != true)
                 return;
-
-            if (previousTheme != AppSettings.DarkTheme)
-            {
-                ThemeManager.ApplyDarkIfSelected();
-
-                var replacement = new MainWindow(_character)
-                {
-                    WindowStartupLocation = WindowStartupLocation.Manual,
-                    Left = Left,
-                    Top = Top,
-                    Width = Width,
-                    Height = Height,
-                    WindowState = WindowState
-                };
-
-                Application.Current.MainWindow = replacement;
-                replacement.Show();
-                Close();
-            }
-            else
-            {
-                ThemeManager.ApplyDarkIfSelected();
-                CharacterPage.ApplyGenerationLimits();
-                AdvantagesPage.ApplyTraitPointLimit(_character.CreationState.InitialPurchaseConfirmed
-                    ? (AppSettings.GenerationPointIncrease ? Math.Max(5, _character.TraitMax) : 5)
-                    : 5);
-                DisciplinesPage.InitializeCharacter(_character);
-            }
-        }
-
-        // ===================== Перетаскивание вкладок =====================
-
-        private void Window_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-        {
-            if (_isDragging)
-                EndDrag();
-        }
-
-        private void Tabs_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-        {
-            _draggedTab = FindVisualParent<TabItem>(e.OriginalSource as DependencyObject);
-            _dragStart = e.GetPosition(SheetTabs);
-        }
-
-        private void Tabs_PreviewMouseMove(object sender, MouseEventArgs e)
-        {
-            if (_draggedTab == null || e.LeftButton != MouseButtonState.Pressed) return;
-
-            Point current = e.GetPosition(SheetTabs);
-            if (!_isDragging &&
-                Math.Abs(current.X - _dragStart.X) < DragThreshold &&
-                Math.Abs(current.Y - _dragStart.Y) < DragThreshold) return;
-
-            if (!_isDragging) BeginDrag(_dragStart);
-
-            _adorner?.MoveTo(current);
-            e.Handled = true;
-        }
-
-        private void BeginDrag(Point grabOffset)
-        {
-            _isDragging = true;
-            _adorner = new DragAdorner(SheetTabs, _draggedTab, grabOffset);
-            _adornerLayer = AdornerLayer.GetAdornerLayer(SheetTabs);
-            _adornerLayer?.Add(_adorner);
-            Mouse.OverrideCursor = Cursors.SizeAll;
-        }
-
-        private void Tabs_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-        {
-            if (!_isDragging)
-            {
-                _draggedTab = null;
-                return;
-            }
-
-            EndDrag();
-            e.Handled = true;
-        }
-
-        private void EndDrag()
-        {
-            if (_adorner != null && _adornerLayer != null) _adornerLayer.Remove(_adorner);
-            _adorner = null;
-            _adornerLayer = null;
-            _draggedTab = null;
-            _isDragging = false;
-            Mouse.OverrideCursor = null;
-        }
-
-        private void Tabs_DragOver(object sender, DragEventArgs e)
-        {
-            e.Effects = DragDropEffects.Move;
-            e.Handled = true;
-        }
-
-        private void Tabs_Drop(object sender, DragEventArgs e)
-        {
-            EndDrag();
-            e.Handled = true;
+            ThemeManager.ApplyDarkIfSelected();
+            CharacterPage.ApplyGenerationLimits();
+            AdvantagesPage.ApplyTraitPointLimit(_character.CreationState.InitialPurchaseConfirmed
+                ? (AppSettings.GenerationPointIncrease ? Math.Max(5, _character.TraitMax) : 5)
+                : 5);
+            DisciplinesPage.InitializeCharacter(_character);
         }
 
         private void Tabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -650,26 +868,12 @@ namespace VtM_LoCh_fP
             if (!(e.AddedItems.Count > 0) || !(e.AddedItems[0] is TabItem tab)) return;
             if (!(tab.Content is FrameworkElement content)) return;
 
-            // При переключении вкладки всегда показываем её начало.
+            // При переключении вкладки всегда показываем её начало
             content.Dispatcher.BeginInvoke(new Action(() =>
             {
                 var scroll = FindVisualChild<ScrollViewer>(content);
                 scroll?.ScrollToTop();
             }), System.Windows.Threading.DispatcherPriority.Loaded);
-        }
-
-        // ===================== Поиск в визуальном дереве =====================
-
-        private static T FindVisualParent<T>(DependencyObject node) where T : DependencyObject
-        {
-            while (node != null)
-            {
-                if (node is T parent) return parent;
-                node = node is Visual || node is System.Windows.Media.Media3D.Visual3D
-                    ? VisualTreeHelper.GetParent(node)
-                    : LogicalTreeHelper.GetParent(node);
-            }
-            return null;
         }
 
         private static T FindVisualChild<T>(DependencyObject parent) where T : DependencyObject

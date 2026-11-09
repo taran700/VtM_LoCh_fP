@@ -104,7 +104,7 @@ namespace VtM_LoCh_fP
         }
         private static TextBlock Paragraph(string text)=>new TextBlock { Text=text,FontSize=15,LineHeight=22,TextWrapping=TextWrapping.Wrap,Margin=new Thickness(2,8,2,8),Foreground=BrushResource("TextBrush") };
 
-        private static UIElement Table(string[] headers,string[][] rows,double[] widths)
+        public static UIElement Table(string[] headers,string[][] rows,double[] widths)
         {
             var grid=new Grid { Margin=new Thickness(0,0,0,10) };
             for(int i=0;i<headers.Length;i++) grid.ColumnDefinitions.Add(new ColumnDefinition { Width=new GridLength(widths[i],GridUnitType.Star) });

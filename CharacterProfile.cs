@@ -1,9 +1,10 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 
 namespace VtM_LoCh_fP
 {
     public sealed class CharacterProfile
     {
+        public string Id { get; set; } = System.Guid.NewGuid().ToString("N");
         public string Name { get; set; }
         public CharacterCreationState CreationState { get; set; } = new CharacterCreationState();
         public string CreationMode { get; set; }
@@ -49,7 +50,7 @@ namespace VtM_LoCh_fP
         public string BiographyBackstory { get; set; }
         public string BiographyAppearance { get; set; }
         public string HumanityPathId { get; set; } = "humanity";
-        public int HumanityPathRating { get; set; } = 7;
+        public int HumanityPathRating { get; set; } = 2;
         public bool HumanityPathIsCustom { get; set; }
         public string CustomHumanityPathName { get; set; }
         public string CustomHumanityPathDescription { get; set; }

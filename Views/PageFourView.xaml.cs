@@ -7,7 +7,6 @@ using VtM_LoCh_fP.Controls;
 
 namespace VtM_LoCh_fP.Views
 {
-    /// <summary>Страница достоинств, недостатков и биографии персонажа.</summary>
     public partial class PageFourView : UserControl
     {
         private CharacterProfile _character;
@@ -121,13 +120,16 @@ namespace VtM_LoCh_fP.Views
             var window = new MeritFlawDescriptionWindow(Window.GetWindow(this), entry, () =>
             {
                 _character.MeritsFlaws.Remove(entry);
-                // Возвращаем общий баланс по той же записи, которая была создана при покупке.
+                // Возвращаем общий баланс по той же записи, которая была создана при покупке
                 var purchase = _character.CreationState.FreebiePurchases.FirstOrDefault(x =>
                     x.Block == "Достоинства и недостатки" && string.Equals(x.ItemId, entry.Id, StringComparison.OrdinalIgnoreCase));
                 if (purchase != null)
                 {
                     _character.CreationState.FreebiePoints += purchase.Cost;
                     _character.CreationState.FreebiePurchases.Remove(purchase);
+                    if (_character.CreationState.PurchaseLedger != null)
+                        _character.CreationState.PurchaseLedger.RemoveAll(t => t.Resource == "freebie" &&
+                            string.Equals(t.ItemId, entry.Id, StringComparison.OrdinalIgnoreCase));
                 }
                 else if (entry.FreebieCharged)
                 {

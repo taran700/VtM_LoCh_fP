@@ -12,7 +12,7 @@ namespace VtM_LoCh_fP
         public static string WoundHealingMode { get; set; } = "Работать Гуль!";
         public static bool RuleOfSeven { get; set; } = true;
         public static bool StorytellerExperiencePrices { get; set; } = false;
-        // Режим автоматической оплаты улучшений в Свободном Неонате.
+        // Режим автоматической оплаты улучшений в Свободном Неонате
         public static string NeonatePurchaseMode { get; set; } = "Свободные пункты → опыт";
         public static bool ExperiencePurchasesEnabled { get; set; } = true;
         public static bool FreebiePurchasesEnabled { get; set; } = true;
