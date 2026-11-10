@@ -15,6 +15,7 @@ namespace VtM_LoCh_fP.Views
     {
         private CharacterProfile _character;
         private bool _loadingHumanityPath;
+        private bool _loadingBlood;
         private List<HumanityPathDefinition> _humanityPaths;
         private HumanityPathDefinition _selectedOfficialPath;
         public event Action InitialPurchaseProgressChanged;
@@ -46,13 +47,18 @@ namespace VtM_LoCh_fP.Views
             {
                 if (BloodTrack.Value < amount) return false;
                 BloodTrack.SetTrackValue(BloodTrack.Value - amount);
+                if (_character != null) _character.CurrentBlood = BloodTrack.Value;
                 UpdateHealthHeader();
                 return true;
             };
             HealthTrack.HealingMode = () => AppSettings.WoundHealingMode;
             HealthTrack.AllowAggravatedDamage = () => AggravatedDamageToggle != null && AggravatedDamageToggle.IsChecked == true;
             HealthTrack.StateChanged = SaveHealthStates;
-            BloodTrack.ValueChanged += (s, e) => UpdateHealthHeader();
+            BloodTrack.ValueChanged += (s, e) =>
+            {
+                if (_character != null && !_loadingBlood) _character.CurrentBlood = BloodTrack.Value;
+                UpdateHealthHeader();
+            };
             WillpowerPermanentTrack.ValueChanged += (s, e) =>
             {
                 if (_character == null) return;
@@ -105,6 +111,10 @@ namespace VtM_LoCh_fP.Views
             _character.CreationState.PropertyChanged += CreationState_PropertyChanged;
             AggravatedDamageToggle.IsChecked = _character.AllowAggravatedDamage;
             HealthTrack.LoadStates(_character.HealthDamageStates);
+            BloodTrack.Count = _character.BloodPoolMax > 0 ? _character.BloodPoolMax : 10;
+            _loadingBlood = true;
+            BloodTrack.SetTrackValue(Math.Max(0, Math.Min(BloodTrack.Count, _character.CurrentBlood)));
+            _loadingBlood = false;
             UpdateHealthHeader();
             RenderBioFacts();
             LoadHumanityPath();
@@ -415,6 +425,7 @@ namespace VtM_LoCh_fP.Views
 
         private void ApplyOfficialPath(HumanityPathDefinition path)
         {
+            TransferPathVirtues(path.FirstVirtue, path.SecondVirtue);
             _loadingHumanityPath = true;
             _selectedOfficialPath = path;
             _character.HumanityPathIsCustom = false;
@@ -481,6 +492,73 @@ namespace VtM_LoCh_fP.Views
                 ? BuildPathTooltip(_character.CustomHumanityPathName, _character.CustomHumanityPathDescription, _character.CustomHumanityBearingName, _character.CustomHumanityBearingEffect, _character.CustomHumanityEdicts)
                 : BuildPathTooltip(_selectedOfficialPath == null ? title : _selectedOfficialPath.Name, _selectedOfficialPath == null ? null : _selectedOfficialPath.Description, _selectedOfficialPath == null ? null : _selectedOfficialPath.BearingName, _selectedOfficialPath == null ? null : _selectedOfficialPath.BearingEffect, _selectedOfficialPath == null ? null : _selectedOfficialPath.Edicts);
             HumanityPathInfoWindow.Show(Window.GetWindow(this), title, info);
+        }
+
+
+        private void TransferPathVirtues(string newFirst, string newSecond)
+        {
+            if (_character == null || _character.CreationState == null) return;
+            var activePath = _selectedOfficialPath ?? HumanityPathService.Find(_character.HumanityPathId) ?? HumanityPathService.Find("humanity");
+            string oldFirst = _character.HumanityPathIsCustom
+                ? _character.CustomHumanityFirstVirtue : (activePath == null ? "Совесть" : activePath.FirstVirtue);
+            string oldSecond = _character.HumanityPathIsCustom
+                ? _character.CustomHumanitySecondVirtue : (activePath == null ? "Самоконтроль" : activePath.SecondVirtue);
+
+            var mapping = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (!string.IsNullOrWhiteSpace(oldFirst) && !string.IsNullOrWhiteSpace(newFirst) &&
+                !string.Equals(oldFirst, newFirst, StringComparison.OrdinalIgnoreCase)) mapping[oldFirst] = newFirst;
+            if (!string.IsNullOrWhiteSpace(oldSecond) && !string.IsNullOrWhiteSpace(newSecond) &&
+                !string.Equals(oldSecond, newSecond, StringComparison.OrdinalIgnoreCase)) mapping[oldSecond] = newSecond;
+            if (mapping.Count == 0) return;
+
+            var state = _character.CreationState;
+            var currentDots = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var initialDots = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (var pair in mapping)
+            {
+                int value;
+                if (state.OtherDots != null && state.OtherDots.TryGetValue("virtue:" + pair.Key, out value)) currentDots[pair.Key] = value;
+                if (state.InitialVirtueRatings != null && state.InitialVirtueRatings.TryGetValue(pair.Key, out value)) initialDots[pair.Key] = value;
+            }
+            int virtueBase = CharacterCreationRules.GetCreationLimit("virtue_base");
+            if (state.OtherDots != null)
+            {
+                foreach (var oldName in mapping.Keys) state.OtherDots.Remove("virtue:" + oldName);
+                foreach (var pair in mapping)
+                {
+                    int value;
+                    state.OtherDots["virtue:" + pair.Value] = currentDots.TryGetValue(pair.Key, out value) ? value : virtueBase;
+                }
+            }
+            bool hasInitialVirtueSnapshot = state.InitialVirtueBlockEverConfirmed ||
+                (state.InitialVirtueRatings != null && state.InitialVirtueRatings.Count > 0);
+            if (hasInitialVirtueSnapshot && state.InitialVirtueRatings != null)
+            {
+                foreach (var oldName in mapping.Keys) state.InitialVirtueRatings.Remove(oldName);
+                foreach (var pair in mapping)
+                {
+                    int value;
+                    state.InitialVirtueRatings[pair.Value] = initialDots.TryGetValue(pair.Key, out value) ? value : virtueBase;
+                }
+            }
+
+            Func<string, string> rename = name =>
+            {
+                string target;
+                return name != null && mapping.TryGetValue(name, out target) ? target : name;
+            };
+            if (state.PurchaseLedger != null)
+                foreach (var purchase in state.PurchaseLedger.Where(x => string.Equals(x.Category, "virtue", StringComparison.OrdinalIgnoreCase)))
+                { purchase.ItemName = rename(purchase.ItemName); purchase.ItemId = rename(purchase.ItemId); }
+            if (state.InitialPurchases != null)
+                foreach (var purchase in state.InitialPurchases.Where(x => x.Block == "Добродетели"))
+                { purchase.ItemName = rename(purchase.ItemName); purchase.ItemId = rename(purchase.ItemId); }
+            if (state.FreebiePurchases != null)
+                foreach (var purchase in state.FreebiePurchases.Where(x => x.Block == "Добродетели"))
+                { purchase.ItemName = rename(purchase.ItemName); purchase.ItemId = rename(purchase.ItemId); }
+            if (state.ExperiencePurchases != null)
+                foreach (var purchase in state.ExperiencePurchases.Where(x => string.Equals(x.Category, "virtue", StringComparison.OrdinalIgnoreCase)))
+                    purchase.ItemName = rename(purchase.ItemName);
         }
 
         private void ApplyVirtueNames(string first, string second)
@@ -556,6 +634,7 @@ namespace VtM_LoCh_fP.Views
             if (result.Deleted)
             {
                 var humanity = HumanityPathService.Find("humanity");
+                TransferPathVirtues(humanity.FirstVirtue, humanity.SecondVirtue);
                 _character.HumanityPathIsCustom = false;
                 _character.HumanityPathId = "humanity";
                 _character.CustomHumanityPathName = null;
@@ -572,6 +651,7 @@ namespace VtM_LoCh_fP.Views
 
         private void SaveCustomHumanityPath(HumanityPathEditorResult result)
         {
+            TransferPathVirtues(result.FirstVirtue, result.SecondVirtue);
             _character.HumanityPathIsCustom = true;
             _character.HumanityPathId = "custom";
             _character.CustomHumanityPathName = result.Name;
@@ -921,7 +1001,8 @@ namespace VtM_LoCh_fP.Views
             if (character == null) return;
             int currentBlood = BloodTrack.Value;
             BloodTrack.Count = character.BloodPoolMax > 0 ? character.BloodPoolMax : 10;
-            BloodTrack.SetTrackValue(currentBlood);
+            BloodTrack.SetTrackValue(Math.Max(0, Math.Min(BloodTrack.Count, currentBlood)));
+            character.CurrentBlood = BloodTrack.Value;
             BloodPerTurnText.Text = "Максимум: " + BloodTrack.Count + " пунктов  •  Трата за ход: " + character.BloodPerTurn + " " +
                 (character.BloodPerTurn == 1 ? "пункт" : character.BloodPerTurn >= 2 && character.BloodPerTurn <= 4 ? "пункта" : "пунктов");
         }

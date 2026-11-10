@@ -6,8 +6,6 @@ using System.ComponentModel;
 namespace VtM_LoCh_fP
 {
 
-    /// Состояние создания и развития персонажа. Правила лимитов и стоимости читаются из Data/data.json
-
     public sealed class CharacterCreationState : INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler PropertyChanged;
@@ -26,7 +24,6 @@ namespace VtM_LoCh_fP
         public List<CreationPurchase> FreebiePurchases { get; set; } = new List<CreationPurchase>();
         public List<CreationPurchase> InitialPurchases { get; set; } = new List<CreationPurchase>();
         public List<ExperiencePurchase> ExperiencePurchases { get; set; } = new List<ExperiencePurchase>();
-        // Единый журнал происхождения каждой потраченной точки. Пока живёт в памяти;
         public List<PurchaseTransaction> PurchaseLedger { get; set; } = new List<PurchaseTransaction>();
         public long NextPurchaseOrder { get; set; } = 1;
         public bool IsRestoringPurchase { get; set; }
@@ -86,7 +83,6 @@ namespace VtM_LoCh_fP
         public string ItemName { get; set; }
         public int PreviousValue { get; set; }
         public int NewValue { get; set; }
-        // Положительное значение — потраченные пункты, отрицательное — полученные от недостатка.
         public int Cost { get; set; }
         public string Source { get; set; } = "initial";
     }
@@ -162,6 +158,18 @@ namespace VtM_LoCh_fP
             return Convert.ToInt32(costs[newTrait ? "new" : "current"]);
         }
 
+        public static bool UsesCaitiffDisciplineRules(CharacterProfile character)
+        {
+            if (character == null || string.IsNullOrWhiteSpace(character.ClanName))
+                return false;
+
+            if (character.ClanName.IndexOf("каити", StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+
+            return string.Equals(character.CreationMode, "Свободный Неонат", StringComparison.OrdinalIgnoreCase)
+                && !character.ClanSelectedFromSuggestions;
+        }
+
         public static int GetExperienceCostForLevel(string kind, int currentLevel, bool isCaitiff = false, bool isClanDiscipline = false)
         {
             switch (kind)
@@ -192,8 +200,6 @@ namespace VtM_LoCh_fP
                 kind = "discipline";
             dynamic root = DataRules.Load();
             dynamic rules = root.ContainsKey("base_rules") ? root["base_rules"] : root;
-            // Общие цены свободных пунктов; для старых файлов данных сохраняем
-            // совместимость с таблицей каитифов
             try
             {
                 dynamic costs = rules["freebie_costs"];

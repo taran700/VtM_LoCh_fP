@@ -6,6 +6,19 @@ namespace VtM_LoCh_fP
     {
         public string Id { get; set; } = System.Guid.NewGuid().ToString("N");
         public string Name { get; set; }
+        public string PlayerName { get; set; }
+        public string ChronicleName { get; set; }
+        public string RoleName { get; set; }
+        public string ChroniclePillars { get; set; }
+        public string ChronicleTenets { get; set; }
+        public string HuntingStyle { get; set; }
+        public int CurrentBlood { get; set; }
+        public string NotesImportantNpcs { get; set; }
+        public string NotesGeneralOne { get; set; }
+        public string NotesImportantLocations { get; set; }
+        public string NotesGeneralTwo { get; set; }
+        public string NotesGeneralThree { get; set; }
+        public string NotesGeneralFour { get; set; }
         public CharacterCreationState CreationState { get; set; } = new CharacterCreationState();
         public string CreationMode { get; set; }
         public string ClanName { get; set; }

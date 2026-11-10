@@ -1,8 +1,11 @@
-using System;
+﻿using System;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Input;
+using System.Windows.Controls.Primitives;
 
 namespace VtM_LoCh_fP
 {
@@ -76,7 +79,7 @@ namespace VtM_LoCh_fP
             }
             catch
             {
-                // На неподдерживаемых версиях Windows остаётся стандартная рамка
+                
             }
         }
     }

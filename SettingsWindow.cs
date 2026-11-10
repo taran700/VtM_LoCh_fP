@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
 
@@ -81,7 +81,7 @@ namespace VtM_LoCh_fP
 
            
             
-            AddSetting(panel, "Автоматическая закупка (только Свободный Неонат)",
+            AddSetting(panel, "Автоматическая закупка",
                 _neonatePurchaseMode = new ComboBox
                 {
                     Items = { "Свободные пункты затем опыт", "Только свободные пункты", "Только опыт", "Без автоматической закупки" },
@@ -91,7 +91,7 @@ namespace VtM_LoCh_fP
                 "При смешанном режиме сначала списываются свободные пункты. Если их нет используется опыт. В режиме Птенца опыт обязателен независимо от этой настройки.");
             panel.Children.Add(new TextBlock
             {
-                Text = "Эта настройка применяется только в режиме «Свободный Неонат». При смешанном режиме сначала списываются свободные пункты. Если их нет используется опыт.",
+                Text = "При смешанном режиме сначала списываются свободные пункты, затем опыт. Это правило применяется к автоматической закупке в обоих режимах создания персонажа.",
                 TextWrapping = TextWrapping.Wrap,
                 Foreground = (System.Windows.Media.Brush)Application.Current.Resources["MutedBrush"],
                 Margin = new Thickness(0, 0, 0, 14)

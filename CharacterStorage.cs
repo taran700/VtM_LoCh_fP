@@ -40,6 +40,55 @@ namespace VtM_LoCh_fP
             Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "VtM_LoCh_fP");
         private static string LegacyStorageFile => Path.Combine(StorageDirectory, "characters.json");
 
+        public static void Export(CharacterProfile character, string filePath)
+        {
+            if (character == null) throw new ArgumentNullException(nameof(character));
+            if (string.IsNullOrWhiteSpace(filePath)) throw new ArgumentException("Не указан путь экспорта.", nameof(filePath));
+            string json = Serializer.Serialize(character);
+            File.WriteAllText(filePath, json, new System.Text.UTF8Encoding(false));
+        }
+
+        public static CharacterProfile Import(string filePath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+                throw new FileNotFoundException("JSON-файл не найден.", filePath);
+            var character = Serializer.Deserialize<CharacterProfile>(File.ReadAllText(filePath));
+            if (character == null) throw new InvalidDataException("Файл не содержит объект персонажа.");
+            character.Id = Guid.NewGuid().ToString("N");
+            if (string.IsNullOrWhiteSpace(character.Name))
+                character.Name = Path.GetFileNameWithoutExtension(filePath);
+            if (string.IsNullOrWhiteSpace(character.CreationMode))
+                character.CreationMode = "Свободный Неонат";
+            EnsureIdentity(character);
+            return character;
+        }
+
+        public static void Delete(CharacterProfile character)
+        {
+            if (character == null || string.IsNullOrWhiteSpace(character.Id)) return;
+            lock (Sync)
+            {
+                string target = Path.GetFullPath(Path.Combine(StorageDirectory, "character_" + character.Id + ".json"));
+                string source;
+                if (CharacterSourceFiles.TryGetValue(character, out source))
+                {
+                    TryDeleteFile(source);
+                    ProtectedFiles.Remove(source);
+                    CharacterSourceFiles.Remove(character);
+                }
+                TryDeleteFile(target);
+                TryDeleteFile(target + ".bak");
+                TryDeleteFile(target + ".tmp");
+                ProtectedFiles.Remove(target);
+            }
+        }
+
+        private static void TryDeleteFile(string path)
+        {
+            try { if (!string.IsNullOrWhiteSpace(path) && File.Exists(path)) File.Delete(path); }
+            catch { }
+        }
+
         public static List<CharacterProfile> Load()
         {
             lock (Sync)
@@ -120,7 +169,6 @@ namespace VtM_LoCh_fP
                             WriteCharacter(character);
                     }
 
-                    // Удаляем только файлы персонажей, которые больше не присутствуют в списке
                     var activeIds = new HashSet<string>(list.Select(c => c.Id), StringComparer.OrdinalIgnoreCase);
                     foreach (string file in Directory.GetFiles(StorageDirectory, "character_*.json"))
                     {
@@ -133,7 +181,7 @@ namespace VtM_LoCh_fP
                 }
                 catch
                 {
-                    // Ошибка диска или доступа не должна закрывать лист персонажа
+
                 }
             }
         }
@@ -148,6 +196,26 @@ namespace VtM_LoCh_fP
                 character.CreationState.PurchaseLedger = new List<PurchaseTransaction>();
             if (character.CreationState.ExperiencePurchases == null)
                 character.CreationState.ExperiencePurchases = new List<ExperiencePurchase>();
+            if (character.CreationState.AttributeDots == null) character.CreationState.AttributeDots = new Dictionary<string, int>();
+            if (character.CreationState.AbilityDots == null) character.CreationState.AbilityDots = new Dictionary<string, int>();
+            if (character.CreationState.OtherDots == null) character.CreationState.OtherDots = new Dictionary<string, int>();
+            if (character.CreationState.Priorities == null) character.CreationState.Priorities = new Dictionary<string, string>();
+            if (character.CreationState.FreebiePurchases == null) character.CreationState.FreebiePurchases = new List<CreationPurchase>();
+            if (character.CreationState.InitialPurchases == null) character.CreationState.InitialPurchases = new List<CreationPurchase>();
+            if (character.CreationState.InitialVirtueRatings == null) character.CreationState.InitialVirtueRatings = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            if (character.CreationState.InitialBackgroundDots == null) character.CreationState.InitialBackgroundDots = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            if (character.CreationState.InitialDisciplineDots == null) character.CreationState.InitialDisciplineDots = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            if (character.CreationState.InitialAttributeDots == null) character.CreationState.InitialAttributeDots = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            if (character.CreationState.InitialAbilityDots == null) character.CreationState.InitialAbilityDots = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            if (character.CreationState.ConfirmedInitialBlocks == null) character.CreationState.ConfirmedInitialBlocks = new List<string>();
+            if (character.CreationState.ConfirmedFreebieBlocks == null) character.CreationState.ConfirmedFreebieBlocks = new List<string>();
+            if (character.Disciplines == null) character.Disciplines = new System.Collections.ObjectModel.ObservableCollection<CharacterDiscipline>();
+            if (character.CustomDisciplines == null) character.CustomDisciplines = new System.Collections.ObjectModel.ObservableCollection<DisciplineDefinition>();
+            if (character.Rituals == null) character.Rituals = new System.Collections.ObjectModel.ObservableCollection<CharacterRitual>();
+            if (character.BiographyFacts == null) character.BiographyFacts = new System.Collections.ObjectModel.ObservableCollection<BioFactEntry>();
+            if (character.MeritsFlaws == null) character.MeritsFlaws = new System.Collections.ObjectModel.ObservableCollection<CharacterMeritFlaw>();
+            if (character.HealthDamageStates == null) character.HealthDamageStates = new System.Collections.ObjectModel.ObservableCollection<int>();
+            if (character.CustomHumanityHierarchy == null) character.CustomHumanityHierarchy = new List<HumanityPathSinEntry>();
         }
 
         private static void WriteCharacter(CharacterProfile character)
