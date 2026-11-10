@@ -4,6 +4,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Controls.Primitives;
 using VtM_LoCh_fP.Controls;
 
 namespace VtM_LoCh_fP
@@ -72,6 +73,7 @@ namespace VtM_LoCh_fP
             else
             {
                 _facts = new ComboBox { Height = 34, IsEditable = false, IsTextSearchEnabled = true, ItemsSource = _definitions, DisplayMemberPath = "Name", Margin = new Thickness(0, 0, 0, 10) };
+                ComboBoxWheelSupport.Enable(_facts);
                 var itemStyle = new Style(typeof(ComboBoxItem));
                 itemStyle.Setters.Add(new Setter(ToolTipService.ToolTipProperty, new System.Windows.Data.Binding("Description")));
                 _facts.ItemContainerStyle = itemStyle;
@@ -260,6 +262,46 @@ namespace VtM_LoCh_fP
                 HolisticDescriptions = _holisticLevels.Select(x => new BioFactLevelDescription { Level = x.Level, Description = x.Description }).ToList()
             };
             DialogResult = true;
+        }
+    }
+
+    internal static class ComboBoxWheelSupport
+    {
+        public static void Enable(ComboBox combo)
+        {
+            if (combo == null) return;
+            combo.DropDownOpened += (sender, args) =>
+            {
+                combo.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    var popup = combo.Template.FindName("PART_Popup", combo) as Popup;
+                    var scrollViewer = popup == null ? null : FindScrollViewer(popup.Child);
+                    if (scrollViewer == null) return;
+                    scrollViewer.PreviewMouseWheel -= ScrollViewer_PreviewMouseWheel;
+                    scrollViewer.PreviewMouseWheel += ScrollViewer_PreviewMouseWheel;
+                }), System.Windows.Threading.DispatcherPriority.Loaded);
+            };
+        }
+
+        private static void ScrollViewer_PreviewMouseWheel(object sender, System.Windows.Input.MouseWheelEventArgs e)
+        {
+            var viewer = sender as ScrollViewer;
+            if (viewer == null || e.Delta == 0) return;
+            viewer.ScrollToVerticalOffset(viewer.VerticalOffset - e.Delta);
+            e.Handled = true;
+        }
+
+        private static ScrollViewer FindScrollViewer(DependencyObject parent)
+        {
+            if (parent == null) return null;
+            var direct = parent as ScrollViewer;
+            if (direct != null) return direct;
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                var found = FindScrollViewer(VisualTreeHelper.GetChild(parent, i));
+                if (found != null) return found;
+            }
+            return null;
         }
     }
 }

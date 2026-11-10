@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
@@ -39,7 +39,11 @@ namespace VtM_LoCh_fP
             if (_character.CreationState.ConfirmedFreebieBlocks == null) _character.CreationState.ConfirmedFreebieBlocks = new List<string>();
             if (_character.CreationState.ConfirmedInitialBlocks == null) _character.CreationState.ConfirmedInitialBlocks = new List<string>();
             CharacterPage.InitializeCharacter(character);
-            CharacterPage.CharacterNameChanged += name => Title = "VtM V20: " + name + " — " + _character.CreationMode;
+            CharacterPage.CharacterNameChanged += name =>
+            {
+                Title = "VtM V20: " + name + " — " + _character.CreationMode;
+                CharacterSelectionWindow.SaveCharacters();
+            };
             AdvantagesPage.InitializeCharacter(character);
             DisciplinesPage.InitializeCharacter(character);
             HistoryPage.InitializeCharacter(character);
@@ -51,7 +55,6 @@ namespace VtM_LoCh_fP
                 UpdateInitialPurchaseButton();
                 DisciplinesPage.RefreshGenerationLimits();
             };
-            CharacterPage.FreebieJournalRequested += () => FreebieJournal_Click(this, new RoutedEventArgs());
             CharacterPage.AdvancementCheck += ChargeAdvancement;
             CharacterPage.ClanChanged += () =>
             {
@@ -77,12 +80,6 @@ namespace VtM_LoCh_fP
                     : 5);
             Title = "VtM V20: " + character.Name + " — " + character.CreationMode;
             var rulesService = new CharacterRulesService(character);
-            _character.CreationState.PropertyChanged += (s, e) =>
-            {
-                if (e.PropertyName == nameof(CharacterCreationState.FreebiePoints))
-                    UpdateFreebieJournalButton();
-            };
-            UpdateFreebieJournalButton();
             UpdateInitialPurchaseButton();
             _autosaveTimer.Interval = TimeSpan.FromSeconds(2);
             _autosaveTimer.Tick += (s, e) => CharacterSelectionWindow.SaveCharacters();
@@ -517,17 +514,6 @@ namespace VtM_LoCh_fP
             // Подтверждение стартовой закупки выполняется непосредственно в соответствующих блоках листа.
         }
 
-        private void UpdateFreebieJournalButton()
-        {
-            CharacterPage?.RefreshPurchaseHeader();
-        }
-
-        private void FreebieJournal_Click(object sender, RoutedEventArgs e)
-        {
-            new FreebiePurchaseJournalWindow(this, _character, ResetFreebieBlock).ShowDialog();
-            UpdateFreebieJournalButton();
-        }
-
         public void RefreshGenerationFromCharacter()
         {
             int generation = _character.CreationState.BaseGeneration ?? 13;
@@ -604,7 +590,6 @@ namespace VtM_LoCh_fP
                 new FreebiePurchaseWindow(this, _character, BuildAdvancementOptions().Where(x => x.CostKey != "background")).ShowDialog();
             }
             finally { _manualPurchaseInProgress = false; }
-            UpdateFreebieJournalButton();
         }
 
         private List<AdvancementOption> BuildAdvancementOptions()

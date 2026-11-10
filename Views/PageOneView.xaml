@@ -12,8 +12,6 @@
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,14,0">
                     <Button x:Name="InitialAllocationButton" Content="Распределить точки" Padding="12,5" Margin="0,0,8,0"
                             Click="OpenInitialAllocation_Click"/>
-                    <Button x:Name="FreebieJournalButton" Content="Просмотреть закуп за свободные пункты" Padding="12,5"
-                            Visibility="Collapsed" Click="FreebieJournal_Click"/>
                 </StackPanel>
                 <TextBlock Text="ЛИСТ ПЕРСОНАЖА" FontSize="24" FontWeight="Bold"
                            Foreground="{DynamicResource HeadingBrush}" VerticalAlignment="Center"/>

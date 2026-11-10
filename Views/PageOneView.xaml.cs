@@ -39,7 +39,6 @@ namespace VtM_LoCh_fP.Views
         public event Action ClanChanged;
         public event Action<string> CharacterNameChanged;
         public event Action InitialPurchaseRequested;
-        public event Action FreebieJournalRequested;
         public event Func<string, string, int, int, bool> AdvancementCheck;
         private readonly Dictionary<string, int> _lastTrackValues = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
@@ -88,12 +87,8 @@ namespace VtM_LoCh_fP.Views
                 combo.IsEnabled = !_character.CreationState.InitialAllocationEverCompleted;
             }
             RefreshInitialBlockControls();
-            if (FreebieJournalButton != null)
-                FreebieJournalButton.Visibility = _character.CreationState.FreebiePoints <= 0 && !_character.CreationState.FreebiePurchasesConfirmed
-                    ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        private void FreebieJournal_Click(object sender, RoutedEventArgs e) => FreebieJournalRequested?.Invoke();
 
         private void ConfirmInitialPurchase_Click(object sender, RoutedEventArgs e) { }
 
@@ -888,6 +883,7 @@ namespace VtM_LoCh_fP.Views
                 Padding = new Thickness(6, 3, 6, 3)
             };
             ApplyThemeResources(_clanSelector);
+            ComboBoxWheelSupport.Enable(_clanSelector);
             var tooltipTemplate = CreateClanTooltipTemplate();
             var tooltipStyle = new Style(typeof(ToolTip), (Style)FindResource("PopupToolTipStyle"));
             tooltipStyle.Setters.Add(new Setter(ContentControl.ContentTemplateProperty, tooltipTemplate));
