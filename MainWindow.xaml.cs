@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
@@ -39,15 +39,28 @@ namespace VtM_LoCh_fP
             if (_character.CreationState.ConfirmedFreebieBlocks == null) _character.CreationState.ConfirmedFreebieBlocks = new List<string>();
             if (_character.CreationState.ConfirmedInitialBlocks == null) _character.CreationState.ConfirmedInitialBlocks = new List<string>();
             CharacterPage.InitializeCharacter(character);
-            CharacterPage.CharacterNameChanged += name => Title = "VtM V20: " + name + " — " + _character.CreationMode;
+            CharacterPage.CharacterNameChanged += name =>
+            {
+                Title = "VtM V20: " + name + " — " + _character.CreationMode;
+                CharacterSelectionWindow.SaveCharacters();
+            };
             AdvantagesPage.InitializeCharacter(character);
             DisciplinesPage.InitializeCharacter(character);
             HistoryPage.InitializeCharacter(character);
             EquipmentPage.InitializeCharacter(character);
+            NotesPage.InitializeCharacter(character);
             AdvantagesPage.InitialPurchaseProgressChanged += UpdateInitialPurchaseButton;
-            CharacterPage.InitialPurchaseRequested += UpdateInitialPurchaseButton;
-            CharacterPage.FreebieJournalRequested += () => FreebieJournal_Click(this, new RoutedEventArgs());
+            CharacterPage.InitialPurchaseRequested += () =>
+            {
+                UpdateInitialPurchaseButton();
+                DisciplinesPage.RefreshGenerationLimits();
+            };
             CharacterPage.AdvancementCheck += ChargeAdvancement;
+            CharacterPage.ClanChanged += () =>
+            {
+                DisciplinesPage.RefreshGenerationLimits();
+                UpdateInitialPurchaseButton();
+            };
             AdvantagesPage.AdvancementCheck += ChargeAdvancement;
             AdvantagesPage.VirtueAdvancementCheck += ChargeAdvancement;
             DisciplinesPage.AdvancementCheck += ChargeAdvancement;
@@ -67,12 +80,6 @@ namespace VtM_LoCh_fP
                     : 5);
             Title = "VtM V20: " + character.Name + " — " + character.CreationMode;
             var rulesService = new CharacterRulesService(character);
-            _character.CreationState.PropertyChanged += (s, e) =>
-            {
-                if (e.PropertyName == nameof(CharacterCreationState.FreebiePoints))
-                    UpdateFreebieJournalButton();
-            };
-            UpdateFreebieJournalButton();
             UpdateInitialPurchaseButton();
             _autosaveTimer.Interval = TimeSpan.FromSeconds(2);
             _autosaveTimer.Tick += (s, e) => CharacterSelectionWindow.SaveCharacters();
@@ -99,11 +106,22 @@ namespace VtM_LoCh_fP
             bool isFledgling = string.Equals(_character.CreationMode, "Птенец на поводке Сира", StringComparison.OrdinalIgnoreCase);
             int increase = next - previous;
 
-            string mode = AppSettings.NeonatePurchaseMode ?? "Свободные пункты → опыт";
-            // Новые факты биографии всегда покупаются свободными пунктами — в обоих режимах.
-            bool useFreebies = costKey == "background" || (isFreeNeonate && (mode == "Свободные пункты → опыт" || mode == "Только свободные пункты"));
-            bool useExperience = isFledgling || (isFreeNeonate && (mode == "Свободные пункты → опыт" || mode == "Только опыт"));
-            if (isFreeNeonate && !useFreebies && !useExperience)
+            // Поддерживаем оба старых написания смешанного режима и применяем
+            // выбранную последовательность ресурсов к обоим режимам персонажа.
+            // Раньше для Птенца useFreebies всегда был false, поэтому программа
+            // требовала опыт даже при ненулевом остатке свободных пунктов.
+            string mode = (AppSettings.NeonatePurchaseMode ?? "Свободные пункты затем опыт")
+                .Trim().Replace("→", "затем").ToLowerInvariant();
+            bool mixedMode = mode == "свободные пункты затем опыт";
+            bool freebieOnlyMode = mode == "только свободные пункты";
+            bool experienceOnlyMode = mode == "только опыт";
+            bool automaticMode = isFreeNeonate || isFledgling;
+
+            // В смешанном режиме всегда сначала расходуются свободные пункты,
+            // затем остаток повышения оплачивается опытом.
+            bool useFreebies = costKey == "background" || (automaticMode && (mixedMode || freebieOnlyMode));
+            bool useExperience = automaticMode && (mixedMode || experienceOnlyMode);
+            if (automaticMode && !useFreebies && !useExperience)
                 return true; // Вручную, без автоматического списания.
 
             int freebieUnitCost = useFreebies ? CharacterCreationRules.GetFreebieCost(costKey) : 0;
@@ -391,6 +409,7 @@ namespace VtM_LoCh_fP
                 // Синхронизируем legacy-журналы, чтобы старые окна и списки не показывали уже отменённое.
                 TrimLegacyPurchaseRecords(itemName, newValue);
                 UpdateInitialPurchaseButton();
+                DisciplinesPage.RefreshGenerationLimits();
                 return;
             }
 
@@ -443,8 +462,7 @@ namespace VtM_LoCh_fP
 
         private int CalculateExperienceCost(string costKey, string itemName, int currentValue, int targetValue)
         {
-            bool caitiff = !string.IsNullOrWhiteSpace(_character.ClanName) &&
-                _character.ClanName.IndexOf("каити", StringComparison.OrdinalIgnoreCase) >= 0;
+            bool caitiff = CharacterCreationRules.UsesCaitiffDisciplineRules(_character);
             bool clanDiscipline = costKey == "discipline" && IsClanDiscipline(itemName);
             int total = 0;
             for (int level = currentValue; level < targetValue; level++)
@@ -494,17 +512,6 @@ namespace VtM_LoCh_fP
         private void InitialPurchase_Click(object sender, RoutedEventArgs e)
         {
             // Подтверждение стартовой закупки выполняется непосредственно в соответствующих блоках листа.
-        }
-
-        private void UpdateFreebieJournalButton()
-        {
-            CharacterPage?.RefreshPurchaseHeader();
-        }
-
-        private void FreebieJournal_Click(object sender, RoutedEventArgs e)
-        {
-            new FreebiePurchaseJournalWindow(this, _character, ResetFreebieBlock).ShowDialog();
-            UpdateFreebieJournalButton();
         }
 
         public void RefreshGenerationFromCharacter()
@@ -583,7 +590,6 @@ namespace VtM_LoCh_fP
                 new FreebiePurchaseWindow(this, _character, BuildAdvancementOptions().Where(x => x.CostKey != "background")).ShowDialog();
             }
             finally { _manualPurchaseInProgress = false; }
-            UpdateFreebieJournalButton();
         }
 
         private List<AdvancementOption> BuildAdvancementOptions()
@@ -622,8 +628,6 @@ namespace VtM_LoCh_fP
                 options.Add(new AdvancementOption { Category = item.IsSecondaryPath ? "Вторичный путь" : "Дисциплина",
                     CostKey = disciplineCostKey, Name = disciplineDisplayName,
                     CurrentValue = item.Level, Maximum = Math.Max(1, _character.DisciplineMax),
-                    CanPurchase = () => !string.IsNullOrWhiteSpace(item.Justification),
-                    PurchaseRestrictionMessage = "Укажите обоснование изучения дисциплины на вкладке «Дисциплины».",
                     Apply = value => { item.Level = value; DisciplinesPage.RefreshGenerationLimits(); } });
             }
             foreach (var definition in DisciplineService.GetAll().Where(x => !x.IsSorcery))
@@ -633,7 +637,7 @@ namespace VtM_LoCh_fP
                 options.Add(new AdvancementOption { Category = "Новая дисциплина", CostKey = "discipline", Name = captured.Name,
                     CurrentValue = 0, Maximum = Math.Max(1, _character.DisciplineMax),
                     CanPurchase = () => false,
-                    PurchaseRestrictionMessage = "Сначала добавьте дисциплину на вкладке «Дисциплины» и заполните её обоснование.",
+                    PurchaseRestrictionMessage = "Сначала добавьте дисциплину на вкладке «Дисциплины».",
                     Apply = value =>
                     {
                         var existing = _character.Disciplines.FirstOrDefault(x => x.DisciplineId == captured.Id);
@@ -666,7 +670,7 @@ namespace VtM_LoCh_fP
                         CurrentValue = 0,
                         Maximum = Math.Max(1, _character.DisciplineMax),
                         CanPurchase = () => false,
-                        PurchaseRestrictionMessage = "Сначала добавьте этот путь на вкладке «Дисциплины» и заполните обоснование.",
+                        PurchaseRestrictionMessage = "Сначала добавьте этот путь на вкладке «Дисциплины».",
                         Apply = value =>
                         {
                             var existing = _character.Disciplines.FirstOrDefault(x =>

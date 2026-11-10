@@ -8,7 +8,10 @@
                 <TextBlock Text="ДИСЦИПЛИНЫ" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource HeadingBrush}"/>
             </DockPanel>
             <TextBlock Text="Выберите дисциплины персонажа, отмечайте освоенные уровни и просматривайте полученные способности в карточках ниже." Style="{StaticResource SectionCaptionStyle}" TextWrapping="Wrap" Margin="4,0,4,10"/>
-            <GroupBox Header="Дисциплины персонажа" Style="{StaticResource SectionBoxStyle}">
+            <TextBlock x:Name="DisciplineStageNotice"
+                       Text="До подтверждения первоначальной закупки доступны только клановые дисциплины (для Каитифов — все). После подтверждения откроется полный каталог дисциплин."
+                       Style="{StaticResource SectionCaptionStyle}" TextWrapping="Wrap" Margin="4,0,4,10" Visibility="Collapsed"/>
+            <GroupBox x:Name="DisciplinesGroupBox" Header="Дисциплины персонажа" Style="{StaticResource SectionBoxStyle}">
                 <StackPanel>
                     <Button x:Name="OpenDisciplineCatalogButton" Content="Открыть каталог дисциплин" Height="42" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,12" Click="OpenDisciplineCatalog_Click"/>
                     <StackPanel x:Name="SelectedDisciplinesPanel"/>
@@ -17,7 +20,7 @@
                     <Button x:Name="StudyRitualButton" Content="Изучить ритуал" Height="38" FontSize="14" FontWeight="SemiBold" Margin="0,4,0,0" Visibility="Collapsed" Click="StudyRitual_Click"/>
                 </StackPanel>
             </GroupBox>
-            <GroupBox Header="Карточки дисциплин" Style="{StaticResource SectionBoxStyle}" Margin="0,12,0,0">
+            <GroupBox x:Name="DisciplineCardsGroupBox" Header="Карточки дисциплин" Style="{StaticResource SectionBoxStyle}" Margin="0,12,0,0">
                 <StackPanel x:Name="DisciplineCardsPanel">
                     <TextBlock Text="Пока нет изученных способностей." Style="{StaticResource FieldLabelStyle}"/>
                 </StackPanel>

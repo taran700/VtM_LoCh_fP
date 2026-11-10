@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -36,9 +36,9 @@ namespace VtM_LoCh_fP.Views
         private Button _sireDescriptionButton;
         private bool _applyingDerivedGeneration;
         public event Action GenerationChanged;
+        public event Action ClanChanged;
         public event Action<string> CharacterNameChanged;
         public event Action InitialPurchaseRequested;
-        public event Action FreebieJournalRequested;
         public event Func<string, string, int, int, bool> AdvancementCheck;
         private readonly Dictionary<string, int> _lastTrackValues = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
@@ -87,12 +87,8 @@ namespace VtM_LoCh_fP.Views
                 combo.IsEnabled = !_character.CreationState.InitialAllocationEverCompleted;
             }
             RefreshInitialBlockControls();
-            if (FreebieJournalButton != null)
-                FreebieJournalButton.Visibility = _character.CreationState.FreebiePoints <= 0 && !_character.CreationState.FreebiePurchasesConfirmed
-                    ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        private void FreebieJournal_Click(object sender, RoutedEventArgs e) => FreebieJournalRequested?.Invoke();
 
         private void ConfirmInitialPurchase_Click(object sender, RoutedEventArgs e) { }
 
@@ -389,6 +385,7 @@ namespace VtM_LoCh_fP.Views
             }
             UpdateInitialAllocationButton();
             ApplyGenerationLimits();
+            InitialPurchaseRequested?.Invoke();
         }
 
         private void RecordInitialAllocationPoint(string block, string category, string itemName, int previous, int next)
@@ -447,6 +444,12 @@ namespace VtM_LoCh_fP.Views
                 CharacterNameChanged?.Invoke(_character.Name);
             };
             NameFieldHost.Content = nameField;
+            PlayerField.InputText = _character.PlayerName ?? string.Empty;
+            ChronicleField.InputText = _character.ChronicleName ?? string.Empty;
+            RoleField.InputText = _character.RoleName ?? string.Empty;
+            ChroniclePillarsField.InputText = _character.ChroniclePillars ?? string.Empty;
+            ChronicleTenetsField.InputText = _character.ChronicleTenets ?? string.Empty;
+            HuntingStyleField.InputText = _character.HuntingStyle ?? string.Empty;
             _character.CreationState.PropertyChanged += (s, e) =>
             {
                 if (e.PropertyName == nameof(CharacterCreationState.FreebiePoints) || e.PropertyName == nameof(CharacterCreationState.FreebiePurchasesConfirmed))
@@ -482,10 +485,30 @@ namespace VtM_LoCh_fP.Views
                 if (clan != null && (guided || character.ClanSelectedFromSuggestions))
                     ApplyClan(clan, false);
                 else
+                {
+                    _currentClanId = null;
                     ClearAppliedClanRules();
+                }
             }
         }
 
+
+
+        private void ProfileField_InputTextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_character == null) return;
+            var field = sender as FieldControl;
+            if (field == null) return;
+            switch (Convert.ToString(field.Tag))
+            {
+                case "Player": _character.PlayerName = field.InputText; break;
+                case "Chronicle": _character.ChronicleName = field.InputText; break;
+                case "Role": _character.RoleName = field.InputText; break;
+                case "Pillars": _character.ChroniclePillars = field.InputText; break;
+                case "Tenets": _character.ChronicleTenets = field.InputText; break;
+                case "HuntingStyle": _character.HuntingStyle = field.InputText; break;
+            }
+        }
 
         public void ApplyGenerationLimits()
         {
@@ -860,6 +883,7 @@ namespace VtM_LoCh_fP.Views
                 Padding = new Thickness(6, 3, 6, 3)
             };
             ApplyThemeResources(_clanSelector);
+            ComboBoxWheelSupport.Enable(_clanSelector);
             var tooltipTemplate = CreateClanTooltipTemplate();
             var tooltipStyle = new Style(typeof(ToolTip), (Style)FindResource("PopupToolTipStyle"));
             tooltipStyle.Setters.Add(new Setter(ContentControl.ContentTemplateProperty, tooltipTemplate));
@@ -944,7 +968,9 @@ namespace VtM_LoCh_fP.Views
 
         private void ClearAppliedClanRules()
         {
-            _currentClanId = null;
+            // Сохраняем ID последнего выбранного клана при ручном редактировании
+            // текстового поля: он нужен, чтобы последующий выбор другого клана
+            // корректно распознал смену и выполнил сброс.
             _character.OriginalClanWeakness = null;
             _character.ClanWeakness = string.Empty;
             SetWeaknessText(string.Empty);
@@ -1038,6 +1064,19 @@ namespace VtM_LoCh_fP.Views
             list.ItemContainerStyle.Setters.Add(new Setter(ToolTipService.InitialShowDelayProperty, 250));
             list.ItemContainerStyle.Setters.Add(new Setter(ToolTipService.ShowDurationProperty, 60000));
             var tipStyle = new Style(typeof(ToolTip), (Style)FindResource("PopupToolTipStyle"));
+            var tipTemplate = new DataTemplate();
+            var tipScroll = new FrameworkElementFactory(typeof(ScrollViewer));
+            tipScroll.SetValue(ScrollViewer.MaxHeightProperty, 360.0);
+            tipScroll.SetValue(ScrollViewer.VerticalScrollBarVisibilityProperty, ScrollBarVisibility.Auto);
+            tipScroll.SetValue(ScrollViewer.HorizontalScrollBarVisibilityProperty, ScrollBarVisibility.Disabled);
+            var tipText = new FrameworkElementFactory(typeof(TextBlock));
+            tipText.SetBinding(TextBlock.TextProperty, new Binding());
+            tipText.SetValue(TextBlock.TextWrappingProperty, TextWrapping.Wrap);
+            tipText.SetValue(TextBlock.MaxWidthProperty, 470.0);
+            tipScroll.AppendChild(tipText);
+            tipTemplate.VisualTree = tipScroll;
+            tipStyle.Setters.Add(new Setter(ContentControl.ContentTemplateProperty, tipTemplate));
+            tipStyle.Setters.Add(new Setter(FrameworkElement.MaxWidthProperty, 500.0));
             list.Resources.Add(typeof(ToolTip), tipStyle);
             var popup = new Popup { PlacementTarget = input, Placement = PlacementMode.Bottom, StaysOpen = false, AllowsTransparency = true, Child = list };
             BindingOperations.SetBinding(popup, FrameworkElement.WidthProperty, new Binding("ActualWidth") { Source = input });
@@ -1224,18 +1263,31 @@ namespace VtM_LoCh_fP.Views
         {
             string previousClanId = _currentClanId;
             bool wasNosferatu = string.Equals(previousClanId, "nosferatu", StringComparison.OrdinalIgnoreCase);
-            bool isNewClan = selectionChanged || !string.Equals(_currentClanId, clan.Id, StringComparison.OrdinalIgnoreCase);
+            bool isNewClan = !string.Equals(_currentClanId, clan.Id, StringComparison.OrdinalIgnoreCase);
+            bool actualClanChange = !string.IsNullOrWhiteSpace(previousClanId) &&
+                !string.Equals(previousClanId, clan.Id, StringComparison.OrdinalIgnoreCase);
 
-            // Предлагаем сбросить только характеристики. Способности и приоритеты
-            // не затрагиваются; при отказе характеристики сохраняют текущие значения
-            if (selectionChanged)
+            // При первом выборе клана тоже проверяем уже распределённые характеристики:
+            // игрок мог распределить их до того, как указал клан.
+            if (selectionChanged && isNewClan)
             {
-                var resetResult = ThemedDialog.Show(
-                    Window.GetWindow(this),
-                    "Сбросить все Характеристики до базового значения 1? Способности и приоритеты не изменятся.",
-                    "Смена клана", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                if (resetResult == MessageBoxResult.Yes)
-                    ResetAttributesForClanChange();
+                int baseValue = CharacterCreationRules.GetCreationLimit("attribute_base");
+                bool investedAttributes = GetCurrentAttributeValues().Any(x => x.Value > baseValue);
+                if (investedAttributes)
+                {
+                    var resetResult = ThemedDialog.Show(
+                        Window.GetWindow(this),
+                        "Сбросить прокачанные Характеристики до базового значения 1? Потраченные на них ресурсы будут возвращены.",
+                        "Выбор клана", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                    if (resetResult == MessageBoxResult.Yes)
+                        ResetAttributesForClanChange();
+                }
+            }
+
+            if (actualClanChange)
+            {
+                // Дисциплины сбрасываются только при фактической смене уже выбранного клана.
+                ResetDisciplinesForClanChange(previousClanId);
             }
 
             _currentClanId = clan.Id;
@@ -1290,6 +1342,24 @@ namespace VtM_LoCh_fP.Views
             UpdateRedistributeAttributesButton(isNosferatu && !plasticSurgeryDone);
         }
 
+        private Dictionary<string, int> GetCurrentAttributeValues()
+        {
+            var result = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            string[] names = { "Сила", "Ловкость", "Выносливость", "Обаяние", "Манипуляция", "Привлекательность", "Восприятие", "Интеллект", "Смекалка" };
+            foreach (string name in names)
+            {
+                int value;
+                if (_character.CreationState.AttributeDots != null && _character.CreationState.AttributeDots.TryGetValue(name, out value))
+                    result[name] = value;
+                else
+                {
+                    var track = FindTracks(this).FirstOrDefault(t => string.Equals(t.Label, name, StringComparison.OrdinalIgnoreCase));
+                    result[name] = track == null ? CharacterCreationRules.GetCreationLimit("attribute_base") : track.Value;
+                }
+            }
+            return result;
+        }
+
         private void ResetAttributesForClanChange()
         {
             if (_character == null || _character.CreationState == null) return;
@@ -1297,31 +1367,85 @@ namespace VtM_LoCh_fP.Views
                 _character.CreationState.AttributeDots = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
             int baseValue = CharacterCreationRules.GetCreationLimit("attribute_base");
-            string[] attributeNames =
+            foreach (var pair in GetCurrentAttributeValues())
             {
-                "Сила", "Ловкость", "Выносливость", "Обаяние", "Манипуляция",
-                "Привлекательность", "Восприятие", "Интеллект", "Смекалка"
-            };
-            foreach (string name in attributeNames)
-            {
-                _character.CreationState.AttributeDots[name] = baseValue;
-                _lastTrackValues[name] = baseValue;
+                if (pair.Value > baseValue && AdvancementCheck != null)
+                    AdvancementCheck("attribute", pair.Key, pair.Value, baseValue);
+                _character.CreationState.AttributeDots[pair.Key] = baseValue;
+                _lastTrackValues[pair.Key] = baseValue;
             }
 
-            // Возвращаем этап распределения характеристик: селекторы приоритетов
-            // и остатки очков снова доступны. Сами приоритеты и способности сохраняются.
             _character.CreationState.InitialAllocationCompleted = false;
-
-            // Удаляем устаревшую запись о стартовой закупке характеристик.
-            // Новые значения равны базе, поэтому дополнительные пункты не потрачены.
+            _character.CreationState.InitialAllocationEverCompleted = false;
+            if (_character.CreationState.InitialAttributeDots != null) _character.CreationState.InitialAttributeDots.Clear();
+            if (_character.CreationState.InitialAbilityDots != null) _character.CreationState.InitialAbilityDots.Clear();
+            if (_character.CreationState.PurchaseLedger != null)
+                _character.CreationState.PurchaseLedger.RemoveAll(t => t.Block == "Характеристики" && t.Resource == "initial_pool");
             if (_character.CreationState.InitialPurchases != null)
                 _character.CreationState.InitialPurchases.RemoveAll(p => p.Block == "Характеристики");
 
-            foreach (var track in FindTracks(this).Where(t => attributeNames.Contains(t.Label)))
+            foreach (var track in FindTracks(this).Where(t => _character.CreationState.AttributeDots.ContainsKey(t.Label)))
                 track.SetTrackValue(baseValue);
 
             UpdateInitialAllocationButton();
             RefreshInitialBlockControls();
+        }
+
+        private void ResetDisciplinesForClanChange(string previousClanId)
+        {
+            if (_character == null || _character.CreationState == null) return;
+            var state = _character.CreationState;
+            var oldDisciplines = _character.Disciplines.ToList();
+            var oldItemNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            string newClanName = _character.ClanName;
+            var previousClan = ClanService.GetClans().FirstOrDefault(c =>
+                string.Equals(c.Id, previousClanId, StringComparison.OrdinalIgnoreCase));
+
+            // Расчёт возврата опыта зависит от того, была ли дисциплина клановой
+            // и от множителя Каитифов. Во время возврата временно используем старый клан,
+            // поскольку новое имя клана уже записано обработчиком SelectionChanged.
+            if (previousClan != null) _character.ClanName = previousClan.Name;
+            try
+            {
+                foreach (var item in oldDisciplines)
+                {
+                    string itemName = item.IsSecondaryPath && !string.IsNullOrWhiteSpace(item.PathName)
+                        ? item.Name + " — " + item.PathName : item.Name;
+                    oldItemNames.Add(itemName);
+                    if (item.Level > 0 && AdvancementCheck != null)
+                        AdvancementCheck(item.IsSecondaryPath ? "secondary_path" : "discipline", itemName, item.Level, 0);
+                }
+            }
+            finally
+            {
+                _character.ClanName = newClanName;
+            }
+
+            _character.Disciplines.Clear();
+            // Ритуалы принадлежат дисциплинам старого клана.
+            if (_character.Rituals != null) _character.Rituals.Clear();
+
+            if (state.InitialDisciplineDots == null)
+                state.InitialDisciplineDots = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            else state.InitialDisciplineDots.Clear();
+            state.InitialDisciplineBlockEverConfirmed = false;
+            state.UnconfirmInitialBlock("disciplines");
+
+            // Удаляем все записи стартовой закупки. Оплаченные freebie/experience
+            // транзакции к этому моменту уже обработаны RefundAdvancement; очистка
+            // ниже защищает от осиротевших записей старых/мигрированных персонажей.
+            if (state.InitialPurchases != null)
+                state.InitialPurchases.RemoveAll(p => string.Equals(p.Block, "Дисциплины", StringComparison.OrdinalIgnoreCase));
+            if (state.PurchaseLedger != null)
+                state.PurchaseLedger.RemoveAll(t => string.Equals(t.Block, "Дисциплины", StringComparison.OrdinalIgnoreCase));
+            if (state.FreebiePurchases != null)
+                state.FreebiePurchases.RemoveAll(p => string.Equals(p.Block, "Дисциплины", StringComparison.OrdinalIgnoreCase) && oldItemNames.Contains(p.ItemName));
+            if (state.ExperiencePurchases != null)
+                state.ExperiencePurchases.RemoveAll(p => oldItemNames.Contains(p.ItemName) &&
+                    (string.Equals(p.Category, "discipline", StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(p.Category, "secondary_path", StringComparison.OrdinalIgnoreCase)));
+
+            ClanChanged?.Invoke();
         }
 
         private void UpdateRedistributeAttributesButton(bool nosferatuLocked)

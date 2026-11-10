@@ -1,11 +1,42 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 
 namespace VtM_LoCh_fP
 {
-    public sealed class CharacterProfile
+    public sealed class CharacterProfile : INotifyPropertyChanged
     {
+        private string _name;
+        public event PropertyChangedEventHandler PropertyChanged;
+        protected void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
         public string Id { get; set; } = System.Guid.NewGuid().ToString("N");
-        public string Name { get; set; }
+        public string Name
+        {
+            get { return _name; }
+            set
+            {
+                if (string.Equals(_name, value, System.StringComparison.Ordinal)) return;
+                _name = value;
+                OnPropertyChanged();
+            }
+        }
+        public string PlayerName { get; set; }
+        public string ChronicleName { get; set; }
+        public string RoleName { get; set; }
+        public string ChroniclePillars { get; set; }
+        public string ChronicleTenets { get; set; }
+        public string HuntingStyle { get; set; }
+        public int CurrentBlood { get; set; }
+        public string NotesImportantNpcs { get; set; }
+        public string NotesGeneralOne { get; set; }
+        public string NotesImportantLocations { get; set; }
+        public string NotesGeneralTwo { get; set; }
+        public string NotesGeneralThree { get; set; }
+        public string NotesGeneralFour { get; set; }
         public CharacterCreationState CreationState { get; set; } = new CharacterCreationState();
         public string CreationMode { get; set; }
         public string ClanName { get; set; }
@@ -60,6 +91,23 @@ namespace VtM_LoCh_fP
         public string CustomHumanityFirstVirtue { get; set; } = "Совесть";
         public string CustomHumanitySecondVirtue { get; set; } = "Самоконтроль";
         public System.Collections.Generic.List<HumanityPathSinEntry> CustomHumanityHierarchy { get; set; } = new System.Collections.Generic.List<HumanityPathSinEntry>();
-        public override string ToString() => Name + " — " + CreationMode;
+        public string DisplayCreationMode
+        {
+            get
+            {
+                if (string.Equals(CreationMode, "Свободный Неонат", System.StringComparison.OrdinalIgnoreCase))
+                    return "Свободный Неонат";
+                if (string.Equals(CreationMode, "Птенец на поводке Сира", System.StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(CreationMode, "Птенец", System.StringComparison.OrdinalIgnoreCase))
+                    return "Птенец";
+                return "Режим не определён";
+            }
+        }
+
+        public bool CanMigrateToFreeNeonate =>
+            string.Equals(CreationMode, "Птенец на поводке Сира", System.StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(CreationMode, "Птенец", System.StringComparison.OrdinalIgnoreCase);
+
+        public override string ToString() => Name + " — " + DisplayCreationMode;
     }
 }

@@ -12,8 +12,6 @@
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,14,0">
                     <Button x:Name="InitialAllocationButton" Content="Распределить точки" Padding="12,5" Margin="0,0,8,0"
                             Click="OpenInitialAllocation_Click"/>
-                    <Button x:Name="FreebieJournalButton" Content="Просмотреть закуп за свободные пункты" Padding="12,5"
-                            Visibility="Collapsed" Click="FreebieJournal_Click"/>
                 </StackPanel>
                 <TextBlock Text="ЛИСТ ПЕРСОНАЖА" FontSize="24" FontWeight="Bold"
                            Foreground="{DynamicResource HeadingBrush}" VerticalAlignment="Center"/>
@@ -33,11 +31,11 @@
                     </Grid.RowDefinitions>
 
                     <ContentControl x:Name="NameFieldHost" Grid.Row="0" Grid.Column="0"/>
-                    <controls:FieldControl Grid.Row="0" Grid.Column="1" Label="Игрок"/>
-                    <controls:FieldControl Grid.Row="0" Grid.Column="2" Label="Хроника"/>
+                    <controls:FieldControl x:Name="PlayerField" Grid.Row="0" Grid.Column="1" Label="Игрок" Tag="Player" InputTextChanged="ProfileField_InputTextChanged"/>
+                    <controls:FieldControl x:Name="ChronicleField" Grid.Row="0" Grid.Column="2" Label="Хроника" Tag="Chronicle" InputTextChanged="ProfileField_InputTextChanged"/>
                     <ContentControl x:Name="NatureFieldHost" Grid.Row="1" Grid.Column="0"/>
                     <ContentControl x:Name="DemeanorFieldHost" Grid.Row="1" Grid.Column="1"/>
-                    <controls:FieldControl Grid.Row="1" Grid.Column="2" Label="Амплуа"/>
+                    <controls:FieldControl x:Name="RoleField" Grid.Row="1" Grid.Column="2" Label="Амплуа" Tag="Role" InputTextChanged="ProfileField_InputTextChanged"/>
                     <ContentControl x:Name="ClanFieldHost" Grid.Row="2" Grid.Column="0"/>
                     <ContentControl x:Name="GenerationFieldHost" Grid.Row="2" Grid.Column="1"/>
                     <ContentControl x:Name="SireFieldHost" Grid.Row="2" Grid.Column="2"/>
@@ -77,9 +75,9 @@
                                      Tag="Выбор категории смертных согласуется с Рассказчиком при создании персонажа. После начала игры изменить его нельзя. Кровь смертных вне выбранной категории, включая кровь животных, не пополняет запас крови. Кровь Сородичей не подпадает под это ограничение."/>
                         </StackPanel>
                     </StackPanel>
-                    <controls:FieldControl Grid.Column="1" Label="Опоры и принципы" Multiline="True" FieldHeight="64"/>
-                    <controls:FieldControl Grid.Column="2" Label="Догмы хроники" Multiline="True" FieldHeight="64"/>
-                    <controls:FieldControl Grid.Column="3" Label="Стиль охоты" Multiline="True" FieldHeight="64"/>
+                    <controls:FieldControl x:Name="ChroniclePillarsField" Grid.Column="1" Label="Опоры и принципы" Multiline="True" FieldHeight="64" Tag="Pillars" InputTextChanged="ProfileField_InputTextChanged"/>
+                    <controls:FieldControl x:Name="ChronicleTenetsField" Grid.Column="2" Label="Догмы хроники" Multiline="True" FieldHeight="64" Tag="Tenets" InputTextChanged="ProfileField_InputTextChanged"/>
+                    <controls:FieldControl x:Name="HuntingStyleField" Grid.Column="3" Label="Стиль охоты" Multiline="True" FieldHeight="64" Tag="HuntingStyle" InputTextChanged="ProfileField_InputTextChanged"/>
                 </Grid>
             </GroupBox>
 

@@ -76,8 +76,7 @@ namespace VtM_LoCh_fP
 
         private int GetExperienceCost(AdvancementOption item)
         {
-            bool caitiff = !string.IsNullOrWhiteSpace(_character.ClanName) &&
-                _character.ClanName.IndexOf("каити", StringComparison.OrdinalIgnoreCase) >= 0;
+            bool caitiff = CharacterCreationRules.UsesCaitiffDisciplineRules(_character);
             bool clanDiscipline = false;
             if (item.CostKey == "discipline" && !caitiff)
             {

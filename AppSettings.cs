@@ -12,8 +12,7 @@ namespace VtM_LoCh_fP
         public static string WoundHealingMode { get; set; } = "Работать Гуль!";
         public static bool RuleOfSeven { get; set; } = true;
         public static bool StorytellerExperiencePrices { get; set; } = false;
-        // Режим автоматической оплаты улучшений в Свободном Неонате
-        public static string NeonatePurchaseMode { get; set; } = "Свободные пункты → опыт";
+        public static string NeonatePurchaseMode { get; set; } = "Свободные пункты затем опыт";
         public static bool ExperiencePurchasesEnabled { get; set; } = true;
         public static bool FreebiePurchasesEnabled { get; set; } = true;
 
@@ -28,7 +27,7 @@ namespace VtM_LoCh_fP
                 WoundHealingMode = (string)root.Element("WoundHealingMode") ?? "Работать Гуль!";
                 RuleOfSeven = (bool?)root.Element("RuleOfSeven") ?? true;
                 StorytellerExperiencePrices = (bool?)root.Element("StorytellerExperiencePrices") ?? false;
-                NeonatePurchaseMode = (string)root.Element("NeonatePurchaseMode") ?? "Свободные пункты → опыт";
+                NeonatePurchaseMode = (string)root.Element("NeonatePurchaseMode") ?? "Свободные пункты затем опыт";
                 ExperiencePurchasesEnabled = (bool?)root.Element("ExperiencePurchasesEnabled") ?? true;
                 FreebiePurchasesEnabled = (bool?)root.Element("FreebiePurchasesEnabled") ?? true;
             }

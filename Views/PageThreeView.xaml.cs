@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
@@ -50,16 +50,20 @@ namespace VtM_LoCh_fP.Views
 
             var all=DisciplineService.GetAll().ToList();
             all.AddRange(_character.CustomDisciplines);
-            var knownClan = ClanService.GetClans().FirstOrDefault(x => string.Equals(x.Name, _character.ClanName, StringComparison.OrdinalIgnoreCase));
-            bool isCaitiff = _character.ClanName.IndexOf("каити", StringComparison.OrdinalIgnoreCase) >= 0;
-            // У обычного известного клана доступны только его клановые дисциплины
-            // Пользовательский клан и каитиф не ограничиваются каталогом клановых дисциплин
-            if (knownClan != null && !isCaitiff)
-            {
-                var clanIds = new System.Collections.Generic.HashSet<string>(DisciplineService.GetClanDisciplineIds(_character.ClanName), StringComparer.OrdinalIgnoreCase);
-                all = all.Where(x => clanIds.Contains(x.Id)).ToList();
-            }
-            var chosen=DisciplineWindows.Choose(Window.GetWindow(this),all,DisciplineService.GetClanDisciplineIds(_character.ClanName),
+            var clanIds = new HashSet<string>(DisciplineService.GetClanDisciplineIds(_character.ClanName), StringComparer.OrdinalIgnoreCase);
+            bool caitiff = CharacterCreationRules.UsesCaitiffDisciplineRules(_character);
+            bool initialDisciplinesConfirmed = _character.CreationState != null &&
+                _character.CreationState.ConfirmedInitialBlocks != null &&
+                _character.CreationState.ConfirmedInitialBlocks.Contains("disciplines");
+
+            // До подтверждения первоначальной закупки обычный клан может выбирать
+            // только свои клановые дисциплины. Каитифы и созданные вручную кланы
+            // в режиме свободного неоната сразу видят весь каталог.
+            // После подтверждения первоначальной закупки каталог открывается полностью.
+            if (!initialDisciplinesConfirmed && !caitiff)
+                all = all.Where(d => clanIds.Contains(d.Id)).ToList();
+
+            var chosen=DisciplineWindows.Choose(Window.GetWindow(this),all,clanIds,
                 string.Equals(_character.CreationMode,"Свободный Неонат",StringComparison.OrdinalIgnoreCase),
                 custom=>{var existing=_character.CustomDisciplines.FirstOrDefault(x=>x.Id==custom.Id);if(existing==null)_character.CustomDisciplines.Add(custom);});
             if(chosen==null)return;
@@ -93,8 +97,44 @@ namespace VtM_LoCh_fP.Views
             RenderRitualCards();
         }
 
+        private static string GetDisciplineSnapshotKey(CharacterDiscipline discipline)
+        {
+            return discipline.IsSecondaryPath && !string.IsNullOrWhiteSpace(discipline.PathName)
+                ? discipline.Name + " — " + discipline.PathName : discipline.Name;
+        }
+
+        private int GetInitialDisciplineDotsSpent()
+        {
+            if (_character == null || _character.Disciplines == null) return 0;
+            if (!_character.CreationState.InitialDisciplineBlockEverConfirmed)
+                return _character.Disciplines.Sum(x => Math.Max(0, x.Level));
+
+            var snapshot = _character.CreationState.InitialDisciplineDots;
+            if (snapshot == null) return 0;
+            // Считаем только дисциплины, которые реально присутствуют у персонажа:
+            // удалённая карточка не должна оставлять «фантомно потраченные» пункты.
+            return _character.Disciplines.Sum(x =>
+            {
+                int value;
+                return snapshot.TryGetValue(GetDisciplineSnapshotKey(x), out value) ? Math.Max(0, value) : 0;
+            });
+        }
+
         private void RenderDisciplines()
         {
+            // Раздел дисциплин и карточки способностей всегда остаются видимыми.
+            // Ограничивается только содержимое каталога до подтверждения закупки.
+            bool initialDisciplinesConfirmed = _character != null && _character.CreationState != null &&
+                _character.CreationState.ConfirmedInitialBlocks != null &&
+                _character.CreationState.ConfirmedInitialBlocks.Contains("disciplines");
+            if (DisciplineStageNotice != null)
+                DisciplineStageNotice.Visibility = initialDisciplinesConfirmed ? Visibility.Collapsed : Visibility.Visible;
+            if (DisciplinesGroupBox != null)
+                DisciplinesGroupBox.Visibility = Visibility.Visible;
+            if (DisciplineCardsGroupBox != null)
+                DisciplineCardsGroupBox.Visibility = Visibility.Visible;
+            if (_character == null || _character.CreationState == null) return;
+
             SelectedDisciplinesPanel.Children.Clear();
             foreach(var item in _character.Disciplines.ToList())
             {
@@ -158,15 +198,6 @@ namespace VtM_LoCh_fP.Views
                         }
                     }
                     if (next != track.Value) track.SetTrackValue(next);
-                    bool freebieMode = string.Equals(_character.CreationMode, "Свободный Неонат", StringComparison.OrdinalIgnoreCase) &&
-                        (AppSettings.NeonatePurchaseMode == "Свободные пункты → опыт" || AppSettings.NeonatePurchaseMode == "Только свободные пункты");
-                    if (next > previous && freebieMode && _character.CreationState.FreebiePoints >= CharacterCreationRules.GetFreebieCost("discipline") &&
-                        string.IsNullOrWhiteSpace(item.Justification))
-                    {
-                        ThemedDialog.Show(Window.GetWindow(this), "Укажите обоснование изучения этой дисциплины перед покупкой за свободные пункты.", "Требуется обоснование", MessageBoxButton.OK, MessageBoxImage.Warning);
-                        track.SetTrackValue(previous);
-                        return;
-                    }
                     string advancementKey = item.IsSecondaryPath ? "secondary_path" : "discipline";
                     string advancementName = item.IsSecondaryPath && !string.IsNullOrWhiteSpace(item.PathName)
                         ? item.Name + " — " + item.PathName : item.Name;
@@ -210,7 +241,11 @@ namespace VtM_LoCh_fP.Views
                     string advancementKey = item.IsSecondaryPath ? "secondary_path" : "discipline";
                     bool hasRecordedPurchase = _character.CreationState.PurchaseLedger != null && _character.CreationState.PurchaseLedger.Any(t => string.Equals(t.ItemName, advancementName, StringComparison.OrdinalIgnoreCase));
                     if (item.Level > 0 && hasRecordedPurchase && AdvancementCheck != null && !AdvancementCheck(advancementKey, advancementName, item.Level, 0)) return;
-                    _character.Disciplines.Remove(item); RenderDisciplines();
+                    _character.Disciplines.Remove(item);
+                    string removedKey = GetDisciplineSnapshotKey(item);
+                    if (_character.CreationState.InitialDisciplineDots != null)
+                        _character.CreationState.InitialDisciplineDots.Remove(removedKey);
+                    RenderDisciplines();
                     InitialPurchaseProgressChanged?.Invoke();
                 };
                 Grid.SetColumn(remove, 1);
@@ -222,21 +257,36 @@ namespace VtM_LoCh_fP.Views
             StudyRitualButton.Visibility = hasRitualDiscipline ? Visibility.Visible : Visibility.Collapsed;
             RitualsGroupBox.Visibility = hasRitualDiscipline || _character.Rituals.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
             if(_character.Disciplines.Count==0)SelectedDisciplinesPanel.Children.Add(new TextBlock{Text="Дисциплины ещё не выбраны.",Foreground=BrushResource("MutedBrush"),Margin=new Thickness(2,4,2,2)});
-            int usedDots = _character.CreationState.InitialDisciplineBlockEverConfirmed
-                ? (_character.CreationState.InitialDisciplineDots == null ? 0 : _character.CreationState.InitialDisciplineDots.Values.Sum())
-                : _character.Disciplines.Sum(x => Math.Max(0, x.Level));
+            int usedDots = GetInitialDisciplineDotsSpent();
             int poolDots = CharacterCreationRules.GetCreationLimit("disciplines");
-            DisciplinesRemainingLabel.Text = "Осталось точек: " + Math.Max(0, poolDots - usedDots);
+            int remainingDots = Math.Max(0, poolDots - usedDots);
+            DisciplinesRemainingLabel.Text = "Осталось точек: " + remainingDots;
             bool confirmed = _character.CreationState.ConfirmedInitialBlocks.Contains("disciplines");
             DisciplinesRemainingLabel.Visibility = confirmed ? Visibility.Collapsed : Visibility.Visible;
             ConfirmDisciplinesButton.Visibility = confirmed ? Visibility.Collapsed : Visibility.Visible;
+            ConfirmDisciplinesButton.IsEnabled = !confirmed && usedDots == poolDots;
+            ConfirmDisciplinesButton.Content = usedDots == poolDots
+                ? "Подтвердить дисциплины"
+                : "Потратьте все первоначальные пункты (" + usedDots + "/" + poolDots + ")";
             RenderCards();
             RenderRitualCards();
         }
 
         private void ConfirmDisciplines_Click(object sender, RoutedEventArgs e)
         {
-            if (_character == null) return;
+            if (_character == null || _character.CreationState == null) return;
+            int requiredDots = CharacterCreationRules.GetCreationLimit("disciplines");
+            int spentDots = GetInitialDisciplineDotsSpent();
+            if (spentDots != requiredDots)
+            {
+                ThemedDialog.Show(Window.GetWindow(this),
+                    "Нельзя подтвердить дисциплины: необходимо потратить все " + requiredDots +
+                    " первоначальных пункта. Сейчас потрачено: " + spentDots + ".",
+                    "Первоначальная закупка не завершена", MessageBoxButton.OK, MessageBoxImage.Warning);
+                RenderDisciplines();
+                return;
+            }
+            if (_character.CreationState.ConfirmedInitialBlocks.Contains("disciplines")) return;
             if (_character.CreationState.InitialPurchases == null) _character.CreationState.InitialPurchases = new List<CreationPurchase>();
             _character.CreationState.InitialPurchases.RemoveAll(p => p.Block == "Дисциплины");
             _character.CreationState.PurchaseLedger.RemoveAll(t => t.Resource == "initial_pool" && t.Block == "Дисциплины");
@@ -245,7 +295,7 @@ namespace VtM_LoCh_fP.Views
             if (!hadInitialDisciplineSnapshot) _character.CreationState.InitialDisciplineDots.Clear();
             foreach (var discipline in _character.Disciplines)
             {
-                string snapshotKey = discipline.IsSecondaryPath && !string.IsNullOrWhiteSpace(discipline.PathName) ? discipline.Name + " — " + discipline.PathName : discipline.Name;
+                string snapshotKey = GetDisciplineSnapshotKey(discipline);
                 if (!hadInitialDisciplineSnapshot && !_character.CreationState.InitialDisciplineDots.ContainsKey(snapshotKey))
                     _character.CreationState.InitialDisciplineDots[snapshotKey] = discipline.Level;
                 int initialLevel;

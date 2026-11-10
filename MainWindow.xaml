@@ -1,4 +1,4 @@
-<Window x:Class="VtM_LoCh_fP.MainWindow"
+﻿<Window x:Class="VtM_LoCh_fP.MainWindow"
         Icon="Resources/Vampiric.ico"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -21,8 +21,6 @@
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button x:Name="InitialPurchaseButton" Content="Проверить стартовую закупку" Style="{StaticResource ToolbarButtonStyle}"
                             Margin="0,0,8,0" Click="InitialPurchase_Click" Visibility="Collapsed"/>
-                    <Button x:Name="FreebieJournalButton" Content="Просмотреть закуп за свободные пункты" Style="{StaticResource ToolbarButtonStyle}"
-                            Margin="0,0,8,0" Visibility="Collapsed" Click="FreebieJournal_Click"/>
                     <Button Content="Настройки" Style="{StaticResource ToolbarButtonStyle}" Click="Settings_Click"/>
                 </StackPanel>
                 <TextBlock 
@@ -56,7 +54,7 @@
                 <views:PageSixView x:Name="EquipmentPage"/>
             </TabItem>
             <TabItem Header="Заметки">
-                <views:PageFiveView/>
+                <views:PageFiveView x:Name="NotesPage"/>
             </TabItem>
         </TabControl>
     </Grid>
