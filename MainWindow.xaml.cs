@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
@@ -27,6 +27,7 @@ namespace VtM_LoCh_fP
         {
             ThemeManager.ApplyDarkIfSelected();
             InitializeComponent();
+            PreviewKeyDown += MainWindow_PreviewKeyDown;
             ThemeManager.AttachWindow(this);
             _character = character;
             if (_character.CreationState == null) _character.CreationState = new CharacterCreationState();
@@ -864,6 +865,80 @@ namespace VtM_LoCh_fP
                 ? (AppSettings.GenerationPointIncrease ? Math.Max(5, _character.TraitMax) : 5)
                 : 5);
             DisciplinesPage.InitializeCharacter(_character);
+        }
+
+        public void NavigateToTab(int index)
+        {
+            if (index < 0 || index >= SheetTabs.Items.Count) return;
+            SheetTabs.SelectedIndex = index;
+        }
+
+        public bool TryGetDialogNavigation(string message, out string buttonText, out Action action)
+        {
+            buttonText = null;
+            action = null;
+            string value = (message ?? string.Empty).ToLowerInvariant();
+            if (value.Contains("недостаточно свободных") || value.Contains("оплачиваются свободными") || value.Contains("после создания персонажа")) return false;
+
+            if (value.Contains("дисциплин") && (value.Contains("первоначальн") || value.Contains("необходимо потратить") || value.Contains("не все точки")))
+            {
+                buttonText = "Открыть каталог";
+                action = () => { NavigateToTab(2); DisciplinesPage.OpenDisciplineCatalog(); };
+                return true;
+            }
+            if ((value.Contains("факт биографии") || value.Contains("факты биографии")) &&
+                (value.Contains("добав") || value.Contains("выбер") || value.Contains("не все") || value.Contains("не указан") || value.Contains("распредели")))
+            {
+                buttonText = "Открыть выбор факта";
+                action = () => { NavigateToTab(1); AdvantagesPage.OpenBioFactPicker(); };
+                return true;
+            }
+            if (value.Contains("добродетел"))
+            {
+                buttonText = "Перейти к Добродетелям";
+                action = () => { NavigateToTab(1); AdvantagesPage.ScrollToVirtues(); };
+                return true;
+            }
+            if (value.Contains("человечност") || value.Contains("путь"))
+            {
+                buttonText = "Перейти к Человечности/Пути";
+                action = () => { NavigateToTab(1); AdvantagesPage.ScrollToHumanityPath(); };
+                return true;
+            }
+            if (value.Contains("клан"))
+            {
+                buttonText = "Перейти к листу";
+                action = () => NavigateToTab(0);
+                return true;
+            }
+            if (value.Contains("характеристик") || value.Contains("способност") || value.Contains("приоритет"))
+            {
+                buttonText = "Перейти к листу";
+                action = () => NavigateToTab(0);
+                return true;
+            }
+            return false;
+        }
+
+        private void MainWindow_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if ((System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Alt) == 0) return;
+            int target = -1;
+            var pressedKey = e.Key == System.Windows.Input.Key.System ? e.SystemKey : e.Key;
+            int keyCode = (int)pressedKey;
+            if (keyCode >= (int)System.Windows.Input.Key.D1 && keyCode <= (int)System.Windows.Input.Key.D6)
+                target = keyCode - (int)System.Windows.Input.Key.D1;
+            else if (keyCode >= (int)System.Windows.Input.Key.NumPad1 && keyCode <= (int)System.Windows.Input.Key.NumPad6)
+                target = keyCode - (int)System.Windows.Input.Key.NumPad1;
+            else if (pressedKey == System.Windows.Input.Key.Right)
+                target = (SheetTabs.SelectedIndex + 1) % 6;
+            else if (pressedKey == System.Windows.Input.Key.Left)
+                target = (SheetTabs.SelectedIndex + 5) % 6;
+            if (target >= 0 && target < SheetTabs.Items.Count)
+            {
+                SheetTabs.SelectedIndex = target;
+                e.Handled = true;
+            }
         }
 
         private void Tabs_SelectionChanged(object sender, SelectionChangedEventArgs e)

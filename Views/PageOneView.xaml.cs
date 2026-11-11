@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -14,6 +14,7 @@ namespace VtM_LoCh_fP.Views
     public partial class PageOneView : UserControl
     {
         private CharacterProfile _character;
+        private bool _lastAllocationErrorIsAttributes = true;
         private ComboBox _clanSelector;
         private TextBox _clanInput;
         private Popup _clanSuggestionsPopup;
@@ -315,6 +316,7 @@ namespace VtM_LoCh_fP.Views
                 int pool = GetInitialGroupPool(combos[i], attributes);
                 if (spent != pool)
                 {
+                    _lastAllocationErrorIsAttributes = attributes;
                     string groupName = attributes
                         ? new[] { "Физические", "Социальные", "Ментальные" }[i]
                         : new[] { "Таланты", "Навыки", "Знания" }[i - 3];
@@ -337,7 +339,9 @@ namespace VtM_LoCh_fP.Views
             string budgetError;
             if (!ValidateInitialGroupBudgets(out budgetError))
             {
-                ThemedDialog.Show(Window.GetWindow(this), budgetError, "Недостаточно пунктов", MessageBoxButton.OK, MessageBoxImage.Warning);
+                ThemedDialog.Show(Window.GetWindow(this), budgetError, "Недостаточно пунктов", MessageBoxButton.OK, MessageBoxImage.Warning,
+                    _lastAllocationErrorIsAttributes ? "Перейти к Характеристикам" : "Перейти к Способностям",
+                    () => (_lastAllocationErrorIsAttributes ? (FrameworkElement)AttributesHeader : AbilitiesHeader)?.BringIntoView());
                 return;
             }
             if (_character.CreationState.Priorities == null) _character.CreationState.Priorities = new Dictionary<string, string>();
@@ -864,6 +868,7 @@ namespace VtM_LoCh_fP.Views
                     SetClanFieldToolTip(_clanInput, initialClan, CreateClanTooltipTemplate());
                 _clanInput.TextChanged += FreeClanInput_TextChanged;
                 _clanInput.PreviewKeyDown += FreeClanInput_PreviewKeyDown;
+                _clanInput.GotKeyboardFocus += (sender, args) => UpdateFreeClanSuggestions();
                 _clanSuggestions.SelectionChanged += FreeClanSuggestions_SelectionChanged;
                 _clanSuggestions.MouseLeftButtonUp += FreeClanSuggestions_MouseLeftButtonUp;
                 host.Children.Add(_clanInput);
@@ -914,15 +919,21 @@ namespace VtM_LoCh_fP.Views
         private void FreeClanInput_TextChanged(object sender, TextChangedEventArgs e)
         {
             if (_settingClanText || _character == null) return;
-            string query = _clanInput.Text.Trim();
             _character.ClanName = _clanInput.Text;
             _character.ClanSelectedFromSuggestions = false;
             _clanInput.ToolTip = null;
             ClearAppliedClanRules();
-            var matches = string.IsNullOrWhiteSpace(query)
-                ? new List<ClanInfo>()
-                : ClanService.GetClans().Where(c => c.Name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    (!string.IsNullOrEmpty(c.Nickname) && c.Nickname.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)).ToList();
+            UpdateFreeClanSuggestions();
+        }
+
+        private void UpdateFreeClanSuggestions()
+        {
+            if (_clanInput == null || _clanSuggestions == null || _character == null) return;
+            string query = _clanInput.Text.Trim();
+            var clans = ClanService.GetClans();
+            var matches = string.IsNullOrWhiteSpace(query) ? clans.ToList() : clans.Where(c =>
+                c.Name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                (!string.IsNullOrEmpty(c.Nickname) && c.Nickname.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)).ToList();
             _clanSuggestions.ItemsSource = matches;
             _clanSuggestionsPopup.IsOpen = matches.Count > 0;
         }
@@ -1118,8 +1129,9 @@ namespace VtM_LoCh_fP.Views
                 if (_settingArchetypeText || _character == null) return;
                 string query = input.Text.Trim();
                 input.ToolTip = null;
-                var matches = string.IsNullOrWhiteSpace(query) ? new List<ArchetypeInfo>() :
-                    ArchetypeService.GetArchetypes().Where(a => a.Name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+                var matches = string.IsNullOrWhiteSpace(query)
+                    ? ArchetypeService.GetArchetypes().ToList()
+                    : ArchetypeService.GetArchetypes().Where(a => a.Name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
                 list.ItemsSource = matches;
                 popup.IsOpen = matches.Count > 0;
                 if (isNature)
@@ -1137,6 +1149,16 @@ namespace VtM_LoCh_fP.Views
                     _character.DemeanorCustomWillpowerRecovery = string.Empty;
                 }
                 UpdateArchetypeDescriptionButton(isNature);
+            };
+            input.GotKeyboardFocus += (sender, args) =>
+            {
+                if (_character == null) return;
+                var current = input.Text.Trim();
+                var initialMatches = string.IsNullOrWhiteSpace(current)
+                    ? ArchetypeService.GetArchetypes().ToList()
+                    : ArchetypeService.GetArchetypes().Where(a => a.Name.IndexOf(current, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+                list.ItemsSource = initialMatches;
+                popup.IsOpen = initialMatches.Count > 0;
             };
             input.PreviewKeyDown += (sender, args) =>
             {

@@ -1,4 +1,4 @@
-<UserControl x:Class="VtM_LoCh_fP.Views.PageFourView"
+﻿<UserControl x:Class="VtM_LoCh_fP.Views.PageFourView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:VtM_LoCh_fP.Controls">
@@ -45,16 +45,16 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <controls:FieldControl x:Name="BirthDateField" Grid.Row="0" Grid.Column="0" Label="Дата рождения" Tag="BirthDate" InputTextChanged="BiographyField_InputTextChanged"/>
-                        <controls:FieldControl x:Name="DeathDateField" Grid.Row="0" Grid.Column="1" Label="Дата смерти" Tag="DeathDate" InputTextChanged="BiographyField_InputTextChanged"/>
-                        <controls:FieldControl x:Name="TrueAgeField" Grid.Row="1" Grid.Column="0" Label="Истинный возраст" Tag="TrueAge" InputTextChanged="BiographyField_InputTextChanged"/>
-                        <controls:FieldControl x:Name="ApparentAgeField" Grid.Row="1" Grid.Column="1" Label="Видимый возраст" Tag="ApparentAge" InputTextChanged="BiographyField_InputTextChanged"/>
-                        <controls:FieldControl x:Name="HeightField" Grid.Row="2" Grid.Column="0" Label="Рост" Tag="Height" InputTextChanged="BiographyField_InputTextChanged"/>
-                        <controls:FieldControl x:Name="WeightField" Grid.Row="2" Grid.Column="1" Label="Вес" Tag="Weight" InputTextChanged="BiographyField_InputTextChanged"/>
-                        <controls:FieldControl x:Name="AppearanceField" Label="Отличительные черты внешности" Multiline="True" FieldHeight="135" Tag="Appearance" InputTextChanged="BiographyField_InputTextChanged"  Grid.ColumnSpan="2" Margin="0,97,0,-201" Grid.Row="2"/>
+                        <controls:FieldControl x:Name="BirthDateField" Grid.Row="0" Grid.Column="0" Label="Дата рождения" ToolTip="Дата, когда ваш персонаж родился человеком." Tag="BirthDate" InputTextChanged="BiographyField_InputTextChanged"/>
+                        <controls:FieldControl x:Name="DeathDateField" Grid.Row="0" Grid.Column="1" Label="Дата смерти" ToolTip="Дата вашей смерти как человека и становления вампиром." Tag="DeathDate" InputTextChanged="BiographyField_InputTextChanged"/>
+                        <controls:FieldControl x:Name="TrueAgeField" Grid.Row="1" Grid.Column="0" Label="Истинный возраст" ToolTip="Сколько лет персонажу прошло с момента рождения, включая годы после обращения." Tag="TrueAge" InputTextChanged="BiographyField_InputTextChanged"/>
+                        <controls:FieldControl x:Name="ApparentAgeField" Grid.Row="1" Grid.Column="1" Label="Видимый возраст" ToolTip="На сколько лет выглядит персонаж. Обычно соответствует возрасту на момент обращения." Tag="ApparentAge" InputTextChanged="BiographyField_InputTextChanged"/>
+                        <controls:FieldControl x:Name="HeightField" Grid.Row="2" Grid.Column="0" Label="Рост" ToolTip="Рост персонажа. Можно указать в сантиметрах или другой удобной системе." Tag="Height" InputTextChanged="BiographyField_InputTextChanged"/>
+                        <controls:FieldControl x:Name="WeightField" Grid.Row="2" Grid.Column="1" Label="Вес" ToolTip="Вес персонажа. Можно указать в килограммах или другой удобной системе." Tag="Weight" InputTextChanged="BiographyField_InputTextChanged"/>
+                        <controls:FieldControl x:Name="AppearanceField" Label="Отличительные черты внешности" ToolTip="Особенности внешности, по которым персонажа можно узнать: шрамы, татуировки, цвет глаз, манера одеваться и другие детали." Multiline="True" FieldHeight="135" Tag="Appearance" InputTextChanged="BiographyField_InputTextChanged"  Grid.ColumnSpan="2" Margin="0,97,0,-201" Grid.Row="2"/>
                     </Grid>
                     <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                        <controls:FieldControl x:Name="BackstoryField" Label="Предыстория" Multiline="True" FieldHeight="360" Tag="Backstory" InputTextChanged="BiographyField_InputTextChanged" Height="391" Loaded="BackstoryField_Loaded"/>
+                        <controls:FieldControl x:Name="BackstoryField" Label="Предыстория" ToolTip="Краткая история жизни персонажа до игры: происхождение, важные события, отношения, причины обращения и цели." Multiline="True" FieldHeight="360" Tag="Backstory" InputTextChanged="BiographyField_InputTextChanged" Height="391" Loaded="BackstoryField_Loaded"/>
                     </StackPanel>
                 </Grid>
             </GroupBox>

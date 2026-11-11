@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -12,6 +12,15 @@ namespace VtM_LoCh_fP
         public static MessageBoxResult Show(Window owner, string message, string title,
             MessageBoxButton buttons = MessageBoxButton.OK, MessageBoxImage image = MessageBoxImage.None)
         {
+            return Show(owner, message, title, buttons, image, null, null);
+        }
+
+        public static MessageBoxResult Show(Window owner, string message, string title,
+            MessageBoxButton buttons, MessageBoxImage image, string actionText, Action action)
+        {
+            if (string.IsNullOrWhiteSpace(actionText) && action == null && owner is MainWindow mainWindow)
+                mainWindow.TryGetDialogNavigation(message, out actionText, out action);
+
             var window = new Window
             {
                 Title = title,
@@ -82,7 +91,7 @@ namespace VtM_LoCh_fP
                 if (primary)
                 {
                     button.Background = new SolidColorBrush(Color.FromRgb(185, 28, 28));
-                    button.Foreground = Brushes.White;
+                    button.SetResourceReference(Control.ForegroundProperty, "OnAccentBrush");
                     button.BorderBrush = new SolidColorBrush(Color.FromRgb(185, 28, 28));
                 }
                 else
@@ -94,6 +103,15 @@ namespace VtM_LoCh_fP
                 button.Click += (s, e) => { result = value; window.DialogResult = true; };
                 footer.Children.Add(button);
             };
+            if (!string.IsNullOrWhiteSpace(actionText) && action != null)
+            {
+                var actionButton = new Button { Content = actionText, MinWidth = 112, MinHeight = 36, Margin = new Thickness(0, 0, 9, 0), Padding = new Thickness(12, 6, 12, 6), Cursor = Cursors.Hand };
+                actionButton.SetResourceReference(Control.BackgroundProperty, "InputBrush");
+                actionButton.SetResourceReference(Control.ForegroundProperty, "TextBrush");
+                actionButton.SetResourceReference(Control.BorderBrushProperty, "BorderBrush");
+                actionButton.Click += (s, e) => { window.DialogResult = true; action(); };
+                footer.Children.Add(actionButton);
+            }
             if (buttons == MessageBoxButton.YesNo || buttons == MessageBoxButton.YesNoCancel)
             {
                 addButton("Нет", MessageBoxResult.No, false);

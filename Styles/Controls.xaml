@@ -38,6 +38,13 @@
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="Placement" Value="Mouse"/>
         <Setter Property="HasDropShadow" Value="True"/>
+        <Setter Property="ContentTemplate">
+            <Setter.Value>
+                <DataTemplate>
+                    <TextBlock Text="{Binding}" TextWrapping="Wrap" MaxWidth="390"/>
+                </DataTemplate>
+            </Setter.Value>
+        </Setter>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ToolTip">

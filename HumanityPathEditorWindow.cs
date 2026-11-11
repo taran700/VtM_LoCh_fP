@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
@@ -162,7 +162,7 @@ namespace VtM_LoCh_fP
         internal static Button MakeButton(string text, bool primary)
         {
             var button = new Button { Content = text, MinWidth = 105, MinHeight = 34, Padding = new Thickness(12, 6, 12, 6), Cursor = System.Windows.Input.Cursors.Hand };
-            if (primary) { button.Background = new SolidColorBrush(Color.FromRgb(185, 28, 28)); button.Foreground = Brushes.White; button.BorderBrush = new SolidColorBrush(Color.FromRgb(185, 28, 28)); }
+            if (primary) { button.Background = new SolidColorBrush(Color.FromRgb(185, 28, 28)); button.SetResourceReference(Control.ForegroundProperty, "OnAccentBrush"); button.BorderBrush = new SolidColorBrush(Color.FromRgb(185, 28, 28)); }
             else { button.SetResourceReference(Control.BackgroundProperty, "InputBrush"); button.SetResourceReference(Control.ForegroundProperty, "TextBrush"); button.SetResourceReference(Control.BorderBrushProperty, "BorderBrush"); }
             return button;
         }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
@@ -67,6 +67,7 @@ namespace VtM_LoCh_fP
                 suggestionStyle.Setters.Add(new Setter(ToolTipService.ToolTipProperty, new System.Windows.Data.Binding("Description")));
                 _suggestions.ItemContainerStyle = suggestionStyle;
                 _suggestions.SelectionChanged += Suggestion_SelectionChanged;
+                _factInput.GotKeyboardFocus += (sender, args) => RefreshSuggestions(_factInput.Text);
                 selectionPanel.Children.Add(_factInput);
                 selectionPanel.Children.Add(_suggestions);
             }
@@ -143,10 +144,19 @@ namespace VtM_LoCh_fP
             }
             _lastInputName = query;
             _selectedDefinition = null;
-            var matches = string.IsNullOrWhiteSpace(query) ? new List<BioFactDefinition>() : _definitions.Where(x => x.Name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0).Take(12).ToList();
+            RefreshSuggestions(query);
+            UpdatePreview();
+        }
+
+        private void RefreshSuggestions(string query)
+        {
+            if (_suggestions == null) return;
+            query = (query ?? string.Empty).Trim();
+            var matches = string.IsNullOrWhiteSpace(query)
+                ? _definitions.ToList()
+                : _definitions.Where(x => x.Name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0).Take(12).ToList();
             _suggestions.ItemsSource = matches;
             _suggestions.Visibility = matches.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-            UpdatePreview();
         }
 
         private void Suggestion_SelectionChanged(object sender, SelectionChangedEventArgs e)
