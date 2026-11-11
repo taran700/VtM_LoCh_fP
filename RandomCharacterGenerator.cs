@@ -40,7 +40,7 @@ namespace VtM_LoCh_fP
                     RoleName = string.Empty
                 };
 
-                // Маска выбирается один раз; амплуа всегда соответствует именно ей.
+                // Маска выбирается один раз; амплуа всегда соответствует именно ей
                 character.Demeanor = Pick(pattern.DemeanorCandidates, random);
                 character.RoleName = GenerationPatternService.GetRoleForMask(character.Demeanor);
                 character.SireName = GenerationPatternService.ChooseRandomSireProfile(pattern, random).Name;
@@ -165,7 +165,7 @@ namespace VtM_LoCh_fP
                 .OrderBy(x => x.Rank).ToList();
             if (ranked.Count == 0) return;
 
-            // Выбираем случайное количество от 1 до 5, не повторяя один и тот же факт.
+            // Выбираем случайное количество от 1 до 5, не повторяя один и тот же факт
             int count = random.Next(1, Math.Min(5, ranked.Count) + 1);
             var pool = ranked.ToList();
             var chosen = new List<BioFactDefinition>();
@@ -183,7 +183,7 @@ namespace VtM_LoCh_fP
                 pool.RemoveAt(selected);
             }
 
-            // Все пять первоначальных пунктов распределяются случайно; каждый выбранный факт получает минимум одну точку.
+            // Все пять первоначальных пунктов распределяются случайно; каждый выбранный факт получает минимум одну точку
             int[] levels = Enumerable.Repeat(1, count).ToArray();
             int remaining = Math.Max(0, CharacterCreationRules.GetCreationLimit("backgrounds") - count);
             while (remaining > 0)
@@ -246,7 +246,7 @@ namespace VtM_LoCh_fP
                 }
             }
 
-            // Второй этап — отдельный бросок: 25% атрибут, 25% три способности, 50% предыстории + новая способность.
+            // Второй этап — отдельный бросок: 25% атрибут, 25% три способности, 50% предыстории + новая способность
             int branch = random.Next(100);
             if (branch < 25)
                 TryImproveAttribute(character, random, ref remaining);
@@ -255,7 +255,7 @@ namespace VtM_LoCh_fP
             else
                 TryImproveBackgroundsAndNewAbility(character, random, ref remaining);
 
-            // Остаток тратится на Человечность и Силу воли только если хватает на обе точки.
+            // Остаток тратится на Человечность и Силу воли только если хватает на обе точки
             int humanityCost = CharacterCreationRules.GetFreebieCost("humanity_path");
             int willpowerCost = CharacterCreationRules.GetFreebieCost("willpower");
             int willpower = state.OtherDots.ContainsKey("willpower_permanent") ? state.OtherDots["willpower_permanent"] : 1;
@@ -428,7 +428,7 @@ namespace VtM_LoCh_fP
         {
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "data.json");
             if (!File.Exists(path)) path = Path.Combine(Environment.CurrentDirectory, "Data", "data.json");
-            return new JavaScriptSerializer { MaxJsonLength = int.MaxValue }.Deserialize<Dictionary<string, object>>(File.ReadAllText(path));
+            return new JavaScriptSerializer { MaxJsonLength = int.MaxValue, RecursionLimit = 256 }.Deserialize<Dictionary<string, object>>(File.ReadAllText(path));
         }
         private static List<Dictionary<string, object>> Rows(Dictionary<string, object> db, string key)
         {

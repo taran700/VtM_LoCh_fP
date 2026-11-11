@@ -149,7 +149,15 @@ namespace VtM_LoCh_fP
             buttons.Children.Add(close);
             var remove = HumanityPathEditorWindow.MakeButton("Удалить", true);
             remove.Margin = new Thickness(8, 0, 0, 0);
-            remove.Click += (s, e) => { deleteAction?.Invoke(); DialogResult = true; };
+            remove.Click += (s, e) =>
+            {
+                var answer = ThemedDialog.Show(this,
+                    "Удалить «" + entry.Name + "» из списка персонажа?",
+                    "Удаление характеристики", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (answer != MessageBoxResult.Yes) return;
+                deleteAction?.Invoke();
+                DialogResult = true;
+            };
             buttons.Children.Add(remove);
             DockPanel.SetDock(buttons, Dock.Bottom); root.Children.Add(buttons);
 

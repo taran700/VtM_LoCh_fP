@@ -1106,9 +1106,9 @@ namespace VtM_LoCh_fP.Views
                 if (_character.NatureSelectedFromSuggestions)
                 {
                     var selected = ArchetypeService.GetArchetypes().FirstOrDefault(a => a.Name == _character.Nature);
-                    if (selected != null) input.ToolTip = CreateArchetypeDescriptionToolTip(selected.Description, "Натура", selected.RegainWillpowerCondition);
+                    if (selected != null) input.ToolTip = CreateArchetypeDescriptionToolTip(selected.Description, selected.Name, selected.RegainWillpowerCondition);
                 }
-                else if (!string.IsNullOrWhiteSpace(_character.NatureCustomDescription) || !string.IsNullOrWhiteSpace(_character.NatureCustomWillpowerRecovery)) input.ToolTip = CreateArchetypeDescriptionToolTip(_character.NatureCustomDescription, "Натура", _character.NatureCustomWillpowerRecovery);
+                else if (!string.IsNullOrWhiteSpace(_character.NatureCustomDescription) || !string.IsNullOrWhiteSpace(_character.NatureCustomWillpowerRecovery)) input.ToolTip = CreateArchetypeDescriptionToolTip(_character.NatureCustomDescription, input.Text, _character.NatureCustomWillpowerRecovery);
                 UpdateArchetypeDescriptionButton(true);
             }
             else
@@ -1118,9 +1118,9 @@ namespace VtM_LoCh_fP.Views
                 if (_character.DemeanorSelectedFromSuggestions)
                 {
                     var selected = ArchetypeService.GetArchetypes().FirstOrDefault(a => a.Name == _character.Demeanor);
-                    if (selected != null) input.ToolTip = CreateArchetypeDescriptionToolTip(selected.Description, "Маска", selected.RegainWillpowerCondition);
+                    if (selected != null) input.ToolTip = CreateArchetypeDescriptionToolTip(selected.Description, selected.Name, selected.RegainWillpowerCondition);
                 }
-                else if (!string.IsNullOrWhiteSpace(_character.DemeanorCustomDescription) || !string.IsNullOrWhiteSpace(_character.DemeanorCustomWillpowerRecovery)) input.ToolTip = CreateArchetypeDescriptionToolTip(_character.DemeanorCustomDescription, "Маска", _character.DemeanorCustomWillpowerRecovery);
+                else if (!string.IsNullOrWhiteSpace(_character.DemeanorCustomDescription) || !string.IsNullOrWhiteSpace(_character.DemeanorCustomWillpowerRecovery)) input.ToolTip = CreateArchetypeDescriptionToolTip(_character.DemeanorCustomDescription, input.Text, _character.DemeanorCustomWillpowerRecovery);
                 UpdateArchetypeDescriptionButton(false);
             }
 
@@ -1192,6 +1192,7 @@ namespace VtM_LoCh_fP.Views
                 _character.Nature = archetype.Name;
                 _character.NatureSelectedFromSuggestions = true;
                 _character.NatureCustomDescription = archetype.Description;
+                _character.NatureCustomWillpowerRecovery = archetype.RegainWillpowerCondition;
                 _naturePopup.IsOpen = false;
             }
             else
@@ -1199,6 +1200,7 @@ namespace VtM_LoCh_fP.Views
                 _character.Demeanor = archetype.Name;
                 _character.DemeanorSelectedFromSuggestions = true;
                 _character.DemeanorCustomDescription = archetype.Description;
+                _character.DemeanorCustomWillpowerRecovery = archetype.RegainWillpowerCondition;
                 _demeanorPopup.IsOpen = false;
             }
             UpdateArchetypeDescriptionButton(isNature);
@@ -1256,7 +1258,10 @@ namespace VtM_LoCh_fP.Views
                     _character.DemeanorCustomDescription = editor.Text;
                     _character.DemeanorCustomWillpowerRecovery = recoveryEditor.Text;
                 }
-                input.ToolTip = CreateArchetypeDescriptionToolTip(editor.Text, isNature ? "Натура" : "Маска", recoveryEditor.Text);
+                input.ToolTip = CreateArchetypeDescriptionToolTip(
+                    isNature ? _character.NatureCustomDescription : _character.DemeanorCustomDescription,
+                    input.Text,
+                    isNature ? _character.NatureCustomWillpowerRecovery : _character.DemeanorCustomWillpowerRecovery);
             }
         }
 
@@ -1271,9 +1276,14 @@ namespace VtM_LoCh_fP.Views
                 content.Children.Add(new TextBlock { Text = "ВОССТАНОВЛЕНИЕ ВОЛИ", FontWeight = FontWeights.Bold, Foreground = (Brush)FindResource("HeadingBrush"), Margin = new Thickness(0, 0, 0, 4) });
                 content.Children.Add(new TextBlock { Text = recovery, TextWrapping = TextWrapping.Wrap, Foreground = (Brush)FindResource("TextBrush") });
             }
-            return new ToolTip { Content = content, Style = (Style)FindResource("PopupToolTipStyle"), MaxWidth = 410 };
+            return new ToolTip
+            {
+                Content = content,
+                Style = (Style)FindResource("PopupToolTipStyle"),
+                MaxWidth = 410,
+                ContentTemplate = null
+            };
         }
-
         private ClanInfo FindClanByName(string name)
         {
             foreach (var clan in ClanService.GetClans())

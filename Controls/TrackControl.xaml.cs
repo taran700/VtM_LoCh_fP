@@ -1,10 +1,12 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using VtM_LoCh_fP.ViewModels;
 using System.Windows.Media.Effects;
+using System;
 
 namespace VtM_LoCh_fP.Controls
 {
@@ -70,6 +72,7 @@ namespace VtM_LoCh_fP.Controls
         private bool _legacyUserInputInProgress;
         private Popup _descriptionPopup;
 
+        public bool DisableInfo { get; set; }
         public string InfoDescription { get; set; }
         public string InfoAdditionalText { get; set; }
         public System.Func<string> InfoAdditionalTextProvider { get; set; }
@@ -325,7 +328,8 @@ namespace VtM_LoCh_fP.Controls
 
         private void LabelText_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
         {
-            ShowInfoPopup(LabelText);
+            if (!DisableInfo)
+                ShowInfoPopup(LabelText);
         }
 
         public void ShowInfoPopup(FrameworkElement placementTarget)
@@ -347,6 +351,8 @@ namespace VtM_LoCh_fP.Controls
             panel.Children.Add(new TextBlock
             {
                 Text = description ?? string.Empty,
+                FontSize = 15,
+                LineHeight = 22,
                 TextWrapping = TextWrapping.Wrap,
                 Foreground = (Brush)FindResource("TextBrush"),
                 Visibility = string.IsNullOrWhiteSpace(description) ? Visibility.Collapsed : Visibility.Visible
@@ -371,6 +377,8 @@ namespace VtM_LoCh_fP.Controls
                 panel.Children.Add(new TextBlock
                 {
                     Text = additionalText,
+                    FontSize = 15,
+                    LineHeight = 22,
                     TextWrapping = TextWrapping.Wrap,
                     Foreground = (Brush)FindResource("TextBrush")
                 });
@@ -397,12 +405,16 @@ namespace VtM_LoCh_fP.Controls
                     panel.Children.Add(new TextBlock
                     {
                         Text = level.Description,
+                        FontSize = 15,
+                        LineHeight = 22,
                         TextWrapping = TextWrapping.Wrap,
                         Foreground = (Brush)FindResource("TextBrush")
                     });
                 }
             }
 
+            // Всплывающая подсказка намеренно не содержит ScrollViewer:
+            // прокрутка доступна только в отдельном окне просмотра по клику.
             var border = new Border
             {
                 Child = panel,
@@ -412,6 +424,24 @@ namespace VtM_LoCh_fP.Controls
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(8),
                 Effect = new DropShadowEffect { BlurRadius = 14, ShadowDepth = 3, Opacity = 0.3 }
+            };
+            border.PreviewMouseWheel += (sender, args) =>
+            {
+                var pageScroll = FindAncestorScrollViewer(this);
+                if (pageScroll == null) return;
+                bool canScroll = args.Delta > 0
+                    ? pageScroll.VerticalOffset > 0
+                    : pageScroll.VerticalOffset < pageScroll.ScrollableHeight;
+                if (!canScroll)
+                    pageScroll = FindAncestorScrollViewer(pageScroll);
+                if (pageScroll == null) return;
+                int lines = Math.Max(1, System.Math.Abs(args.Delta) / 120) * 3;
+                for (int i = 0; i < lines; i++)
+                {
+                    if (args.Delta > 0) pageScroll.LineUp();
+                    else pageScroll.LineDown();
+                }
+                args.Handled = true;
             };
             // Используем Popup напрямую, а не свойство FrameworkElement.ToolTip:
             // ToolTipService оборачивает ToolTip в собственную подсказку и не допускает
@@ -436,13 +466,27 @@ namespace VtM_LoCh_fP.Controls
 
         private void LabelText_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
         {
-            HideInfoPopup();
+            if (!DisableInfo)
+                HideInfoPopup();
         }
 
         public void HideInfoPopup()
         {
             if (_descriptionPopup != null)
                 _descriptionPopup.IsOpen = false;
+        }
+
+        private static ScrollViewer FindAncestorScrollViewer(DependencyObject element)
+        {
+            DependencyObject current = element;
+            while (current != null)
+            {
+                current = current is Visual || current is System.Windows.Media.Media3D.Visual3D
+                    ? VisualTreeHelper.GetParent(current)
+                    : LogicalTreeHelper.GetParent(current);
+                if (current is ScrollViewer viewer) return viewer;
+            }
+            return null;
         }
 
         private static T FindChild<T>(DependencyObject parent) where T : DependencyObject

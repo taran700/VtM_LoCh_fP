@@ -91,6 +91,7 @@
     <Compile Include="HumanityPathEditorWindow.cs" />
     <Compile Include="BioFactPickerWindow.cs" />
     <Compile Include="BioFactDescriptionEditorWindow.cs" />
+    <Compile Include="BioFactDescriptionWindow.cs" />
     <Compile Include="ClanService.cs" />
     <Compile Include="TrackDescriptionService.cs" />
     <Compile Include="CharacterSelectionWindow.cs" />

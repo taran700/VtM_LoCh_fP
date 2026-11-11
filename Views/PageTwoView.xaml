@@ -32,7 +32,9 @@
                                     VerticalAlignment="Center"
                                     Click="AddBioFact_Click"/>
                         </DockPanel>
-                        <StackPanel x:Name="BioFactsPanel"/>
+                        <ScrollViewer x:Name="BioFactsScrollViewer" MaxHeight="420" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PreviewMouseWheel="BioFactsScrollViewer_PreviewMouseWheel">
+                            <StackPanel x:Name="BioFactsPanel"/>
+                        </ScrollViewer>
                         <TextBlock x:Name="BackgroundRemainingLabel" Margin="0,6,0,3"/>
                         <Button x:Name="ConfirmBackgroundsButton" Content="Подтвердить факты биографии" Padding="10,5" HorizontalAlignment="Left" Click="ConfirmBackgrounds_Click"/>
                     </StackPanel>
