@@ -15,6 +15,58 @@ namespace VtM_LoCh_fP.Views
         public PageFourView()
         {
             InitializeComponent();
+            Loaded += (sender, args) =>
+            {
+                foreach (var viewer in FindScrollViewers(this))
+                {
+                    if (viewer == null || viewer == FindOuterScrollViewer(viewer)) continue;
+                    viewer.PreviewMouseWheel += NestedScrollViewer_PreviewMouseWheel;
+                }
+            };
+        }
+
+        private void NestedScrollViewer_PreviewMouseWheel(object sender, System.Windows.Input.MouseWheelEventArgs e)
+        {
+            var inner = sender as ScrollViewer;
+            if (inner == null) return;
+            bool canScrollFurther = e.Delta > 0
+                ? inner.VerticalOffset > 0
+                : inner.VerticalOffset < inner.ScrollableHeight;
+            if (canScrollFurther) return; 
+            var outer = FindOuterScrollViewer(inner);
+            if (outer == null) return;
+            int lines = Math.Max(1, Math.Abs(e.Delta) / 120) * 3;
+            for (int i = 0; i < lines; i++)
+            {
+                if (e.Delta > 0) outer.LineUp();
+                else outer.LineDown();
+            }
+            e.Handled = true;
+        }
+
+        private static ScrollViewer FindOuterScrollViewer(DependencyObject element)
+        {
+            DependencyObject current = element;
+            while (current != null)
+            {
+                current = current is Visual || current is System.Windows.Media.Media3D.Visual3D
+                    ? VisualTreeHelper.GetParent(current)
+                    : LogicalTreeHelper.GetParent(current);
+                if (current is ScrollViewer viewer) return viewer;
+            }
+            return null;
+        }
+
+        private static System.Collections.Generic.IEnumerable<ScrollViewer> FindScrollViewers(DependencyObject parent)
+        {
+            if (parent == null) yield break;
+            int count = VisualTreeHelper.GetChildrenCount(parent);
+            for (int i = 0; i < count; i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+                if (child is ScrollViewer viewer) yield return viewer;
+                foreach (var nested in FindScrollViewers(child)) yield return nested;
+            }
         }
 
         public void InitializeCharacter(CharacterProfile character)

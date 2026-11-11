@@ -14,6 +14,7 @@ namespace VtM_LoCh_fP.Views
     public partial class PageTwoView : UserControl
     {
         private CharacterProfile _character;
+        private CharacterCreationState _subscribedCreationState;
         private bool _loadingHumanityPath;
         private bool _loadingBlood;
         private List<HumanityPathDefinition> _humanityPaths;
@@ -124,8 +125,10 @@ namespace VtM_LoCh_fP.Views
                 if (int.TryParse(FreebiePointsInput.InputText, out value) && value >= 0)
                     _character.CreationState.FreebiePoints = value;
             };
-            _character.CreationState.PropertyChanged -= CreationState_PropertyChanged;
-            _character.CreationState.PropertyChanged += CreationState_PropertyChanged;
+            if (_subscribedCreationState != null)
+                _subscribedCreationState.PropertyChanged -= CreationState_PropertyChanged;
+            _subscribedCreationState = _character.CreationState;
+            _subscribedCreationState.PropertyChanged += CreationState_PropertyChanged;
             AggravatedDamageToggle.IsChecked = _character.AllowAggravatedDamage;
             if (_character.TemporaryWillpower.HasValue)
                 WillpowerTemporaryTrack.SetTrackValue(Math.Max(0, Math.Min(WillpowerTemporaryTrack.Count, _character.TemporaryWillpower.Value)));
@@ -137,6 +140,7 @@ namespace VtM_LoCh_fP.Views
             UpdateHealthHeader();
             RenderBioFacts();
             LoadHumanityPath();
+            UpdateAddBioFactButton();
             foreach (string virtueName in VirtuesTrackList.Names)
             {
                 string key = "virtue:" + virtueName;
@@ -172,6 +176,7 @@ namespace VtM_LoCh_fP.Views
                 if (FreebiePointsInput.InputText != value)
                     FreebiePointsInput.InputText = value;
                 RefreshInitialBlockControls();
+                UpdateAddBioFactButton();
             }
             else if (e.PropertyName == nameof(CharacterCreationState.ExperiencePoints))
             {
@@ -742,14 +747,46 @@ namespace VtM_LoCh_fP.Views
             HumanityPathTrack?.BringIntoView();
         }
 
+        private void BioFactsScrollViewer_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            var inner = sender as ScrollViewer;
+            if (inner == null) return;
+            bool canScrollFurther = e.Delta > 0 ? inner.VerticalOffset > 0 : inner.VerticalOffset < inner.ScrollableHeight;
+            if (canScrollFurther) return;
+            var outer = FindOuterScrollViewer(inner);
+            if (outer == null) return;
+            int lines = Math.Max(1, Math.Abs(e.Delta) / 120) * 3;
+            for (int i = 0; i < lines; i++)
+            {
+                if (e.Delta > 0) outer.LineUp();
+                else outer.LineDown();
+            }
+            e.Handled = true;
+        }
+
+        private static ScrollViewer FindOuterScrollViewer(DependencyObject element)
+        {
+            DependencyObject current = element;
+            while (current != null)
+            {
+                current = current is Visual || current is System.Windows.Media.Media3D.Visual3D
+                    ? VisualTreeHelper.GetParent(current)
+                    : LogicalTreeHelper.GetParent(current);
+                if (current is ScrollViewer viewer) return viewer;
+            }
+            return null;
+        }
+
         private void AddBioFact_Click(object sender, RoutedEventArgs e)
         {
             if (_character == null) return;
-            bool backgroundsConfirmed = _character.CreationState.ConfirmedInitialBlocks.Contains("backgrounds");
             bool creationFinished = _character.CreationState.InitialPurchaseConfirmed;
-            if (creationFinished && (!backgroundsConfirmed || _character.CreationState.FreebiePoints <= 0))
+            bool backgroundsConfirmed = creationFinished || _character.CreationState.ConfirmedInitialBlocks.Contains("backgrounds");
+            int backgroundFreebieCost = CharacterCreationRules.GetFreebieCost("background");
+            if (creationFinished && (!backgroundsConfirmed || _character.CreationState.FreebiePoints < backgroundFreebieCost))
             {
-                ThemedDialog.Show(Window.GetWindow(this), "Новый факт биографии можно добавить после создания персонажа за оставшиеся свободные пункты.", "Недостаточно свободных пунктов", MessageBoxButton.OK, MessageBoxImage.Information);
+                ThemedDialog.Show(Window.GetWindow(this), "Для добавления факта биографии нужен минимум " + backgroundFreebieCost + " свободных пункт(а/ов). Сейчас доступно: " + _character.CreationState.FreebiePoints + ".", "Недостаточно свободных пунктов", MessageBoxButton.OK, MessageBoxImage.Information);
+                RefreshInitialBlockControls();
                 return;
             }
             int backgroundUsed = _character.CreationState.InitialBackgroundBlockEverConfirmed
@@ -757,7 +794,10 @@ namespace VtM_LoCh_fP.Views
                 : _character.BiographyFacts.Sum(x => Math.Max(0, x.Level));
             int availableBackgroundDots = Math.Max(0, CharacterCreationRules.GetCreationLimit("backgrounds") - backgroundUsed);
             if (!backgroundsConfirmed && availableBackgroundDots <= 0) return;
-            var picker = new BioFactPickerWindow(_character, 5) { Owner = Window.GetWindow(this) };
+            int maximumPurchasableLevel = creationFinished
+                ? Math.Min(5, _character.CreationState.FreebiePoints / Math.Max(1, backgroundFreebieCost))
+                : 5;
+            var picker = new BioFactPickerWindow(_character, maximumPurchasableLevel) { Owner = Window.GetWindow(this) };
             if (picker.ShowDialog() != true || picker.Result == null) return;
             foreach (var existing in _character.BiographyFacts)
             {
@@ -823,12 +863,16 @@ namespace VtM_LoCh_fP.Views
                 };
                 Grid.SetColumn(remove, 0); row.Children.Add(remove);
                 var definition = BioFactService.Find(fact.Name);
-                var levelInfo = new List<TrackLevelDescription>();
-                if (fact.LevelDescriptions != null) levelInfo.AddRange(fact.LevelDescriptions.Select(x => new TrackLevelDescription { Level = x.Level, Description = x.Description }));
-                if (fact.HolisticDescriptions != null) foreach (var item in fact.HolisticDescriptions) if (!levelInfo.Any(x => x.Level == item.Level)) levelInfo.Add(new TrackLevelDescription { Level = item.Level, Description = item.Description });
-                if (definition != null && definition.Levels != null) foreach (var item in definition.Levels) if (!levelInfo.Any(x => x.Level == item.Level)) levelInfo.Add(item);
                 int backgroundMax = 5;
-                var track = new TrackControl { Label = fact.Name, Count = backgroundMax, LabelWidth = 170, Cascade = true, HorizontalAlignment = HorizontalAlignment.Left, InfoDescription = !string.IsNullOrWhiteSpace(fact.CustomDescription) ? fact.CustomDescription : definition == null ? null : definition.Description, InfoLevels = levelInfo };
+                var track = new TrackControl
+                {
+                    Label = fact.Name,
+                    Count = backgroundMax,
+                    LabelWidth = 170,
+                    Cascade = true,
+                    DisableInfo = true,
+                    HorizontalAlignment = HorizontalAlignment.Left
+                };
                 track.SetTrackValue(fact.Level);
                 track.ValueChanged += (s, e) =>
                 {
@@ -866,7 +910,27 @@ namespace VtM_LoCh_fP.Views
                     RenderBioFacts();
                     (Window.GetWindow(this) as MainWindow)?.RefreshGenerationFromCharacter();
                 };
-                Grid.SetColumn(track, 1); row.Children.Add(track); card.Child = row; BioFactsPanel.Children.Add(card);
+                Grid.SetColumn(track, 1); row.Children.Add(track); card.Child = row;
+                card.Background = Brushes.Transparent; 
+                card.Cursor = Cursors.Hand;
+                card.PreviewMouseLeftButtonDown += (s, e) =>
+                {
+                    if (e.ClickCount != 2) return;
+
+                    
+                    DependencyObject source = e.OriginalSource as DependencyObject;
+                    while (source != null && !ReferenceEquals(source, card))
+                    {
+                        if (source is Button || source is CheckBox) return;
+                        source = source is Visual || source is System.Windows.Media.Media3D.Visual3D
+                            ? VisualTreeHelper.GetParent(source)
+                            : LogicalTreeHelper.GetParent(source);
+                    }
+
+                    new BioFactDescriptionWindow(Window.GetWindow(this), fact, definition).ShowDialog();
+                    e.Handled = true;
+                };
+                BioFactsPanel.Children.Add(card);
             }
             RefreshInitialBlockControls();
             InitialPurchaseProgressChanged?.Invoke();
@@ -890,10 +954,29 @@ namespace VtM_LoCh_fP.Views
             BackgroundRemainingLabel.Visibility = backgroundsDone ? Visibility.Collapsed : Visibility.Visible;
             ConfirmBackgroundsButton.Visibility = backgroundsDone ? Visibility.Collapsed : Visibility.Visible;
             ApplyVirtuePoolLimits();
-            if (AddBioFactButton != null)
-                AddBioFactButton.IsEnabled = backgroundsDone
-                    ? (!_character.CreationState.InitialPurchaseConfirmed || _character.CreationState.FreebiePoints > 0)
-                    : backgroundPool - backgroundUsed > 0;
+            UpdateAddBioFactButton(backgroundsDone, backgroundPool - backgroundUsed);
+        }
+
+        private void UpdateAddBioFactButton(bool? backgroundsDoneOverride = null, int? remainingBackgroundDotsOverride = null)
+        {
+            if (_character == null || AddBioFactButton == null) return;
+            bool backgroundsDone = backgroundsDoneOverride ?? _character.CreationState.ConfirmedInitialBlocks.Contains("backgrounds");
+            int remaining = remainingBackgroundDotsOverride ?? Math.Max(0,
+                CharacterCreationRules.GetCreationLimit("backgrounds") -
+                (_character.CreationState.InitialBackgroundDots != null && _character.CreationState.InitialBackgroundDots.Count > 0
+                    ? _character.CreationState.InitialBackgroundDots.Values.Sum()
+                    : (_character.BiographyFacts == null ? 0 : _character.BiographyFacts.Sum(x => Math.Max(0, x.Level)))));
+            int freebiePoints = _character.CreationState.FreebiePoints;
+            int backgroundCost;
+            try { backgroundCost = CharacterCreationRules.GetFreebieCost("background"); }
+            catch { backgroundCost = int.MaxValue; }
+            bool initialPoolAvailable = !backgroundsDone && remaining > 0;
+            bool freebiePurchaseAvailable = backgroundsDone && freebiePoints > 0;
+            AddBioFactButton.Visibility = !backgroundsDone || freebiePoints > 0
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+            AddBioFactButton.IsEnabled = initialPoolAvailable ||
+                (backgroundsDone && freebiePoints >= backgroundCost);
         }
 
         private void ApplyVirtuePoolLimits()

@@ -32,7 +32,8 @@ namespace VtM_LoCh_fP
         {
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "data.json");
             if (!File.Exists(path)) throw new FileNotFoundException("Не найден файл базы данных Data\\data.json.", path);
-            var db = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(File.ReadAllText(path));
+            var serializer = new JavaScriptSerializer { MaxJsonLength = int.MaxValue, RecursionLimit = 256 };
+            var db = serializer.Deserialize<Dictionary<string, object>>(File.ReadAllText(path));
             var raw = db.ContainsKey("merits_flaws") ? db["merits_flaws"] as IList : null;
             _items = new List<MeritFlawDefinition>();
             if (raw == null) return;
@@ -65,6 +66,44 @@ namespace VtM_LoCh_fP
                 if (!string.IsNullOrWhiteSpace(definition.Id) && !string.IsNullOrWhiteSpace(definition.Name) &&
                     (definition.Type == "merit" || definition.Type == "flaw"))
                     _items.Add(definition);
+            }
+        }
+
+        public static void SynchronizeCharacterEntries(CharacterProfile character)
+        {
+            if (character == null || character.MeritsFlaws == null) return;
+            try
+            {
+                if (_items == null) Load();
+            }
+            catch
+            {
+            
+                return;
+            }
+
+            foreach (var owned in character.MeritsFlaws)
+            {
+                if (owned == null) continue;
+                MeritFlawDefinition definition = null;
+
+                if (!string.IsNullOrWhiteSpace(owned.Id))
+                    definition = _items.FirstOrDefault(x => string.Equals(x.Id, owned.Id, StringComparison.OrdinalIgnoreCase));
+
+                
+                if (definition == null && !string.IsNullOrWhiteSpace(owned.Name))
+                    definition = _items.FirstOrDefault(x =>
+                        string.Equals(x.Name, owned.Name, StringComparison.OrdinalIgnoreCase) &&
+                        (string.IsNullOrWhiteSpace(owned.Type) || string.Equals(x.Type, owned.Type, StringComparison.OrdinalIgnoreCase)));
+
+                
+                if (definition == null) continue;
+
+                owned.Id = definition.Id;
+                owned.Name = definition.Name;
+                owned.Type = definition.Type;
+                owned.Description = definition.Description;
+                
             }
         }
 

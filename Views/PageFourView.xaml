@@ -18,13 +18,17 @@
                 <GroupBox Grid.Column="0" Header="НЕДОСТАТКИ" Style="{StaticResource SectionBoxStyle}">
                     <StackPanel>
                         <Button Content="＋ Добавить недостаток" Style="{StaticResource ToolbarButtonStyle}" HorizontalAlignment="Left" Padding="12,6" Margin="0,0,0,10" Click="AddFlaw_Click"/>
-                        <StackPanel x:Name="FlawsPanel"/>
+                        <ScrollViewer MaxHeight="360" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel x:Name="FlawsPanel"/>
+                        </ScrollViewer>
                     </StackPanel>
                 </GroupBox>
                 <GroupBox Grid.Column="1" Header="ДОСТОИНСТВА" Style="{StaticResource SectionBoxStyle}">
                     <StackPanel>
                         <Button Content="＋ Добавить достоинство" Style="{StaticResource ToolbarButtonStyle}" HorizontalAlignment="Left" Padding="12,6" Margin="0,0,0,10" Click="AddMerit_Click"/>
-                        <StackPanel x:Name="MeritsPanel"/>
+                        <ScrollViewer MaxHeight="360" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel x:Name="MeritsPanel"/>
+                        </ScrollViewer>
                     </StackPanel>
                 </GroupBox>
             </Grid>
