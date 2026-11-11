@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
@@ -39,12 +39,17 @@ namespace VtM_LoCh_fP.Views
             if (_character != null) RenderDisciplines();
         }
 
+        public void OpenDisciplineCatalog()
+        {
+            OpenDisciplineCatalog_Click(this, new RoutedEventArgs());
+        }
+
         private void OpenDisciplineCatalog_Click(object sender,RoutedEventArgs e)
         {
             if(_character==null)return;
             if (string.IsNullOrWhiteSpace(_character.ClanName))
             {
-                ThemedDialog.Show(Window.GetWindow(this), "Сначала выберите клан на первой вкладке листа персонажа, затем можно будет выбрать дисциплину.", "Не выбран клан", MessageBoxButton.OK, MessageBoxImage.Warning);
+                ThemedDialog.Show(Window.GetWindow(this), "Сначала выберите клан на первой вкладке листа персонажа, затем можно будет выбрать дисциплину.", "Не выбран клан", MessageBoxButton.OK, MessageBoxImage.Warning, "Перейти к листу", () => (Window.GetWindow(this) as MainWindow)?.NavigateToTab(0));
                 return;
             }
 
@@ -282,7 +287,8 @@ namespace VtM_LoCh_fP.Views
                 ThemedDialog.Show(Window.GetWindow(this),
                     "Нельзя подтвердить дисциплины: необходимо потратить все " + requiredDots +
                     " первоначальных пункта. Сейчас потрачено: " + spentDots + ".",
-                    "Первоначальная закупка не завершена", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    "Первоначальная закупка не завершена", MessageBoxButton.OK, MessageBoxImage.Warning,
+                    "Открыть каталог", () => OpenDisciplineCatalog());
                 RenderDisciplines();
                 return;
             }

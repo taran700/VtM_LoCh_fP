@@ -22,7 +22,10 @@ namespace VtM_LoCh_fP
 
         protected override void OnStartup(StartupEventArgs e)
         {
+            // Используем TLS 1.2 для всех сетевых запросов, в том числе на старых Windows.
+            System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12;
             base.OnStartup(e);
+            CleanupUpdaterBackups();
             EventManager.RegisterClassHandler(typeof(ComboBox), UIElement.PreviewMouseWheelEvent,
                 new MouseWheelEventHandler(ComboBox_PreviewMouseWheel), true);
             InputManager.Current.PreProcessInput += OnPreProcessInput;
@@ -33,6 +36,50 @@ namespace VtM_LoCh_fP
             var window = new CharacterSelectionWindow();
             MainWindow = window;
             window.Show();
+        }
+
+        private static void CleanupUpdaterBackups()
+        {
+            // EZ_Updater оставляет резервные копии рядом с приложением с расширением .EZold.
+            // Удаляем их только при старте уже запущенного приложения, то есть после того,
+            // как новая версия смогла запуститься. Не обходим вложенные папки и не трогаем
+            // пользовательские данные.
+            string applicationDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            try
+            {
+                foreach (string backupFile in System.IO.Directory.GetFiles(
+                    applicationDirectory, "*.EZold", System.IO.SearchOption.TopDirectoryOnly))
+                {
+                    try
+                    {
+                        System.IO.File.Delete(backupFile);
+                    }
+                    catch (System.IO.IOException)
+                    {
+                        // Если файл ещё занят, оставляем его для следующей попытки при запуске.
+                    }
+                    catch (System.UnauthorizedAccessException)
+                    {
+                        // Нет прав на удаление — не мешаем запуску приложения.
+                    }
+                    catch (System.Security.SecurityException)
+                    {
+                        // Политика безопасности запрещает удаление — оставляем резервную копию.
+                    }
+                }
+            }
+            catch (System.IO.IOException)
+            {
+                // Ошибка очистки не должна блокировать запуск приложения.
+            }
+            catch (System.UnauthorizedAccessException)
+            {
+                // Ошибка доступа не должна блокировать запуск приложения.
+            }
+            catch (System.Security.SecurityException)
+            {
+                // Ограничения безопасности не должны блокировать запуск приложения.
+            }
         }
 
         private static void OnPreProcessInput(object sender, PreProcessInputEventArgs e)

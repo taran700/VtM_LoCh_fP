@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Xml.Linq;
 
@@ -15,6 +15,7 @@ namespace VtM_LoCh_fP
         public static string NeonatePurchaseMode { get; set; } = "Свободные пункты затем опыт";
         public static bool ExperiencePurchasesEnabled { get; set; } = true;
         public static bool FreebiePurchasesEnabled { get; set; } = true;
+        public static bool UpdateNotificationsEnabled { get; set; } = true;
 
         public static void Load()
         {
@@ -30,8 +31,12 @@ namespace VtM_LoCh_fP
                 NeonatePurchaseMode = (string)root.Element("NeonatePurchaseMode") ?? "Свободные пункты затем опыт";
                 ExperiencePurchasesEnabled = (bool?)root.Element("ExperiencePurchasesEnabled") ?? true;
                 FreebiePurchasesEnabled = (bool?)root.Element("FreebiePurchasesEnabled") ?? true;
+                UpdateNotificationsEnabled = (bool?)root.Element("UpdateNotificationsEnabled") ?? true;
             }
-            catch { }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.TraceError("Не удалось загрузить настройки приложения: " + ex);
+            }
         }
 
         public static void Save()
@@ -47,9 +52,13 @@ namespace VtM_LoCh_fP
                     new XElement("StorytellerExperiencePrices", StorytellerExperiencePrices),
                     new XElement("NeonatePurchaseMode", NeonatePurchaseMode),
                     new XElement("ExperiencePurchasesEnabled", ExperiencePurchasesEnabled),
-                    new XElement("FreebiePurchasesEnabled", FreebiePurchasesEnabled))).Save(FilePath);
+                    new XElement("FreebiePurchasesEnabled", FreebiePurchasesEnabled),
+                    new XElement("UpdateNotificationsEnabled", UpdateNotificationsEnabled))).Save(FilePath);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.TraceError("Не удалось сохранить настройки приложения: " + ex);
+            }
         }
     }
 }

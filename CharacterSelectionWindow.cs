@@ -6,6 +6,10 @@ using System.IO;
 using System.Linq;
 using System.Windows.Controls;
 using Microsoft.Win32;
+using EZ_Updater;
+using System.Net.Http;
+using System.Net;
+using Newtonsoft.Json.Linq;
 
 namespace VtM_LoCh_fP
 {
@@ -14,6 +18,8 @@ namespace VtM_LoCh_fP
         internal static readonly ObservableCollection<CharacterProfile> Characters = new ObservableCollection<CharacterProfile>();
         internal static void SaveCharacters() => CharacterStorage.Save(Characters);
         private readonly ListBox _list;
+        private Button update;
+        private bool updateAvailableCached = false;
 
         public CharacterSelectionWindow()
         {
@@ -34,18 +40,94 @@ namespace VtM_LoCh_fP
             _list.ItemTemplate = CreateCharacterTemplate();
             _list.ItemContainerStyle = CreateCharacterItemStyle();
             Grid.SetRow(_list, 1); root.Children.Add(_list);
-            var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+            var buttons = new WrapPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+            update = new Button { Content = "Доступно обновление", Padding = new Thickness(12, 8, 12, 8), Margin = new Thickness(0, 0, 8, 0), Visibility = Visibility.Collapsed };
+            var enableAutoUpdate = new Button { Content = "Включить автообновление", Padding = new Thickness(12, 8, 12, 8), Margin = new Thickness(0, 0, 8, 0), Visibility = Visibility.Collapsed };
+
+            update.Click += async (sender, args) =>
+            {
+                // Кнопка отображается только при подтверждённом наличии новой версии.
+                if (!updateAvailableCached)
+                {
+                    update.Visibility = Visibility.Collapsed;
+                    return;
+                }
+
+                string currentVersion = GetCurrentApplicationVersion();
+                string targetVersion = Updater.ReleaseVersion == null ? "неизвестна" : Updater.ReleaseVersion.ToString();
+                var choice = ShowUpdateConfirmation(currentVersion, targetVersion);
+                if (choice == UpdatePromptChoice.DisableNotifications)
+                {
+                    AppSettings.UpdateNotificationsEnabled = false;
+                    AppSettings.Save();
+                    update.Visibility = Visibility.Collapsed;
+                    enableAutoUpdate.Visibility = Visibility.Visible;
+                }
+                else if (choice == UpdatePromptChoice.Skip)
+                {
+                    update.Visibility = Visibility.Collapsed; // До следующего запуска
+                }
+                else if (choice == UpdatePromptChoice.Update)
+                {
+                    Update_Click(sender, args);
+                }
+            };
+
+            enableAutoUpdate.Click += async (sender, args) =>
+            {
+                AppSettings.UpdateNotificationsEnabled = true;
+                AppSettings.Save();
+                enableAutoUpdate.Visibility = Visibility.Collapsed;
+                try
+                {
+                    updateAvailableCached = await CheckForUpdatesAsync();
+                    update.Content = "Доступно обновление";
+                    update.Visibility = updateAvailableCached ? Visibility.Visible : Visibility.Collapsed;
+                }
+                catch
+                {
+                    update.Visibility = Visibility.Collapsed;
+                }
+            };
+
+            if (!AppSettings.UpdateNotificationsEnabled)
+                enableAutoUpdate.Visibility = Visibility.Visible;
+
             var import = new Button { Content = "Импорт JSON", Padding = new Thickness(12,8,12,8), Margin = new Thickness(0,0,8,0) };
             import.Click += Import_Click;
             var create = new Button { Content = "Создать персонажа", Padding = new Thickness(12,8,12,8), Margin = new Thickness(0,0,8,0) }; create.Click += Create_Click;
             var open = new Button { Content = "Открыть", Padding = new Thickness(12,8,12,8), IsEnabled = false }; open.Click += Open_Click;
             _list.SelectionChanged += (s, e) => { open.IsEnabled = _list.SelectedItem != null; };
+            buttons.Children.Add(update);
+            buttons.Children.Add(enableAutoUpdate);
             buttons.Children.Add(import); buttons.Children.Add(create); buttons.Children.Add(open);
             Grid.SetRow(buttons, 2); root.Children.Add(buttons); Content = root;
             _list.MouseDoubleClick += (s,e) => OpenSelected();
+            _list.PreviewKeyDown += (s, e) => { if (e.Key == System.Windows.Input.Key.Enter && _list.SelectedItem != null) { OpenSelected(); e.Handled = true; } };
             // Пока окно выбора скрыто, приложение живёт ради открытого листа
-            // Закрытие самого меню — единственная команда полного завершения
-            Loaded += (s, e) => ShowStorageLoadWarnings();
+            Loaded += async (s, e) =>
+            {
+                ShowStorageLoadWarnings();
+                if (!AppSettings.UpdateNotificationsEnabled) return;
+                try
+                {
+                    updateAvailableCached = await CheckForUpdatesAsync();
+                    if (updateAvailableCached)
+                    {
+                        update.Content = "Доступно обновление";
+                        update.Visibility = Visibility.Visible;
+                    }
+                    else
+                    {
+                        update.Visibility = Visibility.Collapsed;
+                    }
+                }
+                catch
+                {
+                    
+                    update.Visibility = Visibility.Collapsed;
+                }
+            };
             Closed += (s, e) =>
             {
                 if (Application.Current != null)
@@ -53,6 +135,239 @@ namespace VtM_LoCh_fP
             };
         }
 
+
+        private enum UpdatePromptChoice
+        {
+            None,
+            DisableNotifications,
+            Skip,
+            Update
+        }
+
+        private static string GetCurrentApplicationVersion()
+        {
+            string executablePath = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
+            string fileVersion = System.Diagnostics.FileVersionInfo.GetVersionInfo(executablePath).FileVersion;
+            return string.IsNullOrWhiteSpace(fileVersion) ? "неизвестна" : fileVersion;
+        }
+
+        private UpdatePromptChoice ShowUpdateConfirmation(string currentVersion, string targetVersion)
+        {
+            var dialog = new Window
+            {
+                Title = "Доступно обновление VtM V20",
+                Owner = this,
+                Width = 760,
+                Height = 250,
+                MinWidth = 700,
+                ResizeMode = ResizeMode.NoResize,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                ShowInTaskbar = false,
+                Background = new System.Windows.Media.SolidColorBrush(ThemeManager.IsDark
+                    ? System.Windows.Media.Color.FromRgb(32, 32, 36)
+                    : System.Windows.Media.Color.FromRgb(250, 250, 252)),
+                Foreground = new System.Windows.Media.SolidColorBrush(ThemeManager.IsDark
+                    ? System.Windows.Media.Color.FromRgb(245, 245, 245)
+                    : System.Windows.Media.Color.FromRgb(30, 30, 34))
+            };
+            ThemeManager.AttachWindow(dialog);
+
+            var root = new DockPanel { Margin = new Thickness(22) };
+            var actions = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            UpdatePromptChoice choice = UpdatePromptChoice.None;
+            Button MakeChoiceButton(string caption, UpdatePromptChoice result, bool primary)
+            {
+                var button = new Button
+                {
+                    Content = new TextBlock
+                    {
+                        Text = caption,
+                        Foreground = primary ? System.Windows.Media.Brushes.White :
+                            new System.Windows.Media.SolidColorBrush(ThemeManager.IsDark
+                                ? System.Windows.Media.Color.FromRgb(245, 245, 245)
+                                : System.Windows.Media.Color.FromRgb(35, 35, 40)),
+                        TextWrapping = TextWrapping.NoWrap,
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                        VerticalAlignment = VerticalAlignment.Center
+                    },
+                    Padding = new Thickness(12, 9, 12, 9),
+                    FontSize = 13,
+                    FontWeight = FontWeights.SemiBold,
+                    Cursor = System.Windows.Input.Cursors.Hand,
+                    Background = primary
+                        ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(139, 32, 40))
+                        : new System.Windows.Media.SolidColorBrush(ThemeManager.IsDark
+                            ? System.Windows.Media.Color.FromRgb(55, 55, 60)
+                            : System.Windows.Media.Color.FromRgb(235, 235, 239)),
+                    Foreground = primary
+                        ? System.Windows.Media.Brushes.White
+                        : new System.Windows.Media.SolidColorBrush(ThemeManager.IsDark
+                            ? System.Windows.Media.Color.FromRgb(245, 245, 245)
+                            : System.Windows.Media.Color.FromRgb(35, 35, 40)),
+                    BorderBrush = primary
+                        ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(139, 32, 40))
+                        : new System.Windows.Media.SolidColorBrush(ThemeManager.IsDark
+                            ? System.Windows.Media.Color.FromRgb(90, 90, 96)
+                            : System.Windows.Media.Color.FromRgb(190, 190, 196)),
+                    BorderThickness = new Thickness(1)
+                };
+                button.MinWidth = result == UpdatePromptChoice.DisableNotifications ? 230 : 130;
+                button.MinHeight = 42;
+                button.Margin = new Thickness(5, 0, 5, 0);
+                button.Cursor = System.Windows.Input.Cursors.Hand;
+
+                var template = new ControlTemplate(typeof(Button));
+                var buttonBorder = new FrameworkElementFactory(typeof(Border), "ButtonBorder");
+                buttonBorder.SetBinding(Border.BackgroundProperty,
+                    new System.Windows.Data.Binding("Background") { RelativeSource = System.Windows.Data.RelativeSource.TemplatedParent });
+                buttonBorder.SetBinding(Border.BorderBrushProperty,
+                    new System.Windows.Data.Binding("BorderBrush") { RelativeSource = System.Windows.Data.RelativeSource.TemplatedParent });
+                buttonBorder.SetBinding(Border.BorderThicknessProperty,
+                    new System.Windows.Data.Binding("BorderThickness") { RelativeSource = System.Windows.Data.RelativeSource.TemplatedParent });
+                buttonBorder.SetBinding(Border.PaddingProperty,
+                    new System.Windows.Data.Binding("Padding") { RelativeSource = System.Windows.Data.RelativeSource.TemplatedParent });
+                var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
+                presenter.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center);
+                presenter.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center);
+                presenter.SetValue(ContentPresenter.RecognizesAccessKeyProperty, true);
+                buttonBorder.AppendChild(presenter);
+                template.VisualTree = buttonBorder;
+
+                var hover = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
+                hover.Setters.Add(new Setter(Border.BackgroundProperty,
+                    new System.Windows.Media.SolidColorBrush(primary
+                        ? System.Windows.Media.Color.FromRgb(158, 43, 52)
+                        : (ThemeManager.IsDark ? System.Windows.Media.Color.FromRgb(75, 75, 82) : System.Windows.Media.Color.FromRgb(220, 220, 226))),
+                    "ButtonBorder"));
+                template.Triggers.Add(hover);
+                var pressed = new Trigger { Property = Button.IsPressedProperty, Value = true };
+                pressed.Setters.Add(new Setter(Border.BackgroundProperty,
+                    new System.Windows.Media.SolidColorBrush(primary
+                        ? System.Windows.Media.Color.FromRgb(105, 24, 31)
+                        : (ThemeManager.IsDark ? System.Windows.Media.Color.FromRgb(42, 42, 47) : System.Windows.Media.Color.FromRgb(205, 205, 212))),
+                    "ButtonBorder"));
+                template.Triggers.Add(pressed);
+                button.Template = template;
+
+                button.Click += (s, e) =>
+                {
+                    choice = result;
+                    dialog.DialogResult = true;
+                };
+                return button;
+            }
+
+            actions.Children.Add(MakeChoiceButton("Не уведомлять об обновлениях", UpdatePromptChoice.DisableNotifications, false));
+            actions.Children.Add(MakeChoiceButton("Пропустить", UpdatePromptChoice.Skip, false));
+            actions.Children.Add(MakeChoiceButton("Обновиться", UpdatePromptChoice.Update, true));
+
+            var description = new TextBlock
+            {
+                Text = $"Доступна новая версия: {targetVersion}\nТекущая версия: {currentVersion}\nВыберите, что сделать:",
+                FontSize = 16,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(2, 8, 2, 22)
+            };
+            description.Foreground = new System.Windows.Media.SolidColorBrush(ThemeManager.IsDark
+                ? System.Windows.Media.Color.FromRgb(245, 245, 245)
+                : System.Windows.Media.Color.FromRgb(30, 30, 34));
+
+            DockPanel.SetDock(actions, Dock.Bottom);
+            root.Children.Add(actions);
+            root.Children.Add(description);
+            dialog.Content = root;
+            dialog.ShowDialog();
+            return choice;
+        }
+
+        private static readonly HttpClient UpdateHttpClient = CreateUpdateHttpClient();
+
+        private static HttpClient CreateUpdateHttpClient()
+        {
+            var client = new HttpClient();
+            client.Timeout = TimeSpan.FromSeconds(20);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("VtM_LoCh_fP-Updater/1.0");
+            client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
+            return client;
+        }
+
+        private static async System.Threading.Tasks.Task<bool> CheckForUpdatesAsync()
+        {
+            const string releaseApi = "https://api.github.com/repos/taran700/VtM_LoCh_fP/releases/latest";
+            HttpResponseMessage response;
+            try { response = await UpdateHttpClient.GetAsync(releaseApi); }
+            catch (System.Threading.Tasks.TaskCanceledException ex)
+            {
+                throw new InvalidOperationException("Превышено время ожидания ответа GitHub.", ex);
+            }
+            catch (HttpRequestException ex)
+            {
+                throw new InvalidOperationException("Не удалось подключиться к GitHub. Проверьте интернет-соединение.", ex);
+            }
+
+            using (response)
+            {
+                if (response.StatusCode == HttpStatusCode.NotFound)
+                    return false; // Нет опубликованных релизов если
+
+                if (!response.IsSuccessStatusCode)
+                    throw new InvalidOperationException($"GitHub вернул ошибку {(int)response.StatusCode} ({response.ReasonPhrase}).");
+
+                string json = await response.Content.ReadAsStringAsync();
+                JObject release;
+                try { release = JObject.Parse(json); }
+                catch (Newtonsoft.Json.JsonException ex)
+                {
+                    throw new InvalidOperationException("GitHub вернул некорректные сведения о релизе.", ex);
+                }
+
+                string tag = (string)release["tag_name"];
+                if (string.IsNullOrWhiteSpace(tag))
+                    throw new InvalidOperationException("В последнем релизе GitHub отсутствует тег версии.");
+
+                string normalizedTag = tag.Trim();
+                if (normalizedTag.StartsWith("v", StringComparison.OrdinalIgnoreCase))
+                    normalizedTag = normalizedTag.Substring(1);
+
+                Version releaseVersion;
+                if (!Version.TryParse(normalizedTag, out releaseVersion))
+                    throw new InvalidOperationException($"Тег релиза «{tag}» не соответствует формату версии.");
+
+                string assetName = $"VtM_LoCh_fP_v{releaseVersion}.zip";
+                bool assetExists = release["assets"] is JArray assets &&
+                    assets.Any(a => string.Equals((string)a["name"], assetName, StringComparison.Ordinal));
+                if (!assetExists)
+                    throw new InvalidOperationException($"В релизе {tag} отсутствует обязательный файл «{assetName}».");
+
+                string currentVersionText = GetCurrentApplicationVersion();
+                Version currentVersion;
+                if (!Version.TryParse(currentVersionText, out currentVersion))
+                    throw new InvalidOperationException($"Не удалось определить версию установленного приложения: «{currentVersionText}».");
+
+                if (releaseVersion <= currentVersion)
+                    return false;
+
+                Updater.GitHub_User = "taran700";
+                Updater.GitHub_Repository = "VtM_LoCh_fP";
+                Updater.OriginalFileName = "VtM_LoCh_fP.exe";
+                Updater.GitHub_Asset = assetName;
+
+                bool updateAvailable = await Updater.CheckUpdateAsync();
+                if (!updateAvailable)
+                    return false;
+
+                if (Updater.ReleaseVersion == null || Updater.ReleaseVersion != releaseVersion)
+                    throw new InvalidOperationException("Версия релиза EZ_Updater не совпадает с опубликованным тегом GitHub.");
+
+                return true;
+            }
+        }
 
         private void ShowStorageLoadWarnings()
         {
@@ -79,9 +394,6 @@ namespace VtM_LoCh_fP
             var actions = new FrameworkElementFactory(typeof(StackPanel));
             actions.SetValue(StackPanel.OrientationProperty, Orientation.Horizontal);
             actions.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
-
-            // Кнопка миграции добавляется первой, поэтому всегда занимает
-            // крайнюю левую позицию среди видимых действий персонажа.
             var migrate = new FrameworkElementFactory(typeof(Button));
             migrate.SetValue(ContentControl.ContentProperty, "Мигрировать в Свободного Неоната");
             migrate.SetValue(Control.PaddingProperty, new Thickness(9, 5, 9, 5));
@@ -217,7 +529,7 @@ namespace VtM_LoCh_fP
             catch (Exception ex)
             {
                 ThemedDialog.Show(this,
-                    "Не удалось клонировать персонажа. Исходный персонаж и его сохранение не изменены.\\n\\n" + ex.Message,
+                    "Не удалось клонировать персонажа. Исходный персонаж и его сохранение не изменены.\n\n" + ex.Message,
                     "Ошибка клонирования", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -326,6 +638,66 @@ namespace VtM_LoCh_fP
             Characters.Add(character); SaveCharacters(); _list.SelectedItem = character; OpenSelected();
         }
 
+        private void Update_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (Updater.CannotWriteOnDir)
+                    return;
+                var updateWindow = new Window
+                {
+                    Title = "Обновление VtM V20",
+                    Owner = this,
+                    Width = 440,
+                    Height = 150,
+                    ResizeMode = ResizeMode.NoResize,
+                    WindowStartupLocation = WindowStartupLocation.CenterOwner
+                };
+                ThemeManager.AttachWindow(updateWindow);
+                var panel = new StackPanel { Margin = new Thickness(18) };
+                var status = new TextBlock { Text = "Подготовка обновления…", Margin = new Thickness(0, 0, 0, 10), TextWrapping = TextWrapping.Wrap };
+                var progress = new ProgressBar { Height = 18, Minimum = 0, Maximum = 100, IsIndeterminate = true };
+                panel.Children.Add(status);
+                panel.Children.Add(progress);
+                updateWindow.Content = panel;
+                updateWindow.Show();
+                Updater.GUI_Context = System.Threading.SynchronizationContext.Current;
+                Updater.Update((updateSender, args) =>
+                {
+                    status.Text = Updater.Message;
+                    progress.IsIndeterminate = false;
+                    progress.Value = Math.Max(0, Math.Min(100, Updater.ProgressPercentage));
+                    string state = Convert.ToString(Updater.ShortState);
+                    if (string.Equals(state, "Installed", StringComparison.OrdinalIgnoreCase))
+                    {
+                        try
+                        {
+                            System.Diagnostics.Process.Start(Updater.ProgramFileName);
+                            Application.Current.Shutdown();
+                        }
+                        catch
+                        {
+                            status.Text = "Обновление установлено. Перезапустите приложение вручную.";
+                            progress.IsIndeterminate = false;
+                            progress.Value = 100;
+                        }
+                    }
+                    else if (string.Equals(state, "Canceled", StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(state, "Failed", StringComparison.OrdinalIgnoreCase))
+                    {
+                        updateWindow.Close();
+                        update.Visibility = Visibility.Collapsed;
+                        updateAvailableCached = false;
+                    }
+                });
+            }
+            catch
+            {
+                updateAvailableCached = false;
+                update.Visibility = Visibility.Collapsed;
+            }
+        }
+
         private void Open_Click(object sender, RoutedEventArgs e) => OpenSelected();
         private void OpenSelected()
         {
@@ -339,7 +711,7 @@ namespace VtM_LoCh_fP
             MainWindow sheet = null;
             try
             {
-                // Сначала полностью создаём лист. При ошибке меню остаётся доступным.
+                // Сначала полностью создаём лист. При ошибке меню остаётся доступным
                 sheet = new MainWindow(character);
                 sheet.Closed += (s, e) =>
                 {
@@ -355,6 +727,7 @@ namespace VtM_LoCh_fP
 
                 Application.Current.MainWindow = sheet;
                 Hide();
+                sheet.WindowState = WindowState.Maximized;
                 sheet.Show();
             }
             catch (Exception ex)
@@ -362,7 +735,7 @@ namespace VtM_LoCh_fP
                 CharacterStorage.ProtectCharacter(character);
                 if (sheet != null)
                 {
-                    try { sheet.Close(); } catch { }
+                    try { sheet.Close(); } catch (Exception closeException) { System.Diagnostics.Trace.TraceError("Не удалось закрыть лист персонажа: " + closeException); }
                 }
                 if (!IsVisible) Show();
                 Application.Current.MainWindow = this;

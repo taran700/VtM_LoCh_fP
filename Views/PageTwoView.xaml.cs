@@ -30,6 +30,12 @@ namespace VtM_LoCh_fP.Views
                 EnsureVirtueTracks();
                 EnsureWillpowerTrack();
                 InitializeHumanityFromVirtues();
+                if (_character != null)
+                {
+                    if (!_character.TemporaryWillpower.HasValue)
+                        _character.TemporaryWillpower = GetWillpowerPermanent();
+                    WillpowerTemporaryTrack.SetTrackValue(Math.Max(0, Math.Min(WillpowerTemporaryTrack.Count, _character.TemporaryWillpower.Value)));
+                }
             };
             _humanityPaths = HumanityPathService.GetAll();
             HumanityPathCombo.ItemsSource = _humanityPaths;
@@ -59,11 +65,22 @@ namespace VtM_LoCh_fP.Views
                 if (_character != null && !_loadingBlood) _character.CurrentBlood = BloodTrack.Value;
                 UpdateHealthHeader();
             };
+            WillpowerTemporaryTrack.ValueChanged += (s, e) =>
+            {
+                if (_character != null) _character.TemporaryWillpower = WillpowerTemporaryTrack.Value;
+            };
             WillpowerPermanentTrack.ValueChanged += (s, e) =>
             {
                 if (_character == null) return;
                 int oldValue; _character.CreationState.OtherDots.TryGetValue("willpower_permanent", out oldValue);
                 int nextValue = WillpowerPermanentTrack.Value;
+                if (!_character.CreationState.ConfirmedInitialBlocks.Contains("virtues") && nextValue != oldValue)
+                {
+                    WillpowerPermanentTrack.SetTrackValue(oldValue);
+                    ThemedDialog.Show(Window.GetWindow(this), "Сначала подтвердите распределение Добродетелей.", "Добродетели не подтверждены", MessageBoxButton.OK, MessageBoxImage.Information,
+                        "Перейти к Добродетелям", () => VirtuesHeader?.BringIntoView());
+                    return;
+                }
                 int courageFloor = GetVirtueRating("Смелость");
                 if (nextValue < oldValue && nextValue <= courageFloor)
                 {
@@ -110,6 +127,8 @@ namespace VtM_LoCh_fP.Views
             _character.CreationState.PropertyChanged -= CreationState_PropertyChanged;
             _character.CreationState.PropertyChanged += CreationState_PropertyChanged;
             AggravatedDamageToggle.IsChecked = _character.AllowAggravatedDamage;
+            if (_character.TemporaryWillpower.HasValue)
+                WillpowerTemporaryTrack.SetTrackValue(Math.Max(0, Math.Min(WillpowerTemporaryTrack.Count, _character.TemporaryWillpower.Value)));
             HealthTrack.LoadStates(_character.HealthDamageStates);
             BloodTrack.Count = _character.BloodPoolMax > 0 ? _character.BloodPoolMax : 10;
             _loadingBlood = true;
@@ -687,6 +706,13 @@ namespace VtM_LoCh_fP.Views
             if (_loadingHumanityPath || _character == null) return;
             int previous = _character.HumanityPathRating;
             int next = HumanityPathTrack.Value;
+            if (!_character.CreationState.ConfirmedInitialBlocks.Contains("virtues") && next != previous)
+            {
+                HumanityPathTrack.SetTrackValue(previous);
+                ThemedDialog.Show(Window.GetWindow(this), "Сначала подтвердите распределение Добродетелей.", "Добродетели не подтверждены", MessageBoxButton.OK, MessageBoxImage.Information,
+                        "Перейти к Добродетелям", () => VirtuesHeader?.BringIntoView());
+                return;
+            }
             int virtueFloor = GetHumanityVirtueFloor();
             if (next < previous && next <= virtueFloor)
             {
@@ -699,6 +725,21 @@ namespace VtM_LoCh_fP.Views
                 AdvancementCheck != null && !AdvancementCheck("humanity_path", _character.HumanityPathIsCustom ? _character.CustomHumanityPathName : _character.HumanityPathId, previous, next))
             { HumanityPathTrack.SetTrackValue(previous); return; }
             _character.HumanityPathRating = next;
+        }
+
+        public void OpenBioFactPicker()
+        {
+            AddBioFact_Click(this, new RoutedEventArgs());
+        }
+
+        public void ScrollToVirtues()
+        {
+            VirtuesHeader?.BringIntoView();
+        }
+
+        public void ScrollToHumanityPath()
+        {
+            HumanityPathTrack?.BringIntoView();
         }
 
         private void AddBioFact_Click(object sender, RoutedEventArgs e)
@@ -768,10 +809,8 @@ namespace VtM_LoCh_fP.Views
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                 var removeIcon = new TextBlock { Text = "\uE74D", FontFamily = new FontFamily("Segoe MDL2 Assets"), FontSize = 16, Foreground = new SolidColorBrush(Color.FromRgb(190, 35, 35)), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
                 var remove = new Button { Content = removeIcon, Width = 30, Height = 30, Margin = new Thickness(0, 0, 7, 0), Padding = new Thickness(0), Background = Brushes.Transparent, BorderBrush = Brushes.Transparent, BorderThickness = new Thickness(0), Cursor = Cursors.Hand, ToolTip = "Удалить факт" };
-                remove.IsEnabled = !_character.CreationState.InitialPurchaseConfirmed;
                 remove.Click += (s, e) =>
                 {
-                    if (_character.CreationState.InitialPurchaseConfirmed) return;
                     string message = fact.IsCustom ? "Удалить пользовательский факт «" + fact.Name + "»? Вместе с ним будут безвозвратно удалены его основное описание и все описания уровней." : "Удалить факт «" + fact.Name + "» из биографии?";
                     var answer = ThemedDialog.Show(Window.GetWindow(this), message, "Удаление факта биографии", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                     if (answer != MessageBoxResult.Yes) return;
@@ -791,10 +830,8 @@ namespace VtM_LoCh_fP.Views
                 int backgroundMax = 5;
                 var track = new TrackControl { Label = fact.Name, Count = backgroundMax, LabelWidth = 170, Cascade = true, HorizontalAlignment = HorizontalAlignment.Left, InfoDescription = !string.IsNullOrWhiteSpace(fact.CustomDescription) ? fact.CustomDescription : definition == null ? null : definition.Description, InfoLevels = levelInfo };
                 track.SetTrackValue(fact.Level);
-                track.IsEnabled = !_character.CreationState.InitialPurchaseConfirmed;
                 track.ValueChanged += (s, e) =>
                 {
-                    if (_character.CreationState.InitialPurchaseConfirmed) { track.SetTrackValue(fact.Level); return; }
                     int previous = fact.Level;
                     bool backgroundBlockConfirmed = _character.CreationState.ConfirmedInitialBlocks.Contains("backgrounds");
                     bool backgroundBlockWasConfirmed = _character.CreationState.InitialBackgroundBlockEverConfirmed;
@@ -891,7 +928,8 @@ namespace VtM_LoCh_fP.Views
             {
                 ThemedDialog.Show(Window.GetWindow(this),
                     "Выбери все Добродетели и распредели весь пул точек. Осталось: " + Math.Max(0, virtuePoolToSpend - virtueDotsSpent) + ".",
-                    "Не все точки распределены", MessageBoxButton.OK, MessageBoxImage.Information);
+                    "Не все точки распределены", MessageBoxButton.OK, MessageBoxImage.Information,
+                    "Перейти к Добродетелям", () => VirtuesHeader?.BringIntoView());
                 return;
             }
             if (_character.CreationState.InitialVirtueRatings == null)
@@ -948,7 +986,8 @@ namespace VtM_LoCh_fP.Views
             {
                 ThemedDialog.Show(Window.GetWindow(this),
                     "Добавь факты биографии, выбери для каждого хотя бы 1 точку и распредели весь пул. Осталось: " + Math.Max(0, backgroundPoolToSpend - backgroundDotsSpent) + ".",
-                    "Не все точки распределены", MessageBoxButton.OK, MessageBoxImage.Information);
+                    "Не все точки распределены", MessageBoxButton.OK, MessageBoxImage.Information,
+                    "Добавить факт", () => OpenBioFactPicker());
                 return;
             }
             if (_character.CreationState.InitialPurchases == null) _character.CreationState.InitialPurchases = new List<CreationPurchase>();
