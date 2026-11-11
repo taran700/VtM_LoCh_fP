@@ -40,6 +40,12 @@ namespace VtM_LoCh_fP
             _list.ItemTemplate = CreateCharacterTemplate();
             _list.ItemContainerStyle = CreateCharacterItemStyle();
             Grid.SetRow(_list, 1); root.Children.Add(_list);
+            var footer = new Grid();
+            footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            var generate = new Button { Content = "Сгенерировать персонажа", Padding = new Thickness(14, 9, 14, 9), HorizontalAlignment = HorizontalAlignment.Left };
+            generate.Click += GenerateCharacter_Click;
+            Grid.SetColumn(generate, 0); footer.Children.Add(generate);
             var buttons = new WrapPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
             update = new Button { Content = "Доступно обновление", Padding = new Thickness(12, 8, 12, 8), Margin = new Thickness(0, 0, 8, 0), Visibility = Visibility.Collapsed };
             var enableAutoUpdate = new Button { Content = "Включить автообновление", Padding = new Thickness(12, 8, 12, 8), Margin = new Thickness(0, 0, 8, 0), Visibility = Visibility.Collapsed };
@@ -101,7 +107,8 @@ namespace VtM_LoCh_fP
             buttons.Children.Add(update);
             buttons.Children.Add(enableAutoUpdate);
             buttons.Children.Add(import); buttons.Children.Add(create); buttons.Children.Add(open);
-            Grid.SetRow(buttons, 2); root.Children.Add(buttons); Content = root;
+            Grid.SetColumn(buttons, 1); footer.Children.Add(buttons);
+            Grid.SetRow(footer, 2); root.Children.Add(footer); Content = root;
             _list.MouseDoubleClick += (s,e) => OpenSelected();
             _list.PreviewKeyDown += (s, e) => { if (e.Key == System.Windows.Input.Key.Enter && _list.SelectedItem != null) { OpenSelected(); e.Handled = true; } };
             // Пока окно выбора скрыто, приложение живёт ради открытого листа
@@ -441,7 +448,7 @@ namespace VtM_LoCh_fP
             panel.AppendChild(mode);
 
             var name = new FrameworkElementFactory(typeof(TextBlock));
-            name.SetBinding(TextBlock.TextProperty, new System.Windows.Data.Binding("Name"));
+            name.SetBinding(TextBlock.TextProperty, new System.Windows.Data.Binding("DisplayName"));
             name.SetValue(TextBlock.FontSizeProperty, 15.0);
             name.SetValue(TextBlock.FontWeightProperty, FontWeights.SemiBold);
             name.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
@@ -603,6 +610,25 @@ namespace VtM_LoCh_fP
             string value = string.IsNullOrWhiteSpace(name) ? "Персонаж" : name;
             foreach (char invalid in Path.GetInvalidFileNameChars()) value = value.Replace(invalid, '_');
             return value;
+        }
+
+        private void GenerateCharacter_Click(object sender, RoutedEventArgs e)
+        {
+            var intro = new CharacterGenerationIntroWindow { Owner = this };
+            if (intro.ShowDialog() != true) return;
+            try
+            {
+                var generated = RandomCharacterGenerator.GenerateAndImport();
+                Characters.Add(generated);
+                SaveCharacters();
+                _list.SelectedItem = generated;
+                OpenCharacter(generated);
+            }
+            catch (Exception ex)
+            {
+                ThemedDialog.Show(this, "Не удалось сгенерировать персонажа.\n\n" + ex.Message,
+                    "Ошибка генерации", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private void Import_Click(object sender, RoutedEventArgs e)

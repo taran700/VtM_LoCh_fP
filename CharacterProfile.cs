@@ -14,6 +14,8 @@ namespace VtM_LoCh_fP
         }
 
         public string Id { get; set; } = System.Guid.NewGuid().ToString("N");
+        public bool IsGenerated { get; set; }
+        public string DisplayName => IsGenerated ? (Name ?? "Без имени") + " — Генератор" : (Name ?? "Без имени");
         public string Name
         {
             get { return _name; }
@@ -109,6 +111,6 @@ namespace VtM_LoCh_fP
             string.Equals(CreationMode, "Птенец на поводке Сира", System.StringComparison.OrdinalIgnoreCase) ||
             string.Equals(CreationMode, "Птенец", System.StringComparison.OrdinalIgnoreCase);
 
-        public override string ToString() => Name + " — " + DisplayCreationMode;
+        public override string ToString() => DisplayName + " — " + DisplayCreationMode;
     }
 }
