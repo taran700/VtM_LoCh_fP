@@ -7486,7 +7486,7 @@
       ],
       "rituals": []
     },
-   {
+    {
   "id": "thaumaturgy",
   "name": "Тауматургия",
   "is_sorcery": true,
@@ -8502,8 +8502,8 @@
       ]
     }
   ],
-  "powers": [],
-  "rituals": [
+      "powers": [],
+      "rituals": [
         {
           "id": "evening_resilience",
           "level": 1,
