@@ -43,7 +43,6 @@ namespace VtM_LoCh_fP
                 // Маска выбирается один раз; амплуа всегда соответствует именно ей
                 character.Demeanor = Pick(pattern.DemeanorCandidates, random);
                 character.RoleName = GenerationPatternService.GetRoleForMask(character.Demeanor);
-                character.SireName = GenerationPatternService.ChooseRandomSireProfile(pattern, random).Name;
                 character.ClanWeakness = clan.WeaknessDescription;
                 character.OriginalClanWeakness = clan.WeaknessDescription;
                 var generation = GenerationService.Find(character.Generation.Value);
@@ -67,6 +66,7 @@ namespace VtM_LoCh_fP
                 ApplyFreebiePlan(character, random);
                 BuildPurchaseLedger(character);
                 GenerateBiography(character, random);
+                GenerationStageService.GenerateAll(character, pattern, random);
                 character.CurrentBlood = 0;
                 character.HealthDamageStates = new System.Collections.ObjectModel.ObservableCollection<int>(Enumerable.Repeat(0, 7));
 

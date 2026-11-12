@@ -112,6 +112,7 @@
     <Compile Include="CharacterRulesService.cs" />
     <Compile Include="GenerationService.cs" />
     <Compile Include="GenerationPatternService.cs" />
+    <Compile Include="GenerationStageService.cs" />
     <Compile Include="RandomCharacterGenerator.cs" />
     <Compile Include="CharacterGenerationIntroWindow.cs" />
     <Compile Include="DisciplineService.cs" />
@@ -264,5 +265,10 @@
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
     <Resource Include="Resources\\Vampiric.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Data\Generation\stages_3_7.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 </Project>
