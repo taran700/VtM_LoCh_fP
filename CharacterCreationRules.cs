@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.ComponentModel;
@@ -25,6 +25,7 @@ namespace VtM_LoCh_fP
         public List<CreationPurchase> InitialPurchases { get; set; } = new List<CreationPurchase>();
         public List<ExperiencePurchase> ExperiencePurchases { get; set; } = new List<ExperiencePurchase>();
         public List<PurchaseTransaction> PurchaseLedger { get; set; } = new List<PurchaseTransaction>();
+        public string GenerationBatchId { get; set; }
         public long NextPurchaseOrder { get; set; } = 1;
         public bool IsRestoringPurchase { get; set; }
         public Dictionary<string, int> InitialVirtueRatings { get; set; } = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -85,10 +86,13 @@ namespace VtM_LoCh_fP
         public int NewValue { get; set; }
         public int Cost { get; set; }
         public string Source { get; set; } = "initial";
+        public string DependencyGroupId { get; set; }
     }
 
     public sealed class PurchaseTransaction
     {
+        public string TransactionId { get; set; } = Guid.NewGuid().ToString("N");
+        public string GenerationBatchId { get; set; }
         public long Order { get; set; }
         public string Block { get; set; }
         public string Category { get; set; }
@@ -99,6 +103,9 @@ namespace VtM_LoCh_fP
         public string Resource { get; set; } 
         public int Cost { get; set; }
         public bool AffectsVirtueDerivedValues { get; set; }
+        public string DependencyGroupId { get; set; }
+        public string Source { get; set; } = "Player";
+        public bool IsCancelled { get; set; }
         public DateTime TimestampUtc { get; set; } = DateTime.UtcNow;
     }
 

@@ -18,7 +18,8 @@
                     Columns="{Binding Columns, RelativeSource={RelativeSource AncestorType={x:Type controls:TrackListControl}}}"
                     LabelWidth="{Binding LabelWidth, RelativeSource={RelativeSource AncestorType={x:Type controls:TrackListControl}}}"
                     IsEditableLabel="{Binding IsEditableLabel, RelativeSource={RelativeSource AncestorType={x:Type controls:TrackListControl}}}"
-                    Cascade="{Binding Cascade, RelativeSource={RelativeSource AncestorType={x:Type controls:TrackListControl}}}"/>
+                    Cascade="{Binding Cascade, RelativeSource={RelativeSource AncestorType={x:Type controls:TrackListControl}}}"
+                    ShowNote="{Binding ShowNotes, RelativeSource={RelativeSource AncestorType={x:Type controls:TrackListControl}}}"/>
             </DataTemplate>
         </ItemsControl.ItemTemplate>
     </ItemsControl>

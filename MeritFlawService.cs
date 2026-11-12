@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -16,6 +16,9 @@ namespace VtM_LoCh_fP
         public List<int> Costs { get; set; } = new List<int>();
         public string Description { get; set; }
         public List<string> IncompatibleWith { get; set; } = new List<string>();
+        public List<string> Requires { get; set; } = new List<string>();
+        public int SelectedCost { get; set; }
+        public string DependencyGroupId { get; set; }
     }
 
     internal static class MeritFlawService
@@ -63,6 +66,12 @@ namespace VtM_LoCh_fP
                 object incompatible;
                 if (item.TryGetValue("incompatible_with", out incompatible) && incompatible is IList ids)
                     definition.IncompatibleWith = ids.Cast<object>().Select(Convert.ToString).Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
+                object requires;
+                if (item.TryGetValue("requires", out requires))
+                {
+                    if (requires is IList requiredIds) definition.Requires = requiredIds.Cast<object>().Select(Convert.ToString).Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
+                    else if (!string.IsNullOrWhiteSpace(Convert.ToString(requires))) definition.Requires = Convert.ToString(requires).Split(",;|".ToCharArray(), StringSplitOptions.RemoveEmptyEntries).Select(x => x.Trim()).ToList();
+                }
                 if (!string.IsNullOrWhiteSpace(definition.Id) && !string.IsNullOrWhiteSpace(definition.Name) &&
                     (definition.Type == "merit" || definition.Type == "flaw"))
                     _items.Add(definition);

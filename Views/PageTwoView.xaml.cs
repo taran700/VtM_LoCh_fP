@@ -42,6 +42,24 @@ namespace VtM_LoCh_fP.Views
             HumanityPathCombo.ItemsSource = _humanityPaths;
             HumanityPathSuggestions.ItemsSource = _humanityPaths;
             HumanityPathTrack.ValueChanged += HumanityPathTrack_ValueChanged;
+            HumanityPathTrack.InfoLevelAdditionalTextProvider = level =>
+            {
+                if (_character == null) return null;
+                string bearingName = _character.HumanityPathIsCustom
+                    ? _character.CustomHumanityBearingName
+                    : (_selectedOfficialPath == null ? null : _selectedOfficialPath.BearingName);
+                string bearingEffect = _character.HumanityPathIsCustom
+                    ? _character.CustomHumanityBearingEffect
+                    : (_selectedOfficialPath == null ? null : _selectedOfficialPath.BearingEffect);
+                if (string.IsNullOrWhiteSpace(bearingName) && string.IsNullOrWhiteSpace(bearingEffect)) return null;
+
+                string bearing = "Столп: " + (bearingName ?? string.Empty).Trim() +
+                    (string.IsNullOrWhiteSpace(bearingEffect) ? string.Empty : " — " + bearingEffect.Trim());
+                string difficultyModifier = GetHumanityDifficultyModifier(level);
+                return string.IsNullOrWhiteSpace(difficultyModifier)
+                    ? bearing
+                    : bearing + "  " + difficultyModifier;
+            };
             var willpowerInfo = TrackDescriptionService.Find("Сила воли");
             if (willpowerInfo != null)
             {
@@ -230,7 +248,7 @@ namespace VtM_LoCh_fP.Views
             {
                 int remaining = Math.Max(0, CharacterCreationRules.GetCreationLimit("virtues") - GetVirtueExtraDots());
                 int paidDots = virtueBlockWasConfirmed && _character.CreationState.PurchaseLedger != null
-                    ? _character.CreationState.PurchaseLedger.Where(t => string.Equals(t.ItemName, track.Label, StringComparison.OrdinalIgnoreCase) && t.Resource != "initial_pool")
+                    ? _character.CreationState.PurchaseLedger.Where(t => !t.IsCancelled && string.Equals(t.ItemName, track.Label, StringComparison.OrdinalIgnoreCase) && t.Resource != "initial_pool")
                         .Sum(t => Math.Max(0, t.NewValue - t.PreviousValue)) : 0;
                 int allowed = previous + remaining + (track.Value > previous ? paidDots : 0);
                 int clamped = Math.Min(track.Value, allowed);
@@ -335,7 +353,7 @@ namespace VtM_LoCh_fP.Views
                 if (previousPath > nextPath && AdvancementCheck != null)
                     AdvancementCheck("humanity_path", pathName, previousPath, nextPath);
                 else if (previousPath < nextPath && AdvancementCheck != null)
-                    AdvancementCheck("humanity_path", pathName, nextPath, previousPath);
+                    AdvancementCheck("humanity_path", pathName, previousPath, nextPath);
                 SetHumanityPathRating(nextPath);
             }
         }
@@ -492,6 +510,18 @@ namespace VtM_LoCh_fP.Views
             HumanitySinTableButton.IsEnabled = _character.CustomHumanityHierarchy != null && _character.CustomHumanityHierarchy.Count > 0;
         }
 
+        private static string GetHumanityDifficultyModifier(int level)
+        {
+            // Таблица модификаторов Человечности/Пути: показываем только
+            // значение для конкретного уровня, на который наведён курсор.
+            if (level >= 10) return "Модификатор стола: −2 к сложности";
+            if (level >= 8) return "Модификатор стола: −1 к сложности";
+            if (level >= 4) return "Модификатора нет";
+            if (level >= 2) return "Модификатор стола: +1 к сложности";
+            if (level == 1) return "Модификатор стола: +2 к сложности";
+            return null;
+        }
+
         private string BuildPathTooltip(string name, string description, string bearingName, string bearingEffect, string edicts)
         {
             var parts = new List<string>();
@@ -572,7 +602,7 @@ namespace VtM_LoCh_fP.Views
                 return name != null && mapping.TryGetValue(name, out target) ? target : name;
             };
             if (state.PurchaseLedger != null)
-                foreach (var purchase in state.PurchaseLedger.Where(x => string.Equals(x.Category, "virtue", StringComparison.OrdinalIgnoreCase)))
+                foreach (var purchase in state.PurchaseLedger.Where(x => !x.IsCancelled && string.Equals(x.Category, "virtue", StringComparison.OrdinalIgnoreCase)))
                 { purchase.ItemName = rename(purchase.ItemName); purchase.ItemId = rename(purchase.ItemId); }
             if (state.InitialPurchases != null)
                 foreach (var purchase in state.InitialPurchases.Where(x => x.Block == "Добродетели"))
@@ -657,6 +687,15 @@ namespace VtM_LoCh_fP.Views
             if (result == null) return;
             if (result.Deleted)
             {
+                string oldId = _character.HumanityPathId;
+                string oldName = _character.CustomHumanityPathName;
+                string oldDescription = _character.CustomHumanityPathDescription;
+                string oldBearingName = _character.CustomHumanityBearingName;
+                string oldBearingEffect = _character.CustomHumanityBearingEffect;
+                string oldEdicts = _character.CustomHumanityEdicts;
+                string oldFirstVirtue = _character.CustomHumanityFirstVirtue;
+                string oldSecondVirtue = _character.CustomHumanitySecondVirtue;
+                var oldHierarchy = HumanityPathEditorWindow.Clone(_character.CustomHumanityHierarchy);
                 var humanity = HumanityPathService.Find("humanity");
                 TransferPathVirtues(humanity.FirstVirtue, humanity.SecondVirtue);
                 _character.HumanityPathIsCustom = false;
@@ -668,6 +707,25 @@ namespace VtM_LoCh_fP.Views
                 _character.CustomHumanityEdicts = null;
                 _character.CustomHumanityHierarchy = new List<HumanityPathSinEntry>();
                 ApplyOfficialPath(humanity);
+                UndoService.Store("пользовательский Путь «" + (oldName ?? "Без названия") + "»", () =>
+                {
+                    _character.HumanityPathIsCustom = true;
+                    _character.HumanityPathId = oldId;
+                    _character.CustomHumanityPathName = oldName;
+                    _character.CustomHumanityPathDescription = oldDescription;
+                    _character.CustomHumanityBearingName = oldBearingName;
+                    _character.CustomHumanityBearingEffect = oldBearingEffect;
+                    _character.CustomHumanityEdicts = oldEdicts;
+                    _character.CustomHumanityFirstVirtue = oldFirstVirtue;
+                    _character.CustomHumanitySecondVirtue = oldSecondVirtue;
+                    _character.CustomHumanityHierarchy = HumanityPathEditorWindow.Clone(oldHierarchy);
+                    ApplyVirtueNames(oldFirstVirtue, oldSecondVirtue);
+                    UpdateCustomHumanityPathInfo();
+                    HumanityPathInput.Text = oldName ?? string.Empty;
+                    EditHumanityPathButton.Visibility = Visibility.Visible;
+                    HumanityPathCombo.SelectedValue = null;
+                    CharacterSelectionWindow.SaveCharacters();
+                });
                 return;
             }
             SaveCustomHumanityPath(result);
@@ -851,13 +909,27 @@ namespace VtM_LoCh_fP.Views
                 var remove = new Button { Content = removeIcon, Width = 30, Height = 30, Margin = new Thickness(0, 0, 7, 0), Padding = new Thickness(0), Background = Brushes.Transparent, BorderBrush = Brushes.Transparent, BorderThickness = new Thickness(0), Cursor = Cursors.Hand, ToolTip = "Удалить факт" };
                 remove.Click += (s, e) =>
                 {
-                    string message = fact.IsCustom ? "Удалить пользовательский факт «" + fact.Name + "»? Вместе с ним будут безвозвратно удалены его основное описание и все описания уровней." : "Удалить факт «" + fact.Name + "» из биографии?";
+                    string message = fact.IsCustom ? "Удалить пользовательский факт «" + fact.Name + "»? Его основное описание и описания уровней также будут удалены." : "Удалить факт «" + fact.Name + "» из биографии?";
                     var answer = ThemedDialog.Show(Window.GetWindow(this), message, "Удаление факта биографии", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                     if (answer != MessageBoxResult.Yes) return;
-                    bool hasRecordedPurchase = _character.CreationState.PurchaseLedger != null && _character.CreationState.PurchaseLedger.Any(t => string.Equals(t.ItemName, fact.Name, StringComparison.OrdinalIgnoreCase));
+                    string creationStateSnapshot = UndoService.CaptureCreationState(_character);
+                    bool hasRecordedPurchase = _character.CreationState.PurchaseLedger != null && _character.CreationState.PurchaseLedger.Any(t => !t.IsCancelled && string.Equals(t.ItemName, fact.Name, StringComparison.OrdinalIgnoreCase));
                     if (fact.Level > 0 && hasRecordedPurchase && AdvancementCheck != null && !AdvancementCheck("background", fact.Name, fact.Level, 0)) return;
+                    int restoreIndex = _character.BiographyFacts.IndexOf(fact);
+                    bool hadSnapshot = _character.CreationState.InitialBackgroundDots != null && _character.CreationState.InitialBackgroundDots.ContainsKey(fact.Name);
+                    int snapshotValue = 0;
+                    if (hadSnapshot) snapshotValue = _character.CreationState.InitialBackgroundDots[fact.Name];
                     if (_character.CreationState.InitialBackgroundDots != null) _character.CreationState.InitialBackgroundDots.Remove(fact.Name);
                     _character.BiographyFacts.Remove(fact);
+                    UndoService.Store("факт биографии «" + fact.Name + "»", () =>
+                    {
+                        if (!_character.BiographyFacts.Contains(fact)) _character.BiographyFacts.Insert(Math.Max(0, Math.Min(restoreIndex, _character.BiographyFacts.Count)), fact);
+                        if (hadSnapshot) _character.CreationState.InitialBackgroundDots[fact.Name] = snapshotValue;
+                        UndoService.RestoreCreationState(_character, creationStateSnapshot);
+                        (Window.GetWindow(this) as MainWindow)?.RefreshGenerationFromCharacter();
+                        RenderBioFacts();
+                        CharacterSelectionWindow.SaveCharacters();
+                    });
                     (Window.GetWindow(this) as MainWindow)?.RefreshGenerationFromCharacter();
                     RenderBioFacts();
                 };
@@ -879,7 +951,7 @@ namespace VtM_LoCh_fP.Views
                     int previous = fact.Level;
                     bool backgroundBlockConfirmed = _character.CreationState.ConfirmedInitialBlocks.Contains("backgrounds");
                     bool backgroundBlockWasConfirmed = _character.CreationState.InitialBackgroundBlockEverConfirmed;
-                    bool hasRecordedPurchase = _character.CreationState.PurchaseLedger != null && _character.CreationState.PurchaseLedger.Any(t => string.Equals(t.ItemName, fact.Name, StringComparison.OrdinalIgnoreCase));
+                    bool hasRecordedPurchase = _character.CreationState.PurchaseLedger != null && _character.CreationState.PurchaseLedger.Any(t => !t.IsCancelled && string.Equals(t.ItemName, fact.Name, StringComparison.OrdinalIgnoreCase));
                     if (track.Value != previous && (backgroundBlockConfirmed || (backgroundBlockWasConfirmed && track.Value < previous && hasRecordedPurchase)) &&
                         AdvancementCheck != null && !AdvancementCheck("background", fact.Name, previous, track.Value))
                     { track.SetTrackValue(previous); return; }
@@ -891,7 +963,7 @@ namespace VtM_LoCh_fP.Views
                             int initialCurrent; _character.CreationState.InitialBackgroundDots.TryGetValue(fact.Name, out initialCurrent);
                             int initialOther = _character.CreationState.InitialBackgroundDots.Where(x => !string.Equals(x.Key, fact.Name, StringComparison.OrdinalIgnoreCase)).Sum(x => Math.Max(0, x.Value));
                             int remaining = Math.Max(0, CharacterCreationRules.GetCreationLimit("backgrounds") - initialOther - initialCurrent);
-                            int paidDots = _character.CreationState.PurchaseLedger.Where(t => string.Equals(t.ItemName, fact.Name, StringComparison.OrdinalIgnoreCase) && t.Resource != "initial_pool").Sum(t => Math.Max(0, t.NewValue - t.PreviousValue));
+                            int paidDots = _character.CreationState.PurchaseLedger.Where(t => !t.IsCancelled && string.Equals(t.ItemName, fact.Name, StringComparison.OrdinalIgnoreCase) && t.Resource != "initial_pool").Sum(t => Math.Max(0, t.NewValue - t.PreviousValue));
                             next = Math.Min(next, paidDots + initialCurrent + remaining);
                         }
                         else
@@ -904,7 +976,7 @@ namespace VtM_LoCh_fP.Views
                     fact.Level = next;
                     if (!backgroundBlockConfirmed && backgroundBlockWasConfirmed)
                     {
-                        int paidDots = _character.CreationState.PurchaseLedger.Where(t => string.Equals(t.ItemName, fact.Name, StringComparison.OrdinalIgnoreCase) && t.Resource != "initial_pool").Sum(t => Math.Max(0, t.NewValue - t.PreviousValue));
+                        int paidDots = _character.CreationState.PurchaseLedger.Where(t => !t.IsCancelled && string.Equals(t.ItemName, fact.Name, StringComparison.OrdinalIgnoreCase) && t.Resource != "initial_pool").Sum(t => Math.Max(0, t.NewValue - t.PreviousValue));
                         _character.CreationState.InitialBackgroundDots[fact.Name] = Math.Max(0, next - paidDots);
                     }
                     RenderBioFacts();
@@ -1026,7 +1098,7 @@ namespace VtM_LoCh_fP.Views
             SetWillpowerPermanent(courage);
             if (_character.CreationState.PurchaseLedger == null)
                 _character.CreationState.PurchaseLedger = new List<PurchaseTransaction>();
-            _character.CreationState.PurchaseLedger.RemoveAll(t => t.Resource == "initial_pool" && t.Block == "Добродетели");
+            foreach (var transaction in _character.CreationState.PurchaseLedger.Where(t => !t.IsCancelled && t.Resource == "initial_pool" && t.Block == "Добродетели")) transaction.IsCancelled = true;
             foreach (var virtueName in GetVirtueNames())
             {
                 int rating = GetVirtueRating(virtueName);
@@ -1038,7 +1110,7 @@ namespace VtM_LoCh_fP.Views
                     {
                         Order = _character.CreationState.NextPurchaseOrder++, Block = "Добродетели", Category = "virtue",
                         ItemId = virtueName, ItemName = virtueName, PreviousValue = level, NewValue = level + 1,
-                        Resource = "initial_pool", Cost = 0, AffectsVirtueDerivedValues = true
+                        Resource = "initial_pool", Cost = 0, AffectsVirtueDerivedValues = true, Source = "Initial"
                     });
             }
             RecalculatePrimaryVirtueDerivedValues();
@@ -1075,7 +1147,7 @@ namespace VtM_LoCh_fP.Views
             }
             if (_character.CreationState.InitialPurchases == null) _character.CreationState.InitialPurchases = new List<CreationPurchase>();
             _character.CreationState.InitialPurchases.RemoveAll(p => p.Block == "Факты биографии");
-            _character.CreationState.PurchaseLedger.RemoveAll(t => t.Resource == "initial_pool" && t.Block == "Фоны");
+            foreach (var transaction in _character.CreationState.PurchaseLedger.Where(t => !t.IsCancelled && t.Resource == "initial_pool" && t.Block == "Фоны")) transaction.IsCancelled = true;
             if (_character.CreationState.InitialBackgroundDots == null) _character.CreationState.InitialBackgroundDots = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             bool hadInitialBackgroundSnapshot = _character.CreationState.InitialBackgroundBlockEverConfirmed;
             if (!hadInitialBackgroundSnapshot) _character.CreationState.InitialBackgroundDots.Clear();
@@ -1087,7 +1159,7 @@ namespace VtM_LoCh_fP.Views
                 if (!_character.CreationState.InitialBackgroundDots.TryGetValue(fact.Name, out initialLevel)) initialLevel = 0;
                 _character.CreationState.InitialPurchases.Add(new CreationPurchase { Block = "Факты биографии", ItemId = fact.Name, ItemName = fact.Name, PreviousValue = 0, NewValue = initialLevel, Cost = 0, Source = "initial" });
                 for (int level = 0; level < initialLevel; level++)
-                    _character.CreationState.PurchaseLedger.Add(new PurchaseTransaction { Order = _character.CreationState.NextPurchaseOrder++, Block = "Фоны", Category = "background", ItemId = fact.Name, ItemName = fact.Name, PreviousValue = level, NewValue = level + 1, Resource = "initial_pool", Cost = 0 });
+                    _character.CreationState.PurchaseLedger.Add(new PurchaseTransaction { Order = _character.CreationState.NextPurchaseOrder++, Block = "Фоны", Category = "background", ItemId = fact.Name, ItemName = fact.Name, PreviousValue = level, NewValue = level + 1, Resource = "initial_pool", Cost = 0, Source = "Initial" });
             }
             _character.CreationState.InitialBackgroundBlockEverConfirmed = true;
             _character.CreationState.ConfirmInitialBlock("backgrounds");

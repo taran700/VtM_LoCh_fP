@@ -163,7 +163,7 @@
                             <TextBlock Text="Таланты" Style="{StaticResource FieldLabelStyleB}"/>
                             <ComboBox x:Name="TalentsPriority" MinHeight="28" Margin="0,0,0,5"/>
                         <TextBlock x:Name="TalentsRemainingText" Margin="0,0,0,5" FontSize="11" Foreground="{DynamicResource MutedBrush}"/>
-                            <controls:TrackListControl x:Name="TalentsTrackList" Cascade="True" Count="5" LabelWidth="165">
+                            <controls:TrackListControl x:Name="TalentsTrackList" ShowNotes="True" Cascade="True" Count="5" LabelWidth="165">
                                 <controls:TrackListControl.Names>
                                     <sys:String>Атлетика</sys:String>
                                     <sys:String>Бдительность</sys:String>
@@ -184,7 +184,7 @@
                            VerticalAlignment="Center"/>
                             <ComboBox x:Name="SkillsPriority" MinHeight="28" Margin="0,0,0,5"/>
                         <TextBlock x:Name="SkillsRemainingText" Margin="0,0,0,5" FontSize="11" Foreground="{DynamicResource MutedBrush}"/>
-                            <controls:TrackListControl x:Name="SkillsTrackList" Cascade="True" Count="5" LabelWidth="165">
+                            <controls:TrackListControl x:Name="SkillsTrackList" ShowNotes="True" Cascade="True" Count="5" LabelWidth="165">
                                 <controls:TrackListControl.Names>
                                     <sys:String>Вождение</sys:String>
                                     <sys:String>Воровство</sys:String>
@@ -204,7 +204,7 @@
                             <TextBlock Text="Знания" Style="{StaticResource FieldLabelStyleB}"/>
                             <ComboBox x:Name="KnowledgePriority" MinHeight="28" Margin="0,0,0,5"/>
                         <TextBlock x:Name="KnowledgeRemainingText" Margin="0,0,0,5" FontSize="11" Foreground="{DynamicResource MutedBrush}"/>
-                            <controls:TrackListControl x:Name="KnowledgeTrackList" Cascade="True" Count="5" LabelWidth="165">
+                            <controls:TrackListControl x:Name="KnowledgeTrackList" ShowNotes="True" Cascade="True" Count="5" LabelWidth="165">
                                 <controls:TrackListControl.Names>
                                     <sys:String>Гуманитарные науки</sys:String>
                                     <sys:String>Естественные науки</sys:String>

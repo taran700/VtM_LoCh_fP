@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
@@ -91,7 +91,7 @@ namespace VtM_LoCh_fP
 
         private bool ChargeAdvancement(string costKey, string itemName, int previous, int next)
         {
-            if (_manualPurchaseInProgress) return true;
+            if (_manualPurchaseInProgress || UndoService.IsRestoring) return true;
             if (next < previous) { RefundAdvancement(costKey, itemName, previous, next); return true; }
             if (next == previous) return true;
             bool derivedVirtueTrait = costKey == "humanity_path" || costKey == "willpower";
@@ -161,6 +161,11 @@ namespace VtM_LoCh_fP
                 return false;
             }
 
+            // Снимок делается до изменения ресурсов и журнала, но после всех проверок.
+            // Это позволяет отменить прокачку целиком: точки, опыт, свободные пункты,
+            // журнал покупок и статусы подтверждения.
+            string advancementSnapshot = UndoService.CaptureCreationState(_character);
+
             // Списываем ресурсы только после проверки полной стоимости.
             if (freebieLevels > 0)
             {
@@ -209,7 +214,53 @@ namespace VtM_LoCh_fP
                         CalculateExperienceCost(costKey, itemName, level, level + 1), costKey == "virtue");
             }
 
+            if (!UndoService.IsRestoring)
+            {
+                UndoService.Store("прокачку «" + itemName + "»", () =>
+                {
+                    UndoService.RestoreCreationState(_character, advancementSnapshot);
+                    RestoreAdvancementModelValue(costKey, itemName, previous);
+                    RefreshGenerationFromCharacter();
+                    AdvantagesPage.RefreshBiographyFacts();
+                    DisciplinesPage.RefreshGenerationLimits();
+                    CharacterSelectionWindow.SaveCharacters();
+                });
+            }
             return true;
+        }
+
+        private void RestoreAdvancementModelValue(string costKey, string itemName, int value)
+        {
+            string key = NormalizeCostKey(costKey);
+            if (key == "humanity_path") AdvantagesPage.SetHumanityPathRating(value);
+            else if (key == "background")
+            {
+                var fact = _character.BiographyFacts.FirstOrDefault(x => string.Equals(x.Name, itemName, StringComparison.OrdinalIgnoreCase));
+                if (fact != null) fact.Level = value;
+            }
+            else if (key == "discipline" || key == "secondary_path")
+            {
+                var discipline = _character.Disciplines.FirstOrDefault(x =>
+                    string.Equals(x.IsSecondaryPath && !string.IsNullOrWhiteSpace(x.PathName) ? x.Name + " — " + x.PathName : x.Name,
+                        itemName, StringComparison.OrdinalIgnoreCase));
+                if (discipline != null) discipline.Level = value;
+            }
+            else if (key == "attribute") _character.CreationState.AttributeDots[itemName] = value;
+            else if (key == "ability") _character.CreationState.AbilityDots[itemName] = value;
+            else if (key == "virtue") _character.CreationState.OtherDots["virtue:" + itemName] = value;
+            else if (key == "willpower") _character.CreationState.OtherDots["willpower_permanent"] = value;
+
+            SetMatchingTrackValues(this, itemName, value);
+        }
+
+        private static void SetMatchingTrackValues(DependencyObject root, string label, int value)
+        {
+            if (root == null) return;
+            var track = root as TrackControl;
+            if (track != null && string.Equals(track.Label, label, StringComparison.OrdinalIgnoreCase))
+                track.SetTrackValue(value);
+            int count = VisualTreeHelper.GetChildrenCount(root);
+            for (int i = 0; i < count; i++) SetMatchingTrackValues(VisualTreeHelper.GetChild(root, i), label, value);
         }
 
         private void InitializeInitialAllocationSnapshots()
@@ -224,10 +275,10 @@ namespace VtM_LoCh_fP
             if (state.InitialAttributeDots == null) state.InitialAttributeDots = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             if (state.InitialAbilityDots == null) state.InitialAbilityDots = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             if (state.InitialAttributeDots.Count == 0)
-                foreach (var group in state.PurchaseLedger.Where(t => t.Resource == "initial_pool" && t.Block == "Характеристики").GroupBy(t => t.ItemName, StringComparer.OrdinalIgnoreCase))
+                foreach (var group in state.PurchaseLedger.Where(t => !t.IsCancelled && t.Resource == "initial_pool" && t.Block == "Характеристики").GroupBy(t => t.ItemName, StringComparer.OrdinalIgnoreCase))
                     state.InitialAttributeDots[group.Key] = group.Sum(t => Math.Max(0, t.NewValue - t.PreviousValue));
             if (state.InitialAbilityDots.Count == 0)
-                foreach (var group in state.PurchaseLedger.Where(t => t.Resource == "initial_pool" && t.Block == "Способности").GroupBy(t => t.ItemName, StringComparer.OrdinalIgnoreCase))
+                foreach (var group in state.PurchaseLedger.Where(t => !t.IsCancelled && t.Resource == "initial_pool" && t.Block == "Способности").GroupBy(t => t.ItemName, StringComparer.OrdinalIgnoreCase))
                     state.InitialAbilityDots[group.Key] = group.Sum(t => Math.Max(0, t.NewValue - t.PreviousValue));
             if (state.InitialBackgroundDots == null) state.InitialBackgroundDots = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             if (state.InitialBackgroundDots.Count == 0)
@@ -329,7 +380,7 @@ namespace VtM_LoCh_fP
             {
                 Order = state.NextPurchaseOrder++, Block = block, Category = category,
                 ItemId = itemName, ItemName = itemName, PreviousValue = previous, NewValue = next,
-                Resource = resource, Cost = cost, AffectsVirtueDerivedValues = virtueDerived
+                Resource = resource, Cost = cost, AffectsVirtueDerivedValues = virtueDerived, Source = "Player"
             });
         }
 
@@ -338,7 +389,7 @@ namespace VtM_LoCh_fP
             var state = _character.CreationState;
             if (state.PurchaseLedger == null) state.PurchaseLedger = new List<PurchaseTransaction>();
             var matches = state.PurchaseLedger
-                .Where(t => string.Equals(t.ItemName, itemName, StringComparison.OrdinalIgnoreCase) &&
+                .Where(t => !t.IsCancelled && string.Equals(t.ItemName, itemName, StringComparison.OrdinalIgnoreCase) &&
                             t.NewValue > newValue && t.PreviousValue < oldValue)
                 .OrderByDescending(t => t.Order).ToList();
 
@@ -400,11 +451,21 @@ namespace VtM_LoCh_fP
                             AdvantagesPage.RefreshBiographyFacts();
                         }
                     }
-                    if (from <= transaction.PreviousValue) state.PurchaseLedger.Remove(transaction);
-                    else
+                    // Сохраняем исходную запись для аудита. При частичном откате создаём
+                    // активную запись на оставшийся диапазон, а исходную помечаем отменённой.
+                    transaction.IsCancelled = true;
+                    if (from > transaction.PreviousValue)
                     {
-                        transaction.NewValue = from;
-                        transaction.Cost = (from - transaction.PreviousValue) * unitCost;
+                        state.PurchaseLedger.Add(new PurchaseTransaction
+                        {
+                            GenerationBatchId = transaction.GenerationBatchId,
+                            Order = state.NextPurchaseOrder++, Block = transaction.Block, Category = transaction.Category,
+                            ItemId = transaction.ItemId, ItemName = transaction.ItemName,
+                            PreviousValue = transaction.PreviousValue, NewValue = from,
+                            Resource = transaction.Resource, Cost = (from - transaction.PreviousValue) * unitCost,
+                            AffectsVirtueDerivedValues = transaction.AffectsVirtueDerivedValues,
+                            DependencyGroupId = transaction.DependencyGroupId, Source = transaction.Source
+                        });
                     }
                 }
                 // Синхронизируем legacy-журналы, чтобы старые окна и списки не показывали уже отменённое.
@@ -734,7 +795,8 @@ namespace VtM_LoCh_fP
                 {
                     state.FreebiePoints += purchase.Cost;
                     if (state.PurchaseLedger != null)
-                        state.PurchaseLedger.RemoveAll(t => t.Resource == "freebie" && string.Equals(t.ItemId, purchase.ItemId, StringComparison.OrdinalIgnoreCase));
+                        foreach (var transaction in state.PurchaseLedger.Where(t => !t.IsCancelled && t.Resource == "freebie" && string.Equals(t.ItemId, purchase.ItemId, StringComparison.OrdinalIgnoreCase)))
+                            transaction.IsCancelled = true;
                 }
                 HistoryPage.RefreshMeritsFlaws();
                 RefreshGenerationFromCharacter();
@@ -745,13 +807,13 @@ namespace VtM_LoCh_fP
             // также возвращаются в свои исходные бюджеты в порядке LIFO.
             var ledgerItems = state.PurchaseLedger == null
                 ? new List<string>()
-                : state.PurchaseLedger.Where(t => string.Equals(t.Block, block, StringComparison.OrdinalIgnoreCase)).Select(t => t.ItemName).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                : state.PurchaseLedger.Where(t => !t.IsCancelled && string.Equals(t.Block, block, StringComparison.OrdinalIgnoreCase)).Select(t => t.ItemName).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             foreach (string name in selectedNames) if (!ledgerItems.Contains(name, StringComparer.OrdinalIgnoreCase)) ledgerItems.Add(name);
 
             foreach (string itemName in ledgerItems)
             {
                 var itemTransactions = state.PurchaseLedger == null ? new List<PurchaseTransaction>() :
-                    state.PurchaseLedger.Where(t => string.Equals(t.Block, block, StringComparison.OrdinalIgnoreCase) && string.Equals(t.ItemName, itemName, StringComparison.OrdinalIgnoreCase)).ToList();
+                    state.PurchaseLedger.Where(t => !t.IsCancelled && string.Equals(t.Block, block, StringComparison.OrdinalIgnoreCase) && string.Equals(t.ItemName, itemName, StringComparison.OrdinalIgnoreCase)).ToList();
                 int current = 0;
                 int baseline = itemTransactions.Count > 0 ? itemTransactions.Min(t => t.PreviousValue) :
                     ((purchases ?? new List<CreationPurchase>()).FirstOrDefault(p => string.Equals(p.ItemName, itemName, StringComparison.OrdinalIgnoreCase))?.PreviousValue ?? 0);
@@ -828,7 +890,8 @@ namespace VtM_LoCh_fP
                 state.InitialPurchases.RemoveAll(p => string.Equals(p.Block, block, StringComparison.OrdinalIgnoreCase) ||
                     (block == "Фоны" && p.Block == "Факты биографии") || (block == "Добродетели" && p.Block == "Сила воли"));
             if (state.PurchaseLedger != null)
-                state.PurchaseLedger.RemoveAll(t => string.Equals(t.Block, block, StringComparison.OrdinalIgnoreCase));
+                foreach (var transaction in state.PurchaseLedger.Where(t => !t.IsCancelled && string.Equals(t.Block, block, StringComparison.OrdinalIgnoreCase)))
+                    transaction.IsCancelled = true;
             if (block == "Добродетели") state.UnconfirmInitialBlock("virtues");
             if (block == "Дисциплины") state.UnconfirmInitialBlock("disciplines");
             if (block == "Фоны") state.UnconfirmInitialBlock("backgrounds");
@@ -922,6 +985,21 @@ namespace VtM_LoCh_fP
 
         private void MainWindow_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
+            if (e.Key == System.Windows.Input.Key.Z &&
+                (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) != 0 &&
+                (System.Windows.Input.Keyboard.Modifiers & (System.Windows.Input.ModifierKeys.Alt | System.Windows.Input.ModifierKeys.Shift)) == 0)
+            {
+                // Не перехватываем штатный Ctrl+Z внутри редактируемого текста.
+                var focused = System.Windows.Input.Keyboard.FocusedElement as DependencyObject;
+                bool textEditing = focused is System.Windows.Controls.Primitives.TextBoxBase ||
+                    focused is System.Windows.Controls.PasswordBox ||
+                    (focused != null && focused.GetType().Name == "TextArea");
+                if (!textEditing && UndoService.TryUndo(this))
+                {
+                    e.Handled = true;
+                    return;
+                }
+            }
             if ((System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Alt) == 0) return;
             int target = -1;
             var pressedKey = e.Key == System.Windows.Input.Key.System ? e.SystemKey : e.Key;

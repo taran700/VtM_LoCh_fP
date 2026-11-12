@@ -37,6 +37,8 @@ namespace VtM_LoCh_fP.Controls
             DependencyProperty.Register(nameof(Cascade), typeof(bool), typeof(TrackListControl),
                 new PropertyMetadata(true));
 
+        public static readonly DependencyProperty ShowNotesProperty = DependencyProperty.Register(nameof(ShowNotes), typeof(bool), typeof(TrackListControl), new PropertyMetadata(false));
+
         public static readonly DependencyProperty ForcedZeroNameProperty =
             DependencyProperty.Register(nameof(ForcedZeroName), typeof(string), typeof(TrackListControl),
                 new PropertyMetadata(null, OnForcedZeroNameChanged));
@@ -86,6 +88,8 @@ namespace VtM_LoCh_fP.Controls
             get => (bool)GetValue(CascadeProperty);
             set => SetValue(CascadeProperty, value);
         }
+
+        public bool ShowNotes { get => (bool)GetValue(ShowNotesProperty); set => SetValue(ShowNotesProperty, value); }
 
         public string ForcedZeroName
         {

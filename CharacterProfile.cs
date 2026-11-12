@@ -32,6 +32,8 @@ namespace VtM_LoCh_fP
         public string ChroniclePillars { get; set; }
         public string ChronicleTenets { get; set; }
         public string HuntingStyle { get; set; }
+        // Примечания к отдельным способностям (Для штрафов и т.д.); отсутствие свойства в старых JSON допустимо
+        public System.Collections.Generic.Dictionary<string, string> AbilityNotes { get; set; } = new System.Collections.Generic.Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);
         public int CurrentBlood { get; set; }
         public string NotesImportantNpcs { get; set; }
         public string NotesGeneralOne { get; set; }

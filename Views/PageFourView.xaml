@@ -55,10 +55,10 @@
                         <controls:FieldControl x:Name="ApparentAgeField" Grid.Row="1" Grid.Column="1" Label="Видимый возраст" ToolTip="На сколько лет выглядит персонаж. Обычно соответствует возрасту на момент обращения." Tag="ApparentAge" InputTextChanged="BiographyField_InputTextChanged"/>
                         <controls:FieldControl x:Name="HeightField" Grid.Row="2" Grid.Column="0" Label="Рост" ToolTip="Рост персонажа. Можно указать в сантиметрах или другой удобной системе." Tag="Height" InputTextChanged="BiographyField_InputTextChanged"/>
                         <controls:FieldControl x:Name="WeightField" Grid.Row="2" Grid.Column="1" Label="Вес" ToolTip="Вес персонажа. Можно указать в килограммах или другой удобной системе." Tag="Weight" InputTextChanged="BiographyField_InputTextChanged"/>
-                        <controls:FieldControl x:Name="AppearanceField" Label="Отличительные черты внешности" ToolTip="Особенности внешности, по которым персонажа можно узнать: шрамы, татуировки, цвет глаз, манера одеваться и другие детали." Multiline="True" FieldHeight="135" Tag="Appearance" InputTextChanged="BiographyField_InputTextChanged"  Grid.ColumnSpan="2" Margin="0,97,0,-201" Grid.Row="2"/>
+                        <controls:MarkdownFieldControl x:Name="AppearanceField" Label="Отличительные черты внешности" ToolTip="Особенности внешности, по которым персонажа можно узнать: шрамы, татуировки, цвет глаз, манера одеваться и другие детали." FieldHeight="135" Tag="Appearance" InputTextChanged="BiographyField_InputTextChanged"  Grid.ColumnSpan="2" Margin="0,97,0,-201" Grid.Row="2"/>
                     </Grid>
                     <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                        <controls:FieldControl x:Name="BackstoryField" Label="Предыстория" ToolTip="Краткая история жизни персонажа до игры: происхождение, важные события, отношения, причины обращения и цели." Multiline="True" FieldHeight="360" Tag="Backstory" InputTextChanged="BiographyField_InputTextChanged" Height="391" Loaded="BackstoryField_Loaded"/>
+                        <controls:MarkdownFieldControl x:Name="BackstoryField" Label="Предыстория" ToolTip="Краткая история жизни персонажа до игры: происхождение, важные события, отношения, причины обращения и цели." FieldHeight="360" Tag="Backstory" InputTextChanged="BiographyField_InputTextChanged"/>
                     </StackPanel>
                 </Grid>
             </GroupBox>

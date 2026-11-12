@@ -28,6 +28,7 @@ namespace VtM_LoCh_fP
             foreach (var saved in CharacterStorage.Load())
                 Characters.Add(saved);
             Title = "VtM V20 — Персонажи"; Width = 1120; Height = 560; MinWidth = 900; MinHeight = 420;
+            PreviewKeyDown += CharacterSelectionWindow_PreviewKeyDown;
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
             ThemeManager.AttachWindow(this);
             var root = new Grid { Margin = new Thickness(20) };
@@ -447,12 +448,28 @@ namespace VtM_LoCh_fP
             var character = button == null ? null : button.Tag as CharacterProfile;
             if (character == null) return;
             var answer = ThemedDialog.Show(this,
-                "Удалить персонажа «" + (character.Name ?? "Без имени") + "» и его сохранение? Это действие нельзя отменить.",
+                "Удалить персонажа «" + (character.Name ?? "Без имени") + "» и его сохранение?",
                 "Удаление персонажа", MessageBoxButton.YesNo, MessageBoxImage.Warning);
             if (answer != MessageBoxResult.Yes) return;
+            int restoreIndex = Characters.IndexOf(character);
             CharacterStorage.Delete(character);
             Characters.Remove(character);
+            UndoService.Store("персонажа «" + (character.Name ?? "Без имени") + "»", () =>
+            {
+                if (!Characters.Contains(character)) Characters.Insert(Math.Max(0, Math.Min(restoreIndex, Characters.Count)), character);
+                SaveCharacters();
+            });
             SaveCharacters();
+        }
+
+        private void CharacterSelectionWindow_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == System.Windows.Input.Key.Z &&
+                (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) != 0 &&
+                (System.Windows.Input.Keyboard.Modifiers & (System.Windows.Input.ModifierKeys.Alt | System.Windows.Input.ModifierKeys.Shift)) == 0)
+            {
+                if (UndoService.TryUndo(this)) e.Handled = true;
+            }
         }
 
         private void CloneCharacter_Click(object sender, RoutedEventArgs e)

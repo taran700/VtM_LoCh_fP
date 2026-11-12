@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -43,7 +43,6 @@ namespace VtM_LoCh_fP
                 // Маска выбирается один раз; амплуа всегда соответствует именно ей
                 character.Demeanor = Pick(pattern.DemeanorCandidates, random);
                 character.RoleName = GenerationPatternService.GetRoleForMask(character.Demeanor);
-                character.SireName = GenerationPatternService.ChooseRandomSireProfile(pattern, random).Name;
                 character.ClanWeakness = clan.WeaknessDescription;
                 character.OriginalClanWeakness = clan.WeaknessDescription;
                 var generation = GenerationService.Find(character.Generation.Value);
@@ -56,6 +55,7 @@ namespace VtM_LoCh_fP
                 }
 
                 var state = character.CreationState;
+                state.GenerationBatchId = Guid.NewGuid().ToString("N");
                 state.FreebiePoints = CharacterCreationRules.GetCreationLimit("freebies");
                 state.ExperiencePoints = 0;
                 state.BaseGeneration = character.Generation;
@@ -66,6 +66,7 @@ namespace VtM_LoCh_fP
                 ApplyFreebiePlan(character, random);
                 BuildPurchaseLedger(character);
                 GenerateBiography(character, random);
+                GenerationStageService.GenerateAll(character, pattern, random);
                 character.CurrentBlood = 0;
                 character.HealthDamageStates = new System.Collections.ObjectModel.ObservableCollection<int>(Enumerable.Repeat(0, 7));
 
@@ -85,7 +86,7 @@ namespace VtM_LoCh_fP
         private static ClanInfo ChooseClan(NameGenerationPattern pattern, Random random)
         {
             var all = ClanService.GetClans();
-            // До отдельного согласования вероятностей используем строгий первый приоритет.
+            // До отдельного согласования вероятностей используем строгий первый приоритет
             string preferred = pattern.ClanPriority[0];
             return all.First(x => string.Equals(x.Name, preferred, StringComparison.OrdinalIgnoreCase));
         }
@@ -231,111 +232,431 @@ namespace VtM_LoCh_fP
         private static void ApplyFreebiePlan(CharacterProfile character, Random random)
         {
             var state = character.CreationState;
-            int remaining = state.FreebiePoints;
+            state.FreebiePurchases = new List<CreationPurchase>();
+            state.FreebiePoints = CharacterCreationRules.GetCreationLimit("freebies");
 
-            // Первый шаг обязателен: одна из уже выбранных клановых дисциплин получает уровень.
-            var discipline = character.Disciplines.Where(x => x.Level < character.DisciplineMax).OrderBy(_ => random.Next()).FirstOrDefault();
-            if (discipline != null)
+            // Этап 1: достоинства/недостатки могут изменить исходный бюджет
+            ApplyMeritsAndFlaws(character, random);
+
+            // Этап 2: весь оставшийся бюджет распределяется за один проход
+            int remaining = Math.Max(0, state.FreebiePoints);
+            if (remaining >= 7)
             {
-                int cost = CharacterCreationRules.GetFreebieCost("discipline");
-                if (remaining >= cost)
+                ApplyMandatoryDiscipline(character, random, ref remaining);
+                ApplyFreebiePackage(character, random, ref remaining);
+            }
+
+            state.FreebiePoints = 0;
+            state.ConfirmedFreebieBlocks = state.FreebiePurchases.Select(x => x.Block)
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            state.FreebiePurchasesConfirmed = true;
+        }
+
+        private static void ApplyMeritsAndFlaws(CharacterProfile character, Random random)
+        {
+            if (random.Next(1, 101) <= 50) return;
+
+            int mode = random.Next(1, 101);
+            bool takeMerits = mode <= 50 || mode >= 76;
+            bool takeFlaws = mode <= 50 || (mode >= 51 && mode <= 75);
+            var definitions = MeritFlawService.GetAll();
+            foreach (var definition in definitions) { definition.SelectedCost = 0; definition.DependencyGroupId = null; }
+            var selected = new List<MeritFlawDefinition>();
+            int meritTotal = 0, flawTotal = 0;
+
+            if (takeMerits)
+                meritTotal = SelectMeritFlawSet(definitions.Where(x => Eq(x.Type, "merit")).ToList(), "merit", selected, random);
+            if (takeFlaws)
+                flawTotal = SelectMeritFlawSet(definitions.Where(x => Eq(x.Type, "flaw")).ToList(), "flaw", selected, random);
+
+            foreach (var item in selected)
+            {
+                character.MeritsFlaws.Add(new CharacterMeritFlaw
                 {
-                    int previous = discipline.Level++;
-                    remaining -= cost;
-                    AddFreebiePurchase(state, "Дисциплины", discipline.DisciplineId, discipline.Name, previous, discipline.Level, cost);
+                    Id = item.Id, Name = item.Name, Type = item.Type, Cost = item.SelectedCost,
+                    Description = item.Description, FreebieCharged = true
+                });
+                AddMeritFlawPurchase(character.CreationState, item);
+            }
+
+            character.CreationState.FreebiePoints = CharacterCreationRules.GetCreationLimit("freebies") - meritTotal + flawTotal;
+        }
+
+        private static int SelectMeritFlawSet(List<MeritFlawDefinition> pool, string type, List<MeritFlawDefinition> selected, Random random)
+        {
+            if (pool.Count == 0) return 0;
+            int total = random.Next(1, 5);
+            var parts = SplitIntoParts(total, random);
+            int spent = 0;
+            for (int i = 0; i < parts.Count; i++)
+            {
+                int price = parts[i];
+                if (price <= 0) continue;
+                var available = pool.Where(x => x.Costs.Contains(price) && !Conflicts(x, selected)).ToList();
+                if (available.Count == 0)
+                {
+                    // По правилам исчерпанное слагаемое присоединяется к следующему
+                    if (i + 1 < parts.Count) { parts[i + 1] += price; continue; }
+                    continue;
+                }
+
+                var chosen = available[random.Next(available.Count)];
+                var requirements = chosen.Requires ?? new List<string>();
+                MeritFlawDefinition dependency = null;
+                int dependencyPart = -1;
+                if (requirements.Count > 0)
+                {
+                    foreach (string requiredId in requirements)
+                    {
+                        dependency = pool.FirstOrDefault(x => Eq(x.Id, requiredId) && !selected.Any(s => Eq(s.Id, requiredId)));
+                        if (dependency == null) continue;
+                        dependencyPart = -1;
+                        for (int partIndex = 0; partIndex < parts.Count; partIndex++)
+                            if (partIndex > i && dependency.Costs.Contains(parts[partIndex])) { dependencyPart = partIndex; break; }
+                        if (dependencyPart >= 0 && !Conflicts(dependency, selected) && !Conflicts(chosen, selected.Concat(new[] { dependency }).ToList())) break;
+                        dependency = null;
+                        dependencyPart = -1;
+                    }
+                    if (dependency == null)
+                    {
+                        // Зависимый элемент не подходит: перебираем только тот же ценовой пул
+                        available = available.Where(x => (x.Requires == null || x.Requires.Count == 0) && !Conflicts(x, selected)).ToList();
+                        if (available.Count == 0) { if (i + 1 < parts.Count) parts[i + 1] += price; continue; }
+                        chosen = available[random.Next(available.Count)];
+                    }
+                }
+
+                if (dependency != null && dependencyPart >= 0)
+                {
+                    dependency.SelectedCost = parts[dependencyPart];
+                    dependency.DependencyGroupId = Guid.NewGuid().ToString("N");
+                    chosen.SelectedCost = price;
+                    chosen.DependencyGroupId = dependency.DependencyGroupId;
+                    selected.Add(dependency);
+                    spent += dependency.SelectedCost;
+                    parts[dependencyPart] = 0;
+                }
+                chosen.SelectedCost = price;
+                selected.Add(chosen);
+                spent += price;
+            }
+            return spent;
+        }
+
+        private static bool Conflicts(MeritFlawDefinition candidate, IEnumerable<MeritFlawDefinition> selected)
+        {
+            foreach (var existing in selected)
+            {
+                if (Eq(candidate.Id, existing.Id)) return true;
+                if ((candidate.IncompatibleWith ?? new List<string>()).Any(x => Eq(x, existing.Id))) return true;
+                if ((existing.IncompatibleWith ?? new List<string>()).Any(x => Eq(x, candidate.Id))) return true;
+            }
+            return false;
+        }
+
+        private static List<int> SplitIntoParts(int total, Random random)
+        {
+            if (total <= 1) return new List<int> { total };
+            int maxParts = Math.Min(total, 3);
+            int count = random.Next(2, maxParts + 1);
+            var cuts = Enumerable.Range(1, total - 1).OrderBy(_ => random.Next()).Take(count - 1).OrderBy(x => x).ToList();
+            cuts.Insert(0, 0); cuts.Add(total);
+            var result = new List<int>();
+            for (int i = 1; i < cuts.Count; i++) result.Add(cuts[i] - cuts[i - 1]);
+            return result;
+        }
+
+        private static void AddMeritFlawPurchase(CharacterCreationState state, MeritFlawDefinition item)
+        {
+            if (state.FreebiePurchases == null) state.FreebiePurchases = new List<CreationPurchase>();
+            int signedCost = Eq(item.Type, "flaw") ? -item.SelectedCost : item.SelectedCost;
+            state.FreebiePurchases.Add(new CreationPurchase
+            {
+                Block = "Достоинства и недостатки", ItemId = item.Id, ItemName = item.Name,
+                PreviousValue = 0, NewValue = 1, Cost = signedCost, Source = "freebie",
+                DependencyGroupId = item.DependencyGroupId
+            });
+        }
+
+        private static void ApplyMandatoryDiscipline(CharacterProfile character, Random random, ref int remaining)
+        {
+            bool poor = remaining < 15;
+            int roll = random.Next(1, 101);
+            bool chooseNew = roll > (poor ? 90 : 80);
+            var existingDisciplines = character.Disciplines.ToList();
+            CharacterDiscipline selectedExisting = null;
+            if (!chooseNew && existingDisciplines.Count > 0)
+            {
+                selectedExisting = existingDisciplines[random.Next(existingDisciplines.Count)];
+                if (selectedExisting.Level >= character.DisciplineMax) chooseNew = true;
+            }
+            if (existingDisciplines.Count == 0) chooseNew = true;
+
+            if (chooseNew)
+            {
+                var existingIds = new HashSet<string>(character.Disciplines.Select(x => x.DisciplineId), StringComparer.OrdinalIgnoreCase);
+                var available = DisciplineService.GetAll().Where(x => !existingIds.Contains(x.Id) &&
+                    x.Name.IndexOf("Некромант", StringComparison.OrdinalIgnoreCase) < 0 &&
+                    x.Name.IndexOf("Тауматург", StringComparison.OrdinalIgnoreCase) < 0 &&
+                    x.Id.IndexOf("necrom", StringComparison.OrdinalIgnoreCase) < 0 &&
+                    x.Id.IndexOf("thaum", StringComparison.OrdinalIgnoreCase) < 0).ToList();
+                if (available.Count > 0)
+                {
+                    var definition = available[random.Next(available.Count)];
+                    character.Disciplines.Add(new CharacterDiscipline
+                    {
+                        DisciplineId = definition.Id, Name = definition.Name, Level = 1,
+                        LevelCount = definition.Powers == null ? 5 : Math.Max(5, definition.Powers.Count),
+                        IsCustom = definition.IsCustom, Justification = "Случайная генерация: новая Дисциплина"
+                    });
+                    AddFreebiePurchase(character.CreationState, "Дисциплины", definition.Id, definition.Name, 0, 1, 7);
+                }
+                else
+                {
+                    chooseNew = false;
+                    var fallbackExisting = existingDisciplines.Where(x => x.Level < character.DisciplineMax).ToList();
+                    selectedExisting = fallbackExisting.Count > 0 ? fallbackExisting[random.Next(fallbackExisting.Count)] : null;
                 }
             }
 
-            // Второй этап — отдельный бросок: 25% атрибут, 25% три способности, 50% предыстории + новая способность
-            int branch = random.Next(100);
-            if (branch < 25)
-                TryImproveAttribute(character, random, ref remaining);
-            else if (branch < 50)
-                TryImproveThreeAbilities(character, random, ref remaining);
-            else
-                TryImproveBackgroundsAndNewAbility(character, random, ref remaining);
-
-            // Остаток тратится на Человечность и Силу воли только если хватает на обе точки
-            int humanityCost = CharacterCreationRules.GetFreebieCost("humanity_path");
-            int willpowerCost = CharacterCreationRules.GetFreebieCost("willpower");
-            int willpower = state.OtherDots.ContainsKey("willpower_permanent") ? state.OtherDots["willpower_permanent"] : 1;
-            if (remaining >= humanityCost + willpowerCost && character.HumanityPathRating < 10 && willpower < character.TraitMax)
+            if (!chooseNew && selectedExisting != null && selectedExisting.Level < character.DisciplineMax)
             {
-                int oldHumanity = character.HumanityPathRating;
-                character.HumanityPathRating++;
-                AddFreebiePurchase(state, "Человечность", "humanity", "Человечность", oldHumanity, character.HumanityPathRating, humanityCost);
-                int oldWillpower = willpower;
-                state.OtherDots["willpower_permanent"] = ++willpower;
-                AddFreebiePurchase(state, "Сила воли", "willpower", "Сила воли", oldWillpower, willpower, willpowerCost);
-                remaining -= humanityCost + willpowerCost;
+                var target = selectedExisting;
+                int old = target.Level++;
+                AddFreebiePurchase(character.CreationState, "Дисциплины", target.DisciplineId, target.Name, old, target.Level, 7);
             }
-            state.FreebiePoints = remaining;
-            state.ConfirmedFreebieBlocks = state.FreebiePurchases.Select(x => x.Block)
-                .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-            state.FreebiePurchasesConfirmed = state.FreebiePurchases.Count > 0;
+            remaining -= 7;
         }
 
-        private static void TryImproveAttribute(CharacterProfile character, Random random, ref int remaining)
+        private static void ApplyFreebiePackage(CharacterProfile character, Random random, ref int remaining)
         {
-            int cost = CharacterCreationRules.GetFreebieCost("attribute");
-            if (remaining < cost) return;
-            var candidates = character.CreationState.AttributeDots.Where(x => x.Value < character.TraitMax).ToList();
-            if (candidates.Count == 0) return;
-            var selected = candidates[random.Next(candidates.Count)];
-            int previous = selected.Value;
-            character.CreationState.AttributeDots[selected.Key] = previous + 1;
-            remaining -= cost;
-            AddFreebiePurchase(character.CreationState, "Характеристики", selected.Key, selected.Key, previous, previous + 1, cost);
+            string mode = remaining == 8 ? "normal" : remaining > 8 ? "rich" : "poor";
+            for (int attempt = 0; attempt < 100; attempt++)
+            {
+                int roll = random.Next(1, 101);
+                string package;
+                if (mode == "normal")
+                    package = roll <= 5 ? "discipline" : roll <= 20 ? "strong_attribute_ability" : roll <= 50 ? "two_abilities_facts" : roll <= 70 ? "attribute_three_facts" : "four_facts_ability";
+                else if (mode == "rich")
+                    package = roll <= 25 ? "discipline_two_facts" : roll <= 35 ? "strong_attribute_two_abilities" : roll <= 45 ? "three_abilities_facts" : roll <= 80 ? "attribute_three_facts" : "facts_strong_new_virtue";
+                else
+                    package = roll <= 5 ? "two_abilities" : roll <= 30 ? "strong_ability_weak_virtue" : roll <= 45 ? "three_facts" : roll <= 80 ? "new_ability_two_facts" : "two_strong_abilities";
+
+                int cost = PackageCost(package);
+                if (cost > remaining) continue;
+                if (!ApplyPackage(character, package, random)) continue;
+                remaining -= cost;
+                if (mode == "poor" && package == "two_abilities" && remaining > 0)
+                {
+                    AddRandomFacts(character, remaining, random);
+                    remaining = 0;
+                }
+                break;
+            }
+
+            if (remaining > 0) ApplyRemainder(character, random, ref remaining);
         }
 
-        private static void TryImproveThreeAbilities(CharacterProfile character, Random random, ref int remaining)
+        private static int PackageCost(string package)
         {
-            int costPerAbility = CharacterCreationRules.GetFreebieCost("ability");
-            int totalCost = costPerAbility * 3;
-            if (remaining < totalCost) return;
-            var candidates = character.CreationState.AbilityDots.Where(x => x.Value > 0 && x.Value < character.TraitMax)
-                .OrderBy(_ => random.Next()).Take(3).ToList();
-            if (candidates.Count < 3) return;
-            foreach (var selected in candidates)
+            switch (package)
             {
-                int previous = selected.Value;
-                character.CreationState.AbilityDots[selected.Key] = previous + 1;
-                AddFreebiePurchase(character.CreationState, "Способности", selected.Key, selected.Key, previous, previous + 1, costPerAbility);
+                case "discipline": case "discipline_two_facts": return 7 + (package == "discipline_two_facts" ? 2 : 0);
+                case "strong_attribute_ability": return 7;
+                case "two_abilities_facts": return 6;
+                case "attribute_three_facts": return 8;
+                case "four_facts_ability": return 6;
+                case "strong_attribute_two_abilities": case "three_abilities_facts": return 9;
+                case "facts_strong_new_virtue": return 8;
+                case "two_abilities": case "strong_ability_weak_virtue": case "new_ability_two_facts": case "two_strong_abilities": return 4;
+                case "three_facts": return 3;
+                default: return int.MaxValue;
             }
-            remaining -= totalCost;
         }
 
-        private static void TryImproveBackgroundsAndNewAbility(CharacterProfile character, Random random, ref int remaining)
+        private static bool ApplyPackage(CharacterProfile character, string package, Random random)
         {
-            int backgroundCost = CharacterCreationRules.GetFreebieCost("background");
-            int abilityCost = CharacterCreationRules.GetFreebieCost("ability");
-            int totalCost = backgroundCost * 3 + abilityCost;
-            if (remaining < totalCost) return;
-            var backgrounds = character.BiographyFacts.Where(x => x.Level < 5).OrderBy(_ => random.Next()).Take(3).ToList();
-            var newAbility = character.CreationState.AbilityDots.Where(x => x.Value == 0).OrderBy(_ => random.Next()).FirstOrDefault();
-            if (backgrounds.Count < 3 || string.IsNullOrWhiteSpace(newAbility.Key)) return;
-            foreach (var background in backgrounds)
+            // Проверяем вместимость до изменения листа: пакет либо применяется целиком, либо перебрасывается по таблице текущего режима
+            switch (package)
             {
-                int previous = background.Level++;
-                character.CreationState.OtherDots["background:" + background.Name] = background.Level;
-                AddFreebiePurchase(character.CreationState, "Факты биографии", background.Name, background.Name, previous, background.Level, backgroundCost);
+                case "strong_attribute_ability":
+                    if (!CanImproveTrait(character, true, 1) || !CanImproveTrait(character, false, 1)) return false;
+                    break;
+                case "two_abilities_facts":
+                case "two_abilities":
+                case "two_strong_abilities":
+                    if (!CanImproveTrait(character, false, 2)) return false;
+                    break;
+                case "four_facts_ability":
+                    if (!CanImproveTrait(character, false, 1)) return false;
+                    break;
+                case "strong_attribute_two_abilities":
+                    if (!CanImproveTrait(character, true, 1) || !CanImproveTrait(character, false, 2)) return false;
+                    break;
+                case "three_abilities_facts":
+                    if (!CanImproveTrait(character, false, 3)) return false;
+                    break;
+                case "strong_ability_weak_virtue":
+                    if (!CanImproveTrait(character, false, 1) || !CanImproveVirtue(character, true)) return false;
+                    break;
+                case "new_ability_two_facts":
+                    if (!CanImproveNewAbility(character)) return false;
+                    break;
+                case "facts_strong_new_virtue":
+                    if (!CanImproveTrait(character, false, 1) || !CanImproveNewAbility(character) || !CanImproveVirtue(character, false)) return false;
+                    break;
             }
-            character.CreationState.AbilityDots[newAbility.Key] = 1;
-            AddFreebiePurchase(character.CreationState, "Способности", newAbility.Key, newAbility.Key, 0, 1, abilityCost);
-            remaining -= totalCost;
+            switch (package)
+            {
+                case "discipline": return AddDisciplineDot(character, random);
+                case "discipline_two_facts": return AddDisciplineDot(character, random) && AddRandomFacts(character, 2, random);
+                case "strong_attribute_ability": return ImproveTrait(character, true, true, random) && ImproveTrait(character, false, true, random);
+                case "two_abilities_facts": return ImproveTrait(character, false, false, random) && ImproveTrait(character, false, false, random) && AddRandomFacts(character, 2, random);
+                case "attribute_three_facts": return ImproveTrait(character, true, false, random) && AddRandomFacts(character, 3, random);
+                case "four_facts_ability": return AddRandomFacts(character, 4, random) && ImproveTrait(character, false, true, random);
+                case "strong_attribute_two_abilities": return ImproveTrait(character, true, true, random) && ImproveTrait(character, false, true, random) && ImproveTrait(character, false, true, random);
+                case "three_abilities_facts": return ImproveTrait(character, false, false, random) && ImproveTrait(character, false, false, random) && ImproveTrait(character, false, false, random) && AddRandomFacts(character, 3, random);
+                case "facts_strong_new_virtue": return AddRandomFacts(character, 2, random) && ImproveTrait(character, false, true, random) && ImproveNewAbility(character, random) && ImproveVirtue(character, false, random);
+                case "two_abilities": return ImproveTrait(character, false, false, random) && ImproveTrait(character, false, false, random);
+                case "strong_ability_weak_virtue": return ImproveTrait(character, false, true, random) && ImproveVirtue(character, true, random);
+                case "three_facts": return AddRandomFacts(character, 3, random);
+                case "new_ability_two_facts": return ImproveNewAbility(character, random) && AddRandomFacts(character, 2, random);
+                case "two_strong_abilities": return ImproveTrait(character, false, true, random) && ImproveTrait(character, false, true, random);
+                default: return false;
+            }
+        }
+
+        private static bool AddDisciplineDot(CharacterProfile character, Random random)
+        {
+            var existing = character.Disciplines.Where(x => x.Level < character.DisciplineMax).ToList();
+            if (existing.Count > 0)
+            {
+                var target = existing[random.Next(existing.Count)]; int old = target.Level++;
+                AddFreebiePurchase(character.CreationState, "Дисциплины", target.DisciplineId, target.Name, old, target.Level, 7);
+                return true;
+            }
+            return false;
+        }
+
+        private static bool CanImproveTrait(CharacterProfile character, bool attribute, int dots)
+        {
+            var values = attribute ? character.CreationState.AttributeDots : character.CreationState.AbilityDots;
+            return values.Sum(x => Math.Max(0, character.TraitMax - x.Value)) >= dots;
+        }
+
+        private static bool CanImproveNewAbility(CharacterProfile character)
+        {
+            return character.CreationState.AbilityDots.Any(x => x.Value == 0);
+        }
+
+        private static bool CanImproveVirtue(CharacterProfile character, bool weakest)
+        {
+            string[] names = { "Совесть", "Самоконтроль", "Смелость" };
+            return names.Any(n => (character.CreationState.OtherDots.ContainsKey("virtue:" + n) ? character.CreationState.OtherDots["virtue:" + n] : 1) < 5);
+        }
+
+        private static bool ImproveTrait(CharacterProfile character, bool attribute, bool strongest, Random random)
+        {
+            var values = attribute ? character.CreationState.AttributeDots : character.CreationState.AbilityDots;
+            var candidates = values.Where(x => x.Value < character.TraitMax).ToList();
+            if (strongest && candidates.Count > 0)
+            {
+                int max = candidates.Max(x => x.Value);
+                candidates = candidates.Where(x => x.Value == max).ToList();
+            }
+            if (candidates.Count == 0) return false;
+            var selected = candidates[random.Next(candidates.Count)]; int old = selected.Value;
+            values[selected.Key] = old + 1;
+            AddFreebiePurchase(character.CreationState, attribute ? "Характеристики" : "Способности", selected.Key, selected.Key, old, old + 1,
+                CharacterCreationRules.GetFreebieCost(attribute ? "attribute" : "ability"));
+            return true;
+        }
+
+        private static bool ImproveNewAbility(CharacterProfile character, Random random)
+        {
+            var candidates = character.CreationState.AbilityDots.Where(x => x.Value == 0).ToList();
+            if (candidates.Count == 0) return false;
+            var selected = candidates[random.Next(candidates.Count)]; character.CreationState.AbilityDots[selected.Key] = 1;
+            AddFreebiePurchase(character.CreationState, "Способности", selected.Key, selected.Key, 0, 1, 2);
+            return true;
+        }
+
+        private static bool ImproveVirtue(CharacterProfile character, bool weakest, Random random)
+        {
+            var state = character.CreationState;
+            var names = new[] { "Совесть", "Самоконтроль", "Смелость" };
+            var candidates = names.Select(n => new { Name = n, Value = state.OtherDots.ContainsKey("virtue:" + n) ? state.OtherDots["virtue:" + n] : 1 })
+                .Where(x => x.Value < 5).ToList();
+            if (weakest && candidates.Count > 0)
+            {
+                int min = candidates.Min(x => x.Value); candidates = candidates.Where(x => x.Value == min).ToList();
+            }
+            if (candidates.Count == 0) return false;
+            var chosen = candidates[random.Next(candidates.Count)];
+            state.OtherDots["virtue:" + chosen.Name] = chosen.Value + 1;
+            AddFreebiePurchase(state, "Добродетели", chosen.Name, chosen.Name, chosen.Value, chosen.Value + 1, 2);
+            return true;
+        }
+
+        private static bool AddRandomFacts(CharacterProfile character, int count, Random random)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                var candidates = character.BiographyFacts.Where(x => x.Level < 5).ToList();
+                if (candidates.Count == 0)
+                {
+                    int willpower = character.CreationState.OtherDots.ContainsKey("willpower_permanent") ? character.CreationState.OtherDots["willpower_permanent"] : 1;
+                    if (willpower < 10)
+                    {
+                        character.CreationState.OtherDots["willpower_permanent"] = willpower + 1;
+                        AddFreebiePurchase(character.CreationState, "Сила воли", "willpower", "Сила воли", willpower, willpower + 1, 1);
+                    }
+                    continue;
+                }
+                var fact = candidates[random.Next(candidates.Count)]; int old = fact.Level++;
+                character.CreationState.OtherDots["background:" + fact.Name] = fact.Level;
+                AddFreebiePurchase(character.CreationState, "Факты биографии", fact.Name, fact.Name, old, fact.Level, 1);
+            }
+            return true;
+        }
+
+        private static void ApplyRemainder(CharacterProfile character, Random random, ref int remaining)
+        {
+            var state = character.CreationState;
+            while (remaining > 0)
+            {
+                int willpower = state.OtherDots.ContainsKey("willpower_permanent") ? state.OtherDots["willpower_permanent"] : 1;
+                if (willpower < 5 || character.HumanityPathRating >= 10 || remaining == 1)
+                {
+                    if (willpower >= 10) break;
+                    state.OtherDots["willpower_permanent"] = willpower + 1;
+                    AddFreebiePurchase(state, "Сила воли", "willpower", "Сила воли", willpower, willpower + 1, 1);
+                    remaining--;
+                }
+                else if (willpower >= 5 && remaining >= 2 && character.HumanityPathRating < 10)
+                {
+                    int old = character.HumanityPathRating++;
+                    AddFreebiePurchase(state, "Человечность", "humanity", "Человечность", old, old + 1, 2);
+                    remaining -= 2;
+                }
+                else break;
+            }
+            if (remaining > 0 && state.OtherDots.ContainsKey("willpower_permanent") && state.OtherDots["willpower_permanent"] >= 10 && character.HumanityPathRating >= 10)
+            {
+                AddRandomFacts(character, remaining, random);
+                remaining = 0;
+            }
+            // Если больше нечего повысить, оставшиеся СП сгорают согласно инструкции
+            remaining = 0;
         }
 
         private static void AddFreebiePurchase(CharacterCreationState state, string block, string id, string name, int previous, int next, int cost)
         {
+            if (state.FreebiePurchases == null) state.FreebiePurchases = new List<CreationPurchase>();
             state.FreebiePurchases.Add(new CreationPurchase
             {
-                Block = block,
-                ItemId = id,
-                ItemName = name,
-                PreviousValue = previous,
-                NewValue = next,
-                Cost = cost,
-                Source = "freebie"
+                Block = block, ItemId = id, ItemName = name, PreviousValue = previous,
+                NewValue = next, Cost = cost, Source = "freebie"
             });
         }
 
@@ -345,14 +666,16 @@ namespace VtM_LoCh_fP
             state.PurchaseLedger.Clear();
             state.NextPurchaseOrder = 1;
 
-            void AddLevels(string block, string category, string itemId, string itemName, int from, int to, string resource, int cost, bool virtue = false)
+            void AddLevels(string block, string category, string itemId, string itemName, int from, int to, string resource, int cost, bool virtue = false, string dependencyGroupId = null)
             {
                 for (int level = from; level < to; level++)
                     state.PurchaseLedger.Add(new PurchaseTransaction
                     {
+                        GenerationBatchId = state.GenerationBatchId,
                         Order = state.NextPurchaseOrder++, Block = block, Category = category,
                         ItemId = itemId, ItemName = itemName, PreviousValue = level, NewValue = level + 1,
-                        Resource = resource, Cost = cost, AffectsVirtueDerivedValues = virtue
+                        Resource = resource, Cost = cost, AffectsVirtueDerivedValues = virtue,
+                        DependencyGroupId = dependencyGroupId, Source = resource == "freebie" ? "Generation" : "Initial"
                     });
             }
 
@@ -364,30 +687,39 @@ namespace VtM_LoCh_fP
 
             foreach (var purchase in state.InitialPurchases ?? new List<CreationPurchase>())
             {
-                string category = purchase.Block == "Добродетели" ? "virtue" :
-                    purchase.Block == "Дисциплины" ? "discipline" :
-                    purchase.Block == "Факты биографии" ? "background" : null;
+                string category = purchase.Block == "Добродетели" ? "virtue" : purchase.Block == "Дисциплины" ? "discipline" : purchase.Block == "Факты биографии" ? "background" : null;
                 if (category == null) continue;
                 int baseValue = category == "virtue" ? CharacterCreationRules.GetCreationLimit("virtue_base") : 0;
                 string block = category == "background" ? "Фоны" : purchase.Block;
-                AddLevels(block, category, purchase.ItemId ?? purchase.ItemName, purchase.ItemName,
-                    Math.Max(baseValue, purchase.PreviousValue), purchase.NewValue, "initial_pool", 0, category == "virtue");
+                AddLevels(block, category, purchase.ItemId ?? purchase.ItemName, purchase.ItemName, Math.Max(baseValue, purchase.PreviousValue), purchase.NewValue, "initial_pool", 0, category == "virtue");
             }
 
             foreach (var purchase in state.FreebiePurchases ?? new List<CreationPurchase>())
             {
-                string category = purchase.Block == "Характеристики" ? "attribute" :
-                    purchase.Block == "Способности" ? "ability" :
-                    purchase.Block == "Дисциплины" ? "discipline" :
-                    purchase.Block == "Факты биографии" ? "background" :
-                    purchase.Block == "Человечность" ? "humanity" :
-                    purchase.Block == "Сила воли" ? "willpower" : null;
-                int span = purchase.NewValue - purchase.PreviousValue;
-                if (category == null || span <= 0) continue;
-                int unitCost = span == 0 ? 0 : purchase.Cost / span;
+                string category = purchase.Block == "Характеристики" ? "attribute" : purchase.Block == "Способности" ? "ability" :
+                    purchase.Block == "Дисциплины" ? "discipline" : purchase.Block == "Факты биографии" ? "background" :
+                    purchase.Block == "Добродетели" ? "virtue" : purchase.Block == "Человечность" ? "humanity" :
+                    purchase.Block == "Сила воли" ? "willpower" : purchase.Block == "Достоинства и недостатки" ?
+                    (character.MeritsFlaws.FirstOrDefault(x => Eq(x.Id, purchase.ItemId))?.Type ?? "merit") : null;
+                if (category == null) continue;
                 string block = category == "background" ? "Фоны" : purchase.Block;
+                if (category == "merit" || category == "flaw")
+                {
+                    state.PurchaseLedger.Add(new PurchaseTransaction
+                    {
+                        GenerationBatchId = state.GenerationBatchId,
+                        Order = state.NextPurchaseOrder++, Block = "Достоинства и недостатки", Category = category,
+                        ItemId = purchase.ItemId, ItemName = purchase.ItemName, PreviousValue = 0, NewValue = 1,
+                        Resource = "freebie", Cost = purchase.Cost, DependencyGroupId = purchase.DependencyGroupId,
+                        Source = "Generation"
+                    });
+                    continue;
+                }
+                int span = purchase.NewValue - purchase.PreviousValue;
+                if (span <= 0) continue;
+                int unitCost = purchase.Cost / span;
                 AddLevels(block, category, purchase.ItemId ?? purchase.ItemName, purchase.ItemName,
-                    purchase.PreviousValue, purchase.NewValue, "freebie", unitCost, category == "virtue");
+                    purchase.PreviousValue, purchase.NewValue, "freebie", unitCost, false, purchase.DependencyGroupId);
             }
         }
 

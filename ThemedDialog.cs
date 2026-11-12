@@ -39,6 +39,15 @@ namespace VtM_LoCh_fP
                 ShowActivated = true
             };
             window.SetResourceReference(Window.ForegroundProperty, "TextBrush");
+            MessageBoxResult result = MessageBoxResult.None;
+            window.PreviewKeyDown += (sender, args) =>
+            {
+                if (args.Key != Key.Escape) return;
+                result = buttons == MessageBoxButton.YesNo ? MessageBoxResult.No :
+                    (buttons == MessageBoxButton.OK ? MessageBoxResult.OK : MessageBoxResult.Cancel);
+                window.DialogResult = true;
+                args.Handled = true;
+            };
 
             var outer = new Border { CornerRadius = new CornerRadius(8), BorderThickness = new Thickness(1), SnapsToDevicePixels = true };
             outer.SetResourceReference(Border.BackgroundProperty, "CardBgBrush");
@@ -72,7 +81,7 @@ namespace VtM_LoCh_fP
             if (image == MessageBoxImage.Error)
                 icon.Foreground = new SolidColorBrush(Color.FromRgb(220, 70, 70));
             else if (image == MessageBoxImage.Warning)
-                icon.Foreground = new SolidColorBrush(Color.FromRgb(220, 160, 55));
+                icon.Foreground = new SolidColorBrush(Color.FromRgb(220, 70, 70));
             else
                 icon.SetResourceReference(TextBlock.ForegroundProperty, "AccentBrush");
             body.Children.Add(icon);
@@ -89,17 +98,14 @@ namespace VtM_LoCh_fP
             outer.Child = shell;
             window.Content = outer;
 
-            MessageBoxResult result = MessageBoxResult.None;
             Action<string, MessageBoxResult, bool> addButton = (caption, value, primary) =>
             {
                 var button = new Button { Content = caption, MinWidth = 92, MinHeight = 36, Margin = new Thickness(9, 0, 0, 0), Padding = new Thickness(14, 6, 14, 6), IsDefault = primary, Cursor = Cursors.Hand };
                 if (primary)
                 {
-                    Color primaryColor = image == MessageBoxImage.Error
+                    Color primaryColor = image == MessageBoxImage.Error || image == MessageBoxImage.Warning
                         ? Color.FromRgb(185, 28, 28)
-                        : image == MessageBoxImage.Warning
-                            ? Color.FromRgb(166, 112, 25)
-                            : Color.FromRgb(92, 72, 125);
+                        : Color.FromRgb(92, 72, 125);
                     button.Background = new SolidColorBrush(primaryColor);
                     button.Foreground = Brushes.White;
                     button.BorderBrush = new SolidColorBrush(primaryColor);

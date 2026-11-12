@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
@@ -112,6 +112,7 @@ namespace VtM_LoCh_fP
                 return;
             }
             int previous = item.CurrentValue;
+            string stateSnapshot = UndoService.CaptureCreationState(_character);
             item.Apply(next);
             _character.CreationState.ExperiencePoints -= cost;
             if (_character.CreationState.ExperiencePurchases == null)
@@ -121,6 +122,15 @@ namespace VtM_LoCh_fP
                 Category = item.CostKey, ItemName = item.Name, PreviousValue = previous, NewValue = next, Cost = cost, Source = "experience"
             });
             AddLedger(item, previous, next, "experience", cost);
+            UndoService.Store("прокачку «" + item.Name + "»", () =>
+            {
+                UndoService.RestoreCreationState(_character, stateSnapshot);
+                item.Apply(previous);
+                item.CurrentValue = previous;
+                _options.Items.Refresh();
+                UpdateInfo();
+                CharacterSelectionWindow.SaveCharacters();
+            });
             item.CurrentValue = next;
             _options.Items.Refresh();
             UpdateInfo();
@@ -140,7 +150,7 @@ namespace VtM_LoCh_fP
             {
                 Order = state.NextPurchaseOrder++, Block = block, Category = item.CostKey,
                 ItemId = item.Name, ItemName = item.Name, PreviousValue = previous, NewValue = next,
-                Resource = resource, Cost = cost, AffectsVirtueDerivedValues = item.CostKey == "virtue"
+                Resource = resource, Cost = cost, AffectsVirtueDerivedValues = item.CostKey == "virtue", Source = "Player"
             });
         }
 
@@ -302,6 +312,7 @@ namespace VtM_LoCh_fP
             }
             bool charge = AppSettings.FreebiePurchasesEnabled;
             int previous = item.CurrentValue;
+            string stateSnapshot = UndoService.CaptureCreationState(_character);
             item.Apply(previous + 1);
             if (charge)
             {
@@ -320,6 +331,15 @@ namespace VtM_LoCh_fP
                 });
                 AddLedger(item, previous, previous + 1, "freebie", cost);
             }
+            UndoService.Store("прокачку «" + item.Name + "»", () =>
+            {
+                UndoService.RestoreCreationState(_character, stateSnapshot);
+                item.Apply(previous);
+                item.CurrentValue = previous;
+                _options.Items.Refresh();
+                UpdateInfo();
+                CharacterSelectionWindow.SaveCharacters();
+            });
             item.CurrentValue = previous + 1;
             _options.Items.Refresh();
             UpdateInfo();
@@ -338,7 +358,7 @@ namespace VtM_LoCh_fP
             {
                 Order = state.NextPurchaseOrder++, Block = block, Category = item.CostKey,
                 ItemId = item.Name, ItemName = item.Name, PreviousValue = previous, NewValue = next,
-                Resource = resource, Cost = cost, AffectsVirtueDerivedValues = item.CostKey == "virtue"
+                Resource = resource, Cost = cost, AffectsVirtueDerivedValues = item.CostKey == "virtue", Source = "Player"
             });
         }
 

@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using System.Linq;
+using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -171,22 +172,46 @@ namespace VtM_LoCh_fP.Views
         {
             var window = new MeritFlawDescriptionWindow(Window.GetWindow(this), entry, () =>
             {
-                _character.MeritsFlaws.Remove(entry);
-                // Возвращаем общий баланс по той же записи, которая была создана при покупке
-                var purchase = _character.CreationState.FreebiePurchases.FirstOrDefault(x =>
-                    x.Block == "Достоинства и недостатки" && string.Equals(x.ItemId, entry.Id, StringComparison.OrdinalIgnoreCase));
-                if (purchase != null)
+                string creationStateSnapshot = UndoService.CaptureCreationState(_character);
+                var state = _character.CreationState;
+                var rootTransaction = state.PurchaseLedger == null ? null : state.PurchaseLedger.FirstOrDefault(t =>
+                    !t.IsCancelled && string.Equals(t.ItemId, entry.Id, StringComparison.OrdinalIgnoreCase) &&
+                    (t.Category == "merit" || t.Category == "flaw"));
+                string dependencyGroup = rootTransaction == null ? null : rootTransaction.DependencyGroupId;
+                var removeEntries = string.IsNullOrWhiteSpace(dependencyGroup)
+                    ? new System.Collections.Generic.List<CharacterMeritFlaw> { entry }
+                    : _character.MeritsFlaws.Where(x => state.PurchaseLedger.Any(t => !t.IsCancelled &&
+                        string.Equals(t.ItemId, x.Id, StringComparison.OrdinalIgnoreCase) &&
+                        string.Equals(t.DependencyGroupId, dependencyGroup, StringComparison.OrdinalIgnoreCase))).ToList();
+                if (!removeEntries.Contains(entry)) removeEntries.Add(entry);
+                var restoreEntries = removeEntries.Select(x => new { Entry = x, Index = _character.MeritsFlaws.IndexOf(x) }).ToList();
+                foreach (var owned in removeEntries)
                 {
-                    _character.CreationState.FreebiePoints += purchase.Cost;
-                    _character.CreationState.FreebiePurchases.Remove(purchase);
-                    if (_character.CreationState.PurchaseLedger != null)
-                        _character.CreationState.PurchaseLedger.RemoveAll(t => t.Resource == "freebie" &&
-                            string.Equals(t.ItemId, entry.Id, StringComparison.OrdinalIgnoreCase));
+                    var purchase = state.FreebiePurchases.FirstOrDefault(x =>
+                        x.Block == "Достоинства и недостатки" && string.Equals(x.ItemId, owned.Id, StringComparison.OrdinalIgnoreCase));
+                    if (purchase != null)
+                    {
+                        state.FreebiePoints += purchase.Cost; // У недостатка стоимость отрицательная.
+                        state.FreebiePurchases.Remove(purchase);
+                    }
+                    else if (owned.FreebieCharged)
+                        state.FreebiePoints += owned.Type == "flaw" ? -owned.Cost : owned.Cost;
+                    if (state.PurchaseLedger != null)
+                        foreach (var transaction in state.PurchaseLedger.Where(t => !t.IsCancelled && t.Resource == "freebie" && string.Equals(t.ItemId, owned.Id, StringComparison.OrdinalIgnoreCase)))
+                            transaction.IsCancelled = true;
+                    _character.MeritsFlaws.Remove(owned);
                 }
-                else if (entry.FreebieCharged)
+
+                UndoService.Store("достоинство/недостаток «" + entry.Name + "»", () =>
                 {
-                    _character.CreationState.FreebiePoints += entry.Type == "flaw" ? -entry.Cost : entry.Cost;
-                }
+                    foreach (var restored in restoreEntries.OrderBy(x => x.Index))
+                        if (!_character.MeritsFlaws.Contains(restored.Entry))
+                            _character.MeritsFlaws.Insert(Math.Max(0, Math.Min(restored.Index, _character.MeritsFlaws.Count)), restored.Entry);
+                    UndoService.RestoreCreationState(_character, creationStateSnapshot);
+                    RenderMeritsFlaws();
+                    CharacterSelectionWindow.SaveCharacters();
+                    (Window.GetWindow(this) as MainWindow)?.RefreshGenerationFromCharacter();
+                });
                 RenderMeritsFlaws();
                 (Window.GetWindow(this) as MainWindow)?.RefreshGenerationFromCharacter();
             });
@@ -196,10 +221,14 @@ namespace VtM_LoCh_fP.Views
         private void BiographyField_InputTextChanged(object sender, TextChangedEventArgs e)
         {
             if (_loading || _character == null) return;
-            var field = sender as FieldControl;
-            if (field == null) return;
-            string value = field.InputText;
-            switch (Convert.ToString(field.Tag))
+            string value;
+            object tag;
+            var markdownField = sender as MarkdownFieldControl;
+            var plainField = sender as FieldControl;
+            if (markdownField != null) { value = markdownField.InputText; tag = markdownField.Tag; }
+            else if (plainField != null) { value = plainField.InputText; tag = plainField.Tag; }
+            else return;
+            switch (Convert.ToString(tag))
             {
                 case "BirthDate": _character.BiographyBirthDate = value; break;
                 case "DeathDate": _character.BiographyDeathDate = value; break;
@@ -232,9 +261,5 @@ namespace VtM_LoCh_fP.Views
             return Application.Current.Resources[key] as Brush ?? Brushes.Gray;
         }
 
-        private void BackstoryField_Loaded(object sender, RoutedEventArgs e)
-        {
-
-        }
     }
 }
