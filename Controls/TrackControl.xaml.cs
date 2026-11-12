@@ -64,6 +64,9 @@ namespace VtM_LoCh_fP.Controls
             DependencyProperty.Register(nameof(Items), typeof(ObservableCollection<PipItem>), typeof(TrackControl),
                 new PropertyMetadata(null));
 
+        public static readonly DependencyProperty ShowNoteProperty = DependencyProperty.Register(nameof(ShowNote), typeof(bool), typeof(TrackControl), new PropertyMetadata(false, OnShowNoteChanged));
+        public static readonly DependencyProperty NoteTextProperty = DependencyProperty.Register(nameof(NoteText), typeof(string), typeof(TrackControl), new FrameworkPropertyMetadata(string.Empty, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault));
+
         public static readonly DependencyProperty IsForcedZeroProperty =
             DependencyProperty.Register(nameof(IsForcedZero), typeof(bool), typeof(TrackControl),
                 new PropertyMetadata(false, OnForcedZeroChanged));
@@ -72,10 +75,18 @@ namespace VtM_LoCh_fP.Controls
         private bool _legacyUserInputInProgress;
         private Popup _descriptionPopup;
 
+        public bool ShowNote { get => (bool)GetValue(ShowNoteProperty); set => SetValue(ShowNoteProperty, value); }
+        public string NoteText { get => (string)GetValue(NoteTextProperty); set => SetValue(NoteTextProperty, value); }
+        public event System.Windows.Controls.TextChangedEventHandler NoteTextChanged;
+        private static void OnShowNoteChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        { var track = (TrackControl)d; if (track.NoteInput != null) track.NoteInput.Visibility = (bool)e.NewValue ? Visibility.Visible : Visibility.Collapsed; }
+        private void NoteInput_TextChanged(object sender, TextChangedEventArgs e) => NoteTextChanged?.Invoke(this, e);
+
         public bool DisableInfo { get; set; }
         public string InfoDescription { get; set; }
         public string InfoAdditionalText { get; set; }
         public System.Func<string> InfoAdditionalTextProvider { get; set; }
+        public System.Func<int, string> InfoLevelAdditionalTextProvider { get; set; }
         public System.Collections.Generic.List<VtM_LoCh_fP.TrackLevelDescription> InfoLevels { get; set; }
 
         public TrackControl()
@@ -266,9 +277,7 @@ namespace VtM_LoCh_fP.Controls
                 return;
             }
 
-            // Обрабатываем нажатие до стандартного переключения CheckBox.
-            // Иначе WPF сначала снимет саму точку, хотя по новому правилу
-            // она должна остаться закрашенной, если справа ещё есть точки.
+            // Обрабатываем нажатие до стандартного переключения CheckBox
             e.Handled = true;
             ApplyUserClick(pip);
         }
@@ -387,7 +396,7 @@ namespace VtM_LoCh_fP.Controls
             if (Value > 0 && levels != null)
             {
                 var level = levels.Find(x => x.Level == Value);
-                if (level != null && !string.IsNullOrWhiteSpace(level.Description))
+                if (level != null)
                 {
                     panel.Children.Add(new Border
                     {
@@ -404,17 +413,31 @@ namespace VtM_LoCh_fP.Controls
                     });
                     panel.Children.Add(new TextBlock
                     {
-                        Text = level.Description,
+                        Text = level.Description ?? string.Empty,
+                        Visibility = string.IsNullOrWhiteSpace(level.Description) ? Visibility.Collapsed : Visibility.Visible,
                         FontSize = 15,
                         LineHeight = 22,
                         TextWrapping = TextWrapping.Wrap,
                         Foreground = (Brush)FindResource("TextBrush")
                     });
+                    string levelAdditional = InfoLevelAdditionalTextProvider != null ? InfoLevelAdditionalTextProvider(Value) : null;
+                    if (!string.IsNullOrWhiteSpace(levelAdditional))
+                    {
+                        panel.Children.Add(new TextBlock
+                        {
+                            Text = levelAdditional,
+                            FontSize = 15,
+                            FontWeight = FontWeights.Normal,
+                            TextWrapping = TextWrapping.Wrap,
+                            Margin = new Thickness(0, 6, 0, 0),
+                            Foreground = (Brush)FindResource("TextBrush")
+                        });
+                    }
                 }
             }
 
             // Всплывающая подсказка намеренно не содержит ScrollViewer:
-            // прокрутка доступна только в отдельном окне просмотра по клику.
+            // прокрутка доступна только в отдельном окне просмотра по клику
             var border = new Border
             {
                 Child = panel,

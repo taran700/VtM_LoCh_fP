@@ -124,6 +124,15 @@ namespace VtM_LoCh_fP.Views
                 TalentsRemainingText, SkillsRemainingText, KnowledgeRemainingText };
             foreach (var label in remainingLabels)
                 if (label != null) label.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+
+            // Поля примечаний к способностям не занимают место до подтверждения
+            // стартового распределения. Значения NoteText и AbilityNotes при этом
+            // остаются нетронутыми и сохраняются даже в скрытом состоянии.
+            bool showAbilityNotes = _character.CreationState.InitialAllocationCompleted;
+            TalentsTrackList.ShowNotes = showAbilityNotes;
+            SkillsTrackList.ShowNotes = showAbilityNotes;
+            KnowledgeTrackList.ShowNotes = showAbilityNotes;
+
             var combos = GetPriorityCombos();
             string[] labels = { "Физические", "Социальные", "Ментальные" };
             for (int i = 0; i < 3; i++)
@@ -444,7 +453,10 @@ namespace VtM_LoCh_fP.Views
         public void InitializeCharacter(CharacterProfile character)
         {
             _character = character;
+            if (_character.AbilityNotes == null)
+                _character.AbilityNotes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             LoadInlinePriorities();
+            Dispatcher.BeginInvoke(new Action(InitializeAbilityNotes), System.Windows.Threading.DispatcherPriority.ContextIdle);
             var nameField = new FieldControl { Label = "Имя Персонажа", InputText = _character.Name ?? string.Empty };
             nameField.InputTextChanged += (sender, args) =>
             {
@@ -626,6 +638,28 @@ namespace VtM_LoCh_fP.Views
             }
             _lastTrackValues[track.Label] = track.Value;
             RefreshInitialBlockControls();
+        }
+
+
+        private void InitializeAbilityNotes()
+        {
+            if (_character == null) return;
+            foreach (var track in FindTracks(TalentsTrackList).Concat(FindTracks(SkillsTrackList)).Concat(FindTracks(KnowledgeTrackList)))
+            {
+                string note;
+                if (_character.AbilityNotes.TryGetValue(track.Label, out note)) track.NoteText = note ?? string.Empty;
+                track.NoteTextChanged -= AbilityNote_TextChanged;
+                track.NoteTextChanged += AbilityNote_TextChanged;
+            }
+        }
+
+        private void AbilityNote_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            var track = sender as TrackControl;
+            if (track == null || _character == null) return;
+            if (_character.AbilityNotes == null)
+                _character.AbilityNotes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            _character.AbilityNotes[track.Label] = track.NoteText ?? string.Empty;
         }
 
         private static IEnumerable<TrackControl> FindTracks(DependencyObject parent)

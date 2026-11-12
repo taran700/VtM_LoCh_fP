@@ -20,6 +20,8 @@ namespace VtM_LoCh_fP
         [DllImport("user32.dll")]
         private static extern bool GetCursorPos(out NativePoint point);
 
+        private static readonly System.Collections.Generic.HashSet<Window> EscapeHookedWindows = new System.Collections.Generic.HashSet<Window>();
+
         protected override void OnStartup(StartupEventArgs e)
         {
             // Используем TLS 1.2 для всех сетевых запросов, в том числе на старых Windows.
@@ -28,6 +30,8 @@ namespace VtM_LoCh_fP
             EventManager.RegisterClassHandler(typeof(ComboBox), UIElement.PreviewMouseWheelEvent,
                 new MouseWheelEventHandler(ComboBox_PreviewMouseWheel), true);
             InputManager.Current.PreProcessInput += OnPreProcessInput;
+            EventManager.RegisterClassHandler(typeof(Window), FrameworkElement.LoadedEvent,
+                new RoutedEventHandler(Window_LoadedForEscape));
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
             AppSettings.Load();
             CleanupUpdaterBackups();
@@ -36,6 +40,44 @@ namespace VtM_LoCh_fP
             var window = new CharacterSelectionWindow();
             MainWindow = window;
             window.Show();
+        }
+
+        private static void Window_LoadedForEscape(object sender, RoutedEventArgs e)
+        {
+            var window = sender as Window;
+            if (window == null || !EscapeHookedWindows.Add(window)) return;
+            window.Closed += (s, args) => EscapeHookedWindows.Remove(window);
+            window.PreviewKeyDown += (s, args) =>
+            {
+                if (args.Key != Key.Escape) return;
+                if (window is MainWindow || window is CharacterSelectionWindow) return;
+                var cancelButton = FindCancelButton(window);
+                if (cancelButton != null)
+                    cancelButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, cancelButton));
+                else
+                    window.Close();
+                args.Handled = true;
+            };
+        }
+
+        private static Button FindCancelButton(DependencyObject parent)
+        {
+            if (parent == null) return null;
+            var button = parent as Button;
+            if (button != null)
+            {
+                string caption = Convert.ToString(button.Content);
+                if (button.IsCancel || string.Equals(caption, "Отмена", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(caption, "Отменить", StringComparison.OrdinalIgnoreCase))
+                    return button;
+            }
+            int count = VisualTreeHelper.GetChildrenCount(parent);
+            for (int i = 0; i < count; i++)
+            {
+                var found = FindCancelButton(VisualTreeHelper.GetChild(parent, i));
+                if (found != null) return found;
+            }
+            return null;
         }
 
         private static void CleanupUpdaterBackups()

@@ -57,13 +57,11 @@ namespace VtM_LoCh_fP
             character.Id = Guid.NewGuid().ToString("N");
             if (string.IsNullOrWhiteSpace(character.Name))
                 character.Name = Path.GetFileNameWithoutExtension(filePath);
-            // Неизвестный режим не подменяем свободным: старое сохранение
-            // останется помеченным как требующее ручного определения режима.
             EnsureIdentity(character);
             return character;
         }
 
-        // Создаёт независимую копию персонажа. Исходный объект и его файл не меняются.
+        // Создаёт независимую копию персонажа; Исходный объект и его файл не меняются
         public static CharacterProfile CreateMigrationCopy(CharacterProfile source, string newName)
         {
             if (source == null) throw new ArgumentNullException(nameof(source));
@@ -76,8 +74,7 @@ namespace VtM_LoCh_fP
             {
                 Directory.CreateDirectory(StorageDirectory);
 
-                // JSON-клонирование переносит все сериализуемые поля модели, включая
-                // скрытые данные и историю покупок, но создаёт отдельные вложенные объекты.
+                // JSON-клонирование переносит все сериализуемые поля модели, включая скрытые данные и историю покупок
                 var copy = Serializer.Deserialize<CharacterProfile>(Serializer.Serialize(source));
                 if (copy == null) throw new InvalidDataException("Не удалось создать копию персонажа.");
 
@@ -87,7 +84,6 @@ namespace VtM_LoCh_fP
 
                 string path = Path.Combine(StorageDirectory, "character_" + copy.Id + ".json");
                 string json = Serializer.Serialize(copy);
-                // CreateNew запрещает даже теоретическую перезапись существующего сохранения.
                 using (var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None))
                 using (var writer = new StreamWriter(stream, new System.Text.UTF8Encoding(false)))
                 {
@@ -258,6 +254,8 @@ namespace VtM_LoCh_fP
 
         private static void EnsureIdentity(CharacterProfile character)
         {
+            if (character.AbilityNotes == null)
+                character.AbilityNotes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             if (string.IsNullOrWhiteSpace(character.Id))
                 character.Id = Guid.NewGuid().ToString("N");
             if (character.CreationState == null)

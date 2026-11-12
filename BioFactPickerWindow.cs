@@ -47,6 +47,14 @@ namespace VtM_LoCh_fP
             Background = (Brush)Application.Current.FindResource("BgBrush");
             Foreground = (Brush)Application.Current.FindResource("TextBrush");
             ThemeManager.AttachWindow(this);
+            PreviewKeyDown += (sender, args) =>
+            {
+                if (args.Key == System.Windows.Input.Key.Escape)
+                {
+                    DialogResult = false;
+                    args.Handled = true;
+                }
+            };
 
             var root = new Grid { Margin = new Thickness(22) };
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });

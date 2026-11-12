@@ -7,20 +7,21 @@
             <ColumnDefinition x:Name="LabelColumn" Width="160"/>
             <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
 
-        <TextBlock x:Name="LabelText" Grid.Column="0"
+        <TextBlock x:Name="LabelText" Grid.Row="0" Grid.Column="0"
                    Text="{Binding Label, ElementName=Root}"
                    Style="{StaticResource FieldLabelStyle}"
                    VerticalAlignment="Center"
                    MouseEnter="LabelText_MouseEnter" MouseLeave="LabelText_MouseLeave"/>
 
-        <TextBox x:Name="LabelInput" Grid.Column="0" Visibility="Collapsed"
+        <TextBox x:Name="LabelInput" Grid.Row="0" Grid.Column="0" Visibility="Collapsed"
                  Text="{Binding Label, ElementName=Root, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                  FontSize="14" MinHeight="26" Padding="5,3" Margin="0,1,4,1"
                  VerticalAlignment="Center" ToolTip="Введите название"/>
 
         <!-- Круглый Пул -->
-        <ItemsControl x:Name="DotItems" Grid.Column="1"
+        <ItemsControl x:Name="DotItems" Grid.Row="0" Grid.Column="1"
                       ItemsSource="{Binding Items, ElementName=Root}"
                       CheckBox.Checked="Pip_Checked" CheckBox.Unchecked="Pip_Unchecked" PreviewMouseLeftButtonDown="Pip_PreviewMouseLeftButtonDown" PreviewKeyDown="Pip_PreviewKeyDown"
                       VerticalAlignment="Center" Height="35">
@@ -38,7 +39,7 @@
         </ItemsControl>
 
         <!-- Квадратный пул -->
-        <ItemsControl x:Name="SquareItems" Grid.Column="1" Visibility="Collapsed"
+        <ItemsControl x:Name="SquareItems" Grid.Row="0" Grid.Column="1" Visibility="Collapsed"
                       ItemsSource="{Binding Items, ElementName=Root}"
                       CheckBox.Checked="Pip_Checked" CheckBox.Unchecked="Pip_Unchecked" PreviewMouseLeftButtonDown="Pip_PreviewMouseLeftButtonDown" PreviewKeyDown="Pip_PreviewKeyDown"
                       VerticalAlignment="Center">
@@ -54,7 +55,7 @@
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
         </ItemsControl>
-        <ItemsControl x:Name="SquareItemsH" Grid.Column="1" Visibility="Collapsed"
+        <ItemsControl x:Name="SquareItemsH" Grid.Row="0" Grid.Column="1" Visibility="Collapsed"
                ItemsSource="{Binding Items, ElementName=Root}"
                CheckBox.Checked="Pip_Checked" CheckBox.Unchecked="Pip_Unchecked" PreviewMouseLeftButtonDown="Pip_PreviewMouseLeftButtonDown" PreviewKeyDown="Pip_PreviewKeyDown"
                VerticalAlignment="Center">
@@ -70,6 +71,14 @@
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
         </ItemsControl>
+
+        <TextBox x:Name="NoteInput" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                 Text="{Binding NoteText, ElementName=Root, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                 Visibility="Collapsed"
+                 MinHeight="25" Margin="0,1,0,2" Padding="4,2" FontSize="12"
+                 Background="{DynamicResource InputBrush}" Foreground="{DynamicResource TextBrush}"
+                 BorderBrush="{DynamicResource BorderBrush}" VerticalContentAlignment="Center"
+                 ToolTip="Примечание к способности" TextChanged="NoteInput_TextChanged"/>
 
         <!-- Перечёркивние Привлекательности -->
         <Path x:Name="ForcedZeroStrike" Grid.Column="0" Grid.ColumnSpan="2"

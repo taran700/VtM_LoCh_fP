@@ -244,12 +244,25 @@ namespace VtM_LoCh_fP.Views
                 {
                     string advancementName = item.IsSecondaryPath && !string.IsNullOrWhiteSpace(item.PathName) ? item.Name + " — " + item.PathName : item.Name;
                     string advancementKey = item.IsSecondaryPath ? "secondary_path" : "discipline";
+                    string creationStateSnapshot = UndoService.CaptureCreationState(_character);
                     bool hasRecordedPurchase = _character.CreationState.PurchaseLedger != null && _character.CreationState.PurchaseLedger.Any(t => string.Equals(t.ItemName, advancementName, StringComparison.OrdinalIgnoreCase));
                     if (item.Level > 0 && hasRecordedPurchase && AdvancementCheck != null && !AdvancementCheck(advancementKey, advancementName, item.Level, 0)) return;
-                    _character.Disciplines.Remove(item);
+                    int restoreIndex = _character.Disciplines.IndexOf(item);
                     string removedKey = GetDisciplineSnapshotKey(item);
+                    bool hadSnapshot = _character.CreationState.InitialDisciplineDots != null && _character.CreationState.InitialDisciplineDots.ContainsKey(removedKey);
+                    int snapshotValue = hadSnapshot ? _character.CreationState.InitialDisciplineDots[removedKey] : 0;
+                    _character.Disciplines.Remove(item);
                     if (_character.CreationState.InitialDisciplineDots != null)
                         _character.CreationState.InitialDisciplineDots.Remove(removedKey);
+                    UndoService.Store("дисциплину «" + advancementName + "»", () =>
+                    {
+                        if (!_character.Disciplines.Contains(item)) _character.Disciplines.Insert(Math.Max(0, Math.Min(restoreIndex, _character.Disciplines.Count)), item);
+                        if (hadSnapshot) _character.CreationState.InitialDisciplineDots[removedKey] = snapshotValue;
+                        UndoService.RestoreCreationState(_character, creationStateSnapshot);
+                        RenderDisciplines();
+                        InitialPurchaseProgressChanged?.Invoke();
+                        CharacterSelectionWindow.SaveCharacters();
+                    });
                     RenderDisciplines();
                     InitialPurchaseProgressChanged?.Invoke();
                 };
@@ -336,7 +349,18 @@ namespace VtM_LoCh_fP.Views
                 layout.Children.Add(body);
                 var remove = CreateDeleteIconButton("Удалить ритуал", 64);
                 remove.Margin = new Thickness(10, 0, 0, 0);
-                remove.Click += (s,e) => { _character.Rituals.Remove(ritual); RenderRitualCards(); };
+                remove.Click += (s,e) =>
+                {
+                    int restoreIndex = _character.Rituals.IndexOf(ritual);
+                    _character.Rituals.Remove(ritual);
+                    UndoService.Store("ритуал «" + ritual.Name + "»", () =>
+                    {
+                        if (!_character.Rituals.Contains(ritual)) _character.Rituals.Insert(Math.Max(0, Math.Min(restoreIndex, _character.Rituals.Count)), ritual);
+                        RenderRitualCards();
+                        CharacterSelectionWindow.SaveCharacters();
+                    });
+                    RenderRitualCards();
+                };
                 Grid.SetColumn(remove, 1);
                 layout.Children.Add(remove);
                 card.Child=layout;

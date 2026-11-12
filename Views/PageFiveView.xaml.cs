@@ -28,7 +28,7 @@ namespace VtM_LoCh_fP.Views
         private void NotesField_InputTextChanged(object sender, TextChangedEventArgs e)
         {
             if (_loading || _character == null) return;
-            var field = sender as VtM_LoCh_fP.Controls.FieldControl;
+            var field = sender as VtM_LoCh_fP.Controls.MarkdownFieldControl;
             if (field == null) return;
             switch (System.Convert.ToString(field.Tag))
             {

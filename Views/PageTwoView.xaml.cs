@@ -42,6 +42,24 @@ namespace VtM_LoCh_fP.Views
             HumanityPathCombo.ItemsSource = _humanityPaths;
             HumanityPathSuggestions.ItemsSource = _humanityPaths;
             HumanityPathTrack.ValueChanged += HumanityPathTrack_ValueChanged;
+            HumanityPathTrack.InfoLevelAdditionalTextProvider = level =>
+            {
+                if (_character == null) return null;
+                string bearingName = _character.HumanityPathIsCustom
+                    ? _character.CustomHumanityBearingName
+                    : (_selectedOfficialPath == null ? null : _selectedOfficialPath.BearingName);
+                string bearingEffect = _character.HumanityPathIsCustom
+                    ? _character.CustomHumanityBearingEffect
+                    : (_selectedOfficialPath == null ? null : _selectedOfficialPath.BearingEffect);
+                if (string.IsNullOrWhiteSpace(bearingName) && string.IsNullOrWhiteSpace(bearingEffect)) return null;
+
+                string bearing = "Столп: " + (bearingName ?? string.Empty).Trim() +
+                    (string.IsNullOrWhiteSpace(bearingEffect) ? string.Empty : " — " + bearingEffect.Trim());
+                string difficultyModifier = GetHumanityDifficultyModifier(level);
+                return string.IsNullOrWhiteSpace(difficultyModifier)
+                    ? bearing
+                    : bearing + "  " + difficultyModifier;
+            };
             var willpowerInfo = TrackDescriptionService.Find("Сила воли");
             if (willpowerInfo != null)
             {
@@ -335,7 +353,7 @@ namespace VtM_LoCh_fP.Views
                 if (previousPath > nextPath && AdvancementCheck != null)
                     AdvancementCheck("humanity_path", pathName, previousPath, nextPath);
                 else if (previousPath < nextPath && AdvancementCheck != null)
-                    AdvancementCheck("humanity_path", pathName, nextPath, previousPath);
+                    AdvancementCheck("humanity_path", pathName, previousPath, nextPath);
                 SetHumanityPathRating(nextPath);
             }
         }
@@ -490,6 +508,18 @@ namespace VtM_LoCh_fP.Views
                 levels.Add(new TrackLevelDescription { Level = row.Level, Rank = "Грех", Description = row.Sin ?? string.Empty });
             HumanityPathTrack.InfoLevels = levels;
             HumanitySinTableButton.IsEnabled = _character.CustomHumanityHierarchy != null && _character.CustomHumanityHierarchy.Count > 0;
+        }
+
+        private static string GetHumanityDifficultyModifier(int level)
+        {
+            // Таблица модификаторов Человечности/Пути: показываем только
+            // значение для конкретного уровня, на который наведён курсор.
+            if (level >= 10) return "Модификатор стола: −2 к сложности";
+            if (level >= 8) return "Модификатор стола: −1 к сложности";
+            if (level >= 4) return "Модификатора нет";
+            if (level >= 2) return "Модификатор стола: +1 к сложности";
+            if (level == 1) return "Модификатор стола: +2 к сложности";
+            return null;
         }
 
         private string BuildPathTooltip(string name, string description, string bearingName, string bearingEffect, string edicts)
@@ -657,6 +687,15 @@ namespace VtM_LoCh_fP.Views
             if (result == null) return;
             if (result.Deleted)
             {
+                string oldId = _character.HumanityPathId;
+                string oldName = _character.CustomHumanityPathName;
+                string oldDescription = _character.CustomHumanityPathDescription;
+                string oldBearingName = _character.CustomHumanityBearingName;
+                string oldBearingEffect = _character.CustomHumanityBearingEffect;
+                string oldEdicts = _character.CustomHumanityEdicts;
+                string oldFirstVirtue = _character.CustomHumanityFirstVirtue;
+                string oldSecondVirtue = _character.CustomHumanitySecondVirtue;
+                var oldHierarchy = HumanityPathEditorWindow.Clone(_character.CustomHumanityHierarchy);
                 var humanity = HumanityPathService.Find("humanity");
                 TransferPathVirtues(humanity.FirstVirtue, humanity.SecondVirtue);
                 _character.HumanityPathIsCustom = false;
@@ -668,6 +707,25 @@ namespace VtM_LoCh_fP.Views
                 _character.CustomHumanityEdicts = null;
                 _character.CustomHumanityHierarchy = new List<HumanityPathSinEntry>();
                 ApplyOfficialPath(humanity);
+                UndoService.Store("пользовательский Путь «" + (oldName ?? "Без названия") + "»", () =>
+                {
+                    _character.HumanityPathIsCustom = true;
+                    _character.HumanityPathId = oldId;
+                    _character.CustomHumanityPathName = oldName;
+                    _character.CustomHumanityPathDescription = oldDescription;
+                    _character.CustomHumanityBearingName = oldBearingName;
+                    _character.CustomHumanityBearingEffect = oldBearingEffect;
+                    _character.CustomHumanityEdicts = oldEdicts;
+                    _character.CustomHumanityFirstVirtue = oldFirstVirtue;
+                    _character.CustomHumanitySecondVirtue = oldSecondVirtue;
+                    _character.CustomHumanityHierarchy = HumanityPathEditorWindow.Clone(oldHierarchy);
+                    ApplyVirtueNames(oldFirstVirtue, oldSecondVirtue);
+                    UpdateCustomHumanityPathInfo();
+                    HumanityPathInput.Text = oldName ?? string.Empty;
+                    EditHumanityPathButton.Visibility = Visibility.Visible;
+                    HumanityPathCombo.SelectedValue = null;
+                    CharacterSelectionWindow.SaveCharacters();
+                });
                 return;
             }
             SaveCustomHumanityPath(result);
@@ -851,13 +909,27 @@ namespace VtM_LoCh_fP.Views
                 var remove = new Button { Content = removeIcon, Width = 30, Height = 30, Margin = new Thickness(0, 0, 7, 0), Padding = new Thickness(0), Background = Brushes.Transparent, BorderBrush = Brushes.Transparent, BorderThickness = new Thickness(0), Cursor = Cursors.Hand, ToolTip = "Удалить факт" };
                 remove.Click += (s, e) =>
                 {
-                    string message = fact.IsCustom ? "Удалить пользовательский факт «" + fact.Name + "»? Вместе с ним будут безвозвратно удалены его основное описание и все описания уровней." : "Удалить факт «" + fact.Name + "» из биографии?";
+                    string message = fact.IsCustom ? "Удалить пользовательский факт «" + fact.Name + "»? Его основное описание и описания уровней также будут удалены." : "Удалить факт «" + fact.Name + "» из биографии?";
                     var answer = ThemedDialog.Show(Window.GetWindow(this), message, "Удаление факта биографии", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                     if (answer != MessageBoxResult.Yes) return;
+                    string creationStateSnapshot = UndoService.CaptureCreationState(_character);
                     bool hasRecordedPurchase = _character.CreationState.PurchaseLedger != null && _character.CreationState.PurchaseLedger.Any(t => string.Equals(t.ItemName, fact.Name, StringComparison.OrdinalIgnoreCase));
                     if (fact.Level > 0 && hasRecordedPurchase && AdvancementCheck != null && !AdvancementCheck("background", fact.Name, fact.Level, 0)) return;
+                    int restoreIndex = _character.BiographyFacts.IndexOf(fact);
+                    bool hadSnapshot = _character.CreationState.InitialBackgroundDots != null && _character.CreationState.InitialBackgroundDots.ContainsKey(fact.Name);
+                    int snapshotValue = 0;
+                    if (hadSnapshot) snapshotValue = _character.CreationState.InitialBackgroundDots[fact.Name];
                     if (_character.CreationState.InitialBackgroundDots != null) _character.CreationState.InitialBackgroundDots.Remove(fact.Name);
                     _character.BiographyFacts.Remove(fact);
+                    UndoService.Store("факт биографии «" + fact.Name + "»", () =>
+                    {
+                        if (!_character.BiographyFacts.Contains(fact)) _character.BiographyFacts.Insert(Math.Max(0, Math.Min(restoreIndex, _character.BiographyFacts.Count)), fact);
+                        if (hadSnapshot) _character.CreationState.InitialBackgroundDots[fact.Name] = snapshotValue;
+                        UndoService.RestoreCreationState(_character, creationStateSnapshot);
+                        (Window.GetWindow(this) as MainWindow)?.RefreshGenerationFromCharacter();
+                        RenderBioFacts();
+                        CharacterSelectionWindow.SaveCharacters();
+                    });
                     (Window.GetWindow(this) as MainWindow)?.RefreshGenerationFromCharacter();
                     RenderBioFacts();
                 };

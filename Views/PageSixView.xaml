@@ -1,6 +1,7 @@
 ﻿<UserControl x:Class="VtM_LoCh_fP.Views.PageSixView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:VtM_LoCh_fP.Controls">
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="16,14,16,20">
             <DockPanel Margin="4,0,4,12">
@@ -11,25 +12,21 @@
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                 <GroupBox Grid.Row="0" Grid.Column="0" Header="Одежда и аксессуары" Style="{StaticResource SectionBoxStyle}">
-                    <TextBox x:Name="ClothingInput" Height="170" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" HorizontalContentAlignment="Left" TextAlignment="Left" VerticalScrollBarVisibility="Visible"
-                             TextChanged="Equipment_TextChanged" Padding="7" Background="{DynamicResource InputBrush}" Foreground="{DynamicResource TextBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
+                    <controls:MarkdownFieldControl x:Name="ClothingInput" FieldHeight="170" InputTextChanged="Equipment_TextChanged"/>
                 </GroupBox>
                 <GroupBox Grid.Row="0" Grid.Column="1" Header="Карманы одежды" Style="{StaticResource SectionBoxStyle}">
-                    <TextBox x:Name="PocketsInput" Height="170" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" HorizontalContentAlignment="Left" TextAlignment="Left" VerticalScrollBarVisibility="Visible"
-                             TextChanged="Equipment_TextChanged" Padding="7" Background="{DynamicResource InputBrush}" Foreground="{DynamicResource TextBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
+                    <controls:MarkdownFieldControl x:Name="PocketsInput" FieldHeight="170" InputTextChanged="Equipment_TextChanged"/>
                 </GroupBox>
                 <GroupBox Grid.Row="1" Grid.Column="0" Header="Броня" Style="{StaticResource SectionBoxStyle}">
                     <DockPanel>
                         <Button DockPanel.Dock="Right" Content="Подробнее" Style="{StaticResource ToolbarButtonStyle}" Click="ArmorDetails_Click" Margin="8,0,0,0"/>
-                        <TextBox x:Name="ArmorInput" Height="210" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" HorizontalContentAlignment="Left" TextAlignment="Left" VerticalScrollBarVisibility="Visible"
-                                 TextChanged="Equipment_TextChanged" Padding="7" Background="{DynamicResource InputBrush}" Foreground="{DynamicResource TextBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
+                        <controls:MarkdownFieldControl x:Name="ArmorInput" FieldHeight="210" InputTextChanged="Equipment_TextChanged"/>
                     </DockPanel>
                 </GroupBox>
                 <GroupBox Grid.Row="1" Grid.Column="1" Header="Оружие" Style="{StaticResource SectionBoxStyle}">
                     <DockPanel>
                         <Button DockPanel.Dock="Right" Content="Подробнее" Style="{StaticResource ToolbarButtonStyle}" Click="WeaponDetails_Click" Margin="8,0,0,0"/>
-                        <TextBox x:Name="WeaponsInput" Height="210" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" HorizontalContentAlignment="Left" TextAlignment="Left" VerticalScrollBarVisibility="Visible"
-                                 TextChanged="Equipment_TextChanged" Padding="7" Background="{DynamicResource InputBrush}" Foreground="{DynamicResource TextBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
+                        <controls:MarkdownFieldControl x:Name="WeaponsInput" FieldHeight="210" InputTextChanged="Equipment_TextChanged"/>
                     </DockPanel>
                 </GroupBox>
             </Grid>

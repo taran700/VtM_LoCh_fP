@@ -15,26 +15,26 @@
             <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                 <GroupBox Grid.Column="0" Header="Важные НПС" Style="{StaticResource SectionBoxStyle}">
-                    <controls:FieldControl x:Name="ImportantNpcsField" Label="Имя · отношение · важные сведения" Multiline="True" FieldHeight="190" Tag="Npcs" InputTextChanged="NotesField_InputTextChanged"/>
+                    <controls:MarkdownFieldControl x:Name="ImportantNpcsField" Label="Имя · отношение · важные сведения" FieldHeight="190" Tag="Npcs" InputTextChanged="NotesField_InputTextChanged"/>
                 </GroupBox>
                 <GroupBox Grid.Column="1" Header="Заметки" Style="{StaticResource SectionBoxStyle}">
-                    <controls:FieldControl x:Name="GeneralNotesOneField" Multiline="True" FieldHeight="190" Tag="GeneralOne" InputTextChanged="NotesField_InputTextChanged"/>
+                    <controls:MarkdownFieldControl x:Name="GeneralNotesOneField" FieldHeight="190" Tag="GeneralOne" InputTextChanged="NotesField_InputTextChanged"/>
                 </GroupBox>
             </Grid>
             <GroupBox Header="Важные локации" Style="{StaticResource SectionBoxStyle}">
-                <controls:FieldControl x:Name="ImportantLocationsField" Label="Название · описание · кому принадлежит" Multiline="True" FieldHeight="150" Tag="Locations" InputTextChanged="NotesField_InputTextChanged"/>
+                <controls:MarkdownFieldControl x:Name="ImportantLocationsField" Label="Название · описание · кому принадлежит" FieldHeight="150" Tag="Locations" InputTextChanged="NotesField_InputTextChanged"/>
             </GroupBox>
             <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                 <GroupBox Grid.Column="0" Header="Заметки" Style="{StaticResource SectionBoxStyle}">
-                    <controls:FieldControl x:Name="GeneralNotesTwoField" Multiline="True" FieldHeight="180" Tag="GeneralTwo" InputTextChanged="NotesField_InputTextChanged"/>
+                    <controls:MarkdownFieldControl x:Name="GeneralNotesTwoField" FieldHeight="180" Tag="GeneralTwo" InputTextChanged="NotesField_InputTextChanged"/>
                 </GroupBox>
                 <GroupBox Grid.Column="1" Header="Заметки" Style="{StaticResource SectionBoxStyle}">
-                    <controls:FieldControl x:Name="GeneralNotesThreeField" Multiline="True" FieldHeight="180" Tag="GeneralThree" InputTextChanged="NotesField_InputTextChanged"/>
+                    <controls:MarkdownFieldControl x:Name="GeneralNotesThreeField" FieldHeight="180" Tag="GeneralThree" InputTextChanged="NotesField_InputTextChanged"/>
                 </GroupBox>
             </Grid>
             <GroupBox Header="Заметки" Style="{StaticResource SectionBoxStyle}">
-                <controls:FieldControl x:Name="GeneralNotesFourField" Multiline="True" FieldHeight="180" Tag="GeneralFour" InputTextChanged="NotesField_InputTextChanged"/>
+                <controls:MarkdownFieldControl x:Name="GeneralNotesFourField" FieldHeight="180" Tag="GeneralFour" InputTextChanged="NotesField_InputTextChanged"/>
             </GroupBox>
         </StackPanel>
     </ScrollViewer>
