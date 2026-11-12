@@ -423,6 +423,10 @@ namespace VtM_LoCh_fP.Views
             return new ToolTip
             {
                 Content = content,
+                // PopupToolTipStyle задаёт строковый ContentTemplate. Для UIElement-контента
+                // он вызывает ToString() и показывает имя типа (например, StackPanel).
+                // Сбрасываем шаблон, чтобы ContentPresenter показал сам визуальный элемент.
+                ContentTemplate = null,
                 Style = (Style)FindResource("PopupToolTipStyle"),
                 Placement = System.Windows.Controls.Primitives.PlacementMode.Mouse,
                 MaxWidth = 430
@@ -710,21 +714,42 @@ namespace VtM_LoCh_fP.Views
                 {
                     _character.SireDescription = text.Text.Length > 750 ? text.Text.Substring(0, 750) : text.Text;
                     _sireDescriptionButton.Content = string.IsNullOrWhiteSpace(_character.SireDescription) ? "Добавить описание Сиру" : "Изменить описание Сира";
-                    var tip = new ToolTip { Content = new TextBlock { Text = _character.SireDescription, TextWrapping = TextWrapping.Wrap, MaxWidth = 360 },
-                        Style = (Style)FindResource("PopupToolTipStyle") };
-                    _sireInput.ToolTip = tip;
-                    _sireDescriptionButton.ToolTip = tip;
+                    UpdateSireDescriptionToolTips();
                 }
             };
             panel.Children.Add(_sireDescriptionButton);
             if (!string.IsNullOrWhiteSpace(_character.SireDescription))
             {
-                var tip = new ToolTip { Content = new TextBlock { Text = _character.SireDescription, TextWrapping = TextWrapping.Wrap, MaxWidth = 360 },
-                    Style = (Style)FindResource("PopupToolTipStyle") };
-                _sireInput.ToolTip = tip;
-                _sireDescriptionButton.ToolTip = tip;
+                UpdateSireDescriptionToolTips();
             }
             return panel;
+        }
+
+        // Каждый элемент получает собственный ToolTip: один экземпляр ToolTip нельзя
+        // одновременно назначать TextBox и Button (у WPF ToolTip — отдельный Popup).
+        private void UpdateSireDescriptionToolTips()
+        {
+            string description = _character?.SireDescription;
+            if (string.IsNullOrWhiteSpace(description))
+            {
+                if (_sireInput != null) _sireInput.ToolTip = null;
+                if (_sireDescriptionButton != null) _sireDescriptionButton.ToolTip = null;
+                return;
+            }
+
+            _sireInput.ToolTip = CreateSireDescriptionToolTip(description);
+            _sireDescriptionButton.ToolTip = CreateSireDescriptionToolTip(description);
+        }
+
+        private ToolTip CreateSireDescriptionToolTip(string description)
+        {
+            return new ToolTip
+            {
+                Content = new TextBlock { Text = description, TextWrapping = TextWrapping.Wrap, MaxWidth = 360 },
+                ContentTemplate = null,
+                Style = (Style)FindResource("PopupToolTipStyle"),
+                MaxWidth = 380
+            };
         }
 
         private UIElement CreateGenerationEditor()
@@ -1279,9 +1304,12 @@ namespace VtM_LoCh_fP.Views
             return new ToolTip
             {
                 Content = content,
+                // PopupToolTipStyle задаёт строковый ContentTemplate. Для UIElement-контента
+                // он вызывает ToString() и показывает имя типа (например, StackPanel).
+                // Сбрасываем шаблон, чтобы ContentPresenter показал сам визуальный элемент.
+                ContentTemplate = null,
                 Style = (Style)FindResource("PopupToolTipStyle"),
-                MaxWidth = 410,
-                ContentTemplate = null
+                MaxWidth = 410
             };
         }
         private ClanInfo FindClanByName(string name)

@@ -70,9 +70,7 @@
                         <StackPanel x:Name="VentrueTastePanel" Visibility="Collapsed" Margin="0,9,0,0">
                             <TextBlock x:Name="VentrueTasteLabel" Text="Утончённый вкус"
                                        Style="{StaticResource FieldLabelStyle}"/>
-                            <TextBox x:Name="VentrueTasteInput" MinHeight="32"
-                                     ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Tag}"
-                                     Tag="Выбор категории смертных согласуется с Рассказчиком при создании персонажа. После начала игры изменить его нельзя. Кровь смертных вне выбранной категории, включая кровь животных, не пополняет запас крови. Кровь Сородичей не подпадает под это ограничение."/>
+                            <TextBox x:Name="VentrueTasteInput" MinHeight="32"/>
                         </StackPanel>
                     </StackPanel>
                     <controls:FieldControl x:Name="ChroniclePillarsField" Grid.Column="1" Label="Опоры и принципы" Multiline="True" FieldHeight="64" Tag="Pillars" InputTextChanged="ProfileField_InputTextChanged"/>

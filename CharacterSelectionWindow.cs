@@ -19,6 +19,7 @@ namespace VtM_LoCh_fP
         internal static void SaveCharacters() => CharacterStorage.Save(Characters);
         private readonly ListBox _list;
         private Button update;
+        private Button checkUpdatesButton;
         private bool updateAvailableCached = false;
 
         public CharacterSelectionWindow()
@@ -49,10 +50,30 @@ namespace VtM_LoCh_fP
             var buttons = new WrapPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
             update = new Button { Content = "Доступно обновление", Padding = new Thickness(12, 8, 12, 8), Margin = new Thickness(0, 0, 8, 0), Visibility = Visibility.Collapsed };
             var enableAutoUpdate = new Button { Content = "Включить автообновление", Padding = new Thickness(12, 8, 12, 8), Margin = new Thickness(0, 0, 8, 0), Visibility = Visibility.Collapsed };
+            checkUpdatesButton = new Button { Content = "Проверить обновления", Padding = new Thickness(12, 8, 12, 8), Margin = new Thickness(0, 0, 8, 0) };
+            checkUpdatesButton.Click += async (sender, args) =>
+            {
+                checkUpdatesButton.IsEnabled = false;
+                string oldContent = Convert.ToString(checkUpdatesButton.Content);
+                checkUpdatesButton.Content = "Проверка…";
+                try
+                {
+                    UpdateCheckResult result = await UpdateService.CheckAsync(true);
+                    ApplyUpdateCheckResult(result);
+                    ThemedDialog.Show(this, result.Message ?? "Проверка завершена.",
+                        result.UpdateAvailable ? "Доступно обновление" : "Проверка обновлений",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                finally
+                {
+                    checkUpdatesButton.Content = oldContent;
+                    checkUpdatesButton.IsEnabled = true;
+                }
+            };
 
             update.Click += async (sender, args) =>
             {
-                // Кнопка отображается только при подтверждённом наличии новой версии.
+                // Кнопка отображается только при подтверждённом наличии новой версии
                 if (!updateAvailableCached)
                 {
                     update.Visibility = Visibility.Collapsed;
@@ -71,7 +92,7 @@ namespace VtM_LoCh_fP
                 }
                 else if (choice == UpdatePromptChoice.Skip)
                 {
-                    update.Visibility = Visibility.Collapsed; // До следующего запуска
+                    update.Visibility = Visibility.Collapsed;
                 }
                 else if (choice == UpdatePromptChoice.Update)
                 {
@@ -86,13 +107,14 @@ namespace VtM_LoCh_fP
                 enableAutoUpdate.Visibility = Visibility.Collapsed;
                 try
                 {
-                    updateAvailableCached = await CheckForUpdatesAsync();
-                    update.Content = "Доступно обновление";
-                    update.Visibility = updateAvailableCached ? Visibility.Visible : Visibility.Collapsed;
+                    UpdateCheckResult result = await UpdateService.CheckAsync(false);
+                    ApplyUpdateCheckResult(result);
                 }
-                catch
+                catch (Exception ex)
                 {
-                    update.Visibility = Visibility.Collapsed;
+                    updateAvailableCached = UpdateService.RestoreCachedUpdaterState();
+                    update.Visibility = updateAvailableCached ? Visibility.Visible : Visibility.Collapsed;
+                    ShowUpdateError("Не удалось включить проверку обновлений", ex);
                 }
             };
 
@@ -105,6 +127,7 @@ namespace VtM_LoCh_fP
             var open = new Button { Content = "Открыть", Padding = new Thickness(12,8,12,8), IsEnabled = false }; open.Click += Open_Click;
             _list.SelectionChanged += (s, e) => { open.IsEnabled = _list.SelectedItem != null; };
             buttons.Children.Add(update);
+            buttons.Children.Add(checkUpdatesButton);
             buttons.Children.Add(enableAutoUpdate);
             buttons.Children.Add(import); buttons.Children.Add(create); buttons.Children.Add(open);
             Grid.SetColumn(buttons, 1); footer.Children.Add(buttons);
@@ -118,21 +141,18 @@ namespace VtM_LoCh_fP
                 if (!AppSettings.UpdateNotificationsEnabled) return;
                 try
                 {
-                    updateAvailableCached = await CheckForUpdatesAsync();
-                    if (updateAvailableCached)
-                    {
-                        update.Content = "Доступно обновление";
-                        update.Visibility = Visibility.Visible;
-                    }
-                    else
-                    {
-                        update.Visibility = Visibility.Collapsed;
-                    }
+                    UpdateCheckResult result = await UpdateService.CheckAsync(false);
+                    ApplyUpdateCheckResult(result);
+                    if (!result.WasCached && !result.UpdateAvailable &&
+                        !string.IsNullOrWhiteSpace(result.Message) &&
+                        result.Message.IndexOf("последняя версия", StringComparison.OrdinalIgnoreCase) < 0)
+                        ThemedDialog.Show(this, result.Message, "Проверка обновлений", MessageBoxButton.OK, MessageBoxImage.Warning);
                 }
-                catch
+                catch (Exception ex)
                 {
-                    
-                    update.Visibility = Visibility.Collapsed;
+                    updateAvailableCached = UpdateService.RestoreCachedUpdaterState();
+                    update.Visibility = updateAvailableCached ? Visibility.Visible : Visibility.Collapsed;
+                    ShowUpdateError("Не удалось проверить обновления", ex);
                 }
             };
             Closed += (s, e) =>
@@ -293,87 +313,12 @@ namespace VtM_LoCh_fP
             return choice;
         }
 
-        private static readonly HttpClient UpdateHttpClient = CreateUpdateHttpClient();
-
-        private static HttpClient CreateUpdateHttpClient()
+        private void ApplyUpdateCheckResult(UpdateCheckResult result)
         {
-            var client = new HttpClient();
-            client.Timeout = TimeSpan.FromSeconds(20);
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("VtM_LoCh_fP-Updater/1.0");
-            client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
-            return client;
-        }
-
-        private static async System.Threading.Tasks.Task<bool> CheckForUpdatesAsync()
-        {
-            const string releaseApi = "https://api.github.com/repos/taran700/VtM_LoCh_fP/releases/latest";
-            HttpResponseMessage response;
-            try { response = await UpdateHttpClient.GetAsync(releaseApi); }
-            catch (System.Threading.Tasks.TaskCanceledException ex)
-            {
-                throw new InvalidOperationException("Превышено время ожидания ответа GitHub.", ex);
-            }
-            catch (HttpRequestException ex)
-            {
-                throw new InvalidOperationException("Не удалось подключиться к GitHub. Проверьте интернет-соединение.", ex);
-            }
-
-            using (response)
-            {
-                if (response.StatusCode == HttpStatusCode.NotFound)
-                    return false; // Нет опубликованных релизов если
-
-                if (!response.IsSuccessStatusCode)
-                    throw new InvalidOperationException($"GitHub вернул ошибку {(int)response.StatusCode} ({response.ReasonPhrase}).");
-
-                string json = await response.Content.ReadAsStringAsync();
-                JObject release;
-                try { release = JObject.Parse(json); }
-                catch (Newtonsoft.Json.JsonException ex)
-                {
-                    throw new InvalidOperationException("GitHub вернул некорректные сведения о релизе.", ex);
-                }
-
-                string tag = (string)release["tag_name"];
-                if (string.IsNullOrWhiteSpace(tag))
-                    throw new InvalidOperationException("В последнем релизе GitHub отсутствует тег версии.");
-
-                string normalizedTag = tag.Trim();
-                if (normalizedTag.StartsWith("v", StringComparison.OrdinalIgnoreCase))
-                    normalizedTag = normalizedTag.Substring(1);
-
-                Version releaseVersion;
-                if (!Version.TryParse(normalizedTag, out releaseVersion))
-                    throw new InvalidOperationException($"Тег релиза «{tag}» не соответствует формату версии.");
-
-                string assetName = $"VtM_LoCh_fP_v{releaseVersion}.zip";
-                bool assetExists = release["assets"] is JArray assets &&
-                    assets.Any(a => string.Equals((string)a["name"], assetName, StringComparison.Ordinal));
-                if (!assetExists)
-                    throw new InvalidOperationException($"В релизе {tag} отсутствует обязательный файл «{assetName}».");
-
-                string currentVersionText = GetCurrentApplicationVersion();
-                Version currentVersion;
-                if (!Version.TryParse(currentVersionText, out currentVersion))
-                    throw new InvalidOperationException($"Не удалось определить версию установленного приложения: «{currentVersionText}».");
-
-                if (releaseVersion <= currentVersion)
-                    return false;
-
-                Updater.GitHub_User = "taran700";
-                Updater.GitHub_Repository = "VtM_LoCh_fP";
-                Updater.OriginalFileName = "VtM_LoCh_fP.exe";
-                Updater.GitHub_Asset = assetName;
-
-                bool updateAvailable = await Updater.CheckUpdateAsync();
-                if (!updateAvailable)
-                    return false;
-
-                if (Updater.ReleaseVersion == null || Updater.ReleaseVersion != releaseVersion)
-                    throw new InvalidOperationException("Версия релиза EZ_Updater не совпадает с опубликованным тегом GitHub.");
-
-                return true;
-            }
+            if (result == null) return;
+            updateAvailableCached = result.UpdateAvailable;
+            update.Content = "Доступно обновление";
+            update.Visibility = updateAvailableCached ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void ShowStorageLoadWarnings()
@@ -389,7 +334,7 @@ namespace VtM_LoCh_fP
                 "из папки «Документы\\VtM_LoCh_fP» и сведения об ошибке.\n\n" +
                 "Сведения об ошибках:\n" + details;
 
-            MessageBox.Show(this, message, "Ошибка чтения сохранения", MessageBoxButton.OK, MessageBoxImage.Warning);
+            ThemedDialog.Show(this, message, "Ошибка чтения сохранения", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
 
@@ -457,10 +402,6 @@ namespace VtM_LoCh_fP
             name.SetValue(FrameworkElement.MinWidthProperty, 80.0);
             panel.AppendChild(name);
 
-
-
-            // Явно наследуем общий стиль кнопок приложения: собственный Style без BasedOn
-            // отключал неявный стиль из Styles/Controls.xaml и показывал системную кнопку.
             var migrateStyle = new Style(typeof(Button), (Style)FindResource(typeof(Button)));
             migrateStyle.Setters.Add(new Setter(UIElement.VisibilityProperty, Visibility.Collapsed));
             var showMigration = new DataTrigger
@@ -647,11 +588,11 @@ namespace VtM_LoCh_fP
                 Characters.Add(character);
                 SaveCharacters();
                 _list.SelectedItem = character;
-                MessageBox.Show(this, "Персонаж «" + character.Name + "» импортирован.", "Импорт завершён", MessageBoxButton.OK, MessageBoxImage.Information);
+                ThemedDialog.Show(this, "Персонаж «" + character.Name + "» импортирован.", "Импорт завершён", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, "Не удалось импортировать JSON-файл. Проверь его структуру.\n\n" + ex.Message,
+                ThemedDialog.Show(this, "Не удалось импортировать JSON-файл. Проверь его структуру.\n\n" + ex.Message,
                     "Ошибка импорта", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -666,10 +607,18 @@ namespace VtM_LoCh_fP
 
         private void Update_Click(object sender, RoutedEventArgs e)
         {
+            UpdateService.WriteLog("Начат этап установки обновления через EZ_Updater.");
             try
             {
                 if (Updater.CannotWriteOnDir)
+                {
+                    ShowUpdateError("Недостаточно прав для обновления",
+                        new UnauthorizedAccessException(
+                            "EZ_Updater сообщает, что приложение не может записывать файлы в папку установки. " +
+                            "Проверьте права доступа к папке или установите приложение в каталог, доступный для записи."));
                     return;
+                }
+
                 var updateWindow = new Window
                 {
                     Title = "Обновление VtM V20",
@@ -688,40 +637,89 @@ namespace VtM_LoCh_fP
                 updateWindow.Content = panel;
                 updateWindow.Show();
                 Updater.GUI_Context = System.Threading.SynchronizationContext.Current;
+
+                UpdateService.WriteLog("EZ_Updater.Update вызван; повторная проверка релиза не выполняется, используется сохранённая browser download URL.");
                 Updater.Update((updateSender, args) =>
                 {
-                    status.Text = Updater.Message;
-                    progress.IsIndeterminate = false;
-                    progress.Value = Math.Max(0, Math.Min(100, Updater.ProgressPercentage));
-                    string state = Convert.ToString(Updater.ShortState);
-                    if (string.Equals(state, "Installed", StringComparison.OrdinalIgnoreCase))
+                    try
                     {
-                        try
+                        status.Text = string.IsNullOrWhiteSpace(Updater.Message) ? "Обновление выполняется…" : Updater.Message;
+                        progress.IsIndeterminate = false;
+                        progress.Value = Math.Max(0, Math.Min(100, Updater.ProgressPercentage));
+                        string state = Convert.ToString(Updater.ShortState);
+                        UpdateService.WriteLog("Состояние EZ_Updater: " + state + "; прогресс=" + Updater.ProgressPercentage + "; сообщение=" + Updater.Message);
+
+                        if (string.Equals(state, "Installed", StringComparison.OrdinalIgnoreCase))
                         {
-                            System.Diagnostics.Process.Start(Updater.ProgramFileName);
-                            Application.Current.Shutdown();
+                            try
+                            {
+                                UpdateService.WriteLog("ZIP обновления установлен. Запуск новой версии: " + Updater.ProgramFileName);
+                                UpdateService.RecordInstallCompleted();
+                                System.Diagnostics.Process.Start(Updater.ProgramFileName);
+                                Application.Current.Shutdown();
+                            }
+                            catch (Exception ex)
+                            {
+                                status.Text = "Обновление установлено, но приложение не удалось перезапустить.";
+                                progress.Value = 100;
+                                ShowUpdateError("Обновление установлено, но перезапуск не удался", ex);
+                            }
                         }
-                        catch
+                        else if (string.Equals(state, "Canceled", StringComparison.OrdinalIgnoreCase) ||
+                                 string.Equals(state, "Failed", StringComparison.OrdinalIgnoreCase))
                         {
-                            status.Text = "Обновление установлено. Перезапустите приложение вручную.";
-                            progress.IsIndeterminate = false;
-                            progress.Value = 100;
+                            string updaterMessage = string.IsNullOrWhiteSpace(Updater.Message)
+                                ? "Обновлятор не предоставил описание ошибки."
+                                : Updater.Message;
+                            UpdateService.WriteLog("Установка завершилась без успеха: " + state + "; " + updaterMessage);
+                            updateWindow.Close();
+                            update.Visibility = Visibility.Visible;
+                            updateAvailableCached = true;
+
+                            bool canceled = string.Equals(state, "Canceled", StringComparison.OrdinalIgnoreCase);
+                            ThemedDialog.Show(this,
+                                (canceled ? "Установка была отменена." : "EZ_Updater сообщил об ошибке установки.") +
+                                "\n\nСостояние: " + state + "\nСообщение обновлятора: " + updaterMessage,
+                                "Проблема при обновлении", MessageBoxButton.OK,
+                                canceled ? MessageBoxImage.Warning : MessageBoxImage.Error);
                         }
                     }
-                    else if (string.Equals(state, "Canceled", StringComparison.OrdinalIgnoreCase) ||
-                             string.Equals(state, "Failed", StringComparison.OrdinalIgnoreCase))
+                    catch (Exception ex)
                     {
-                        updateWindow.Close();
-                        update.Visibility = Visibility.Collapsed;
-                        updateAvailableCached = false;
+                        try { updateWindow.Close(); } catch { }
+                        update.Visibility = Visibility.Visible;
+                        updateAvailableCached = true;
+                        ShowUpdateError("Исключение во время установки обновления", ex);
                     }
                 });
             }
-            catch
+            catch (Exception ex)
             {
-                updateAvailableCached = false;
-                update.Visibility = Visibility.Collapsed;
+                UpdateService.WriteLog("Исключение запуска установки: " + ex);
+                updateAvailableCached = true;
+                update.Visibility = Visibility.Visible;
+                ShowUpdateError("Не удалось запустить установку обновления", ex);
             }
+        }
+
+        private void ShowUpdateError(string title, Exception exception)
+        {
+            UpdateService.WriteLog(title + ": " + exception);
+            string details = exception == null
+                ? "Неизвестная ошибка."
+                : exception.GetType().FullName + ": " + exception.Message;
+
+            if (exception != null && exception.InnerException != null)
+                details += "\n\nВнутреннее исключение:\n" +
+                    exception.InnerException.GetType().FullName + ": " +
+                    exception.InnerException.Message;
+
+            if (exception != null && !string.IsNullOrWhiteSpace(exception.StackTrace))
+                details += "\n\nСтек вызовов:\n" + exception.StackTrace;
+
+            ThemedDialog.Show(this,
+                "Во время работы механизма обновления произошла ошибка.\n\n" + details,
+                title, MessageBoxButton.OK, MessageBoxImage.Error);
         }
 
         private void Open_Click(object sender, RoutedEventArgs e) => OpenSelected();
@@ -737,7 +735,7 @@ namespace VtM_LoCh_fP
             MainWindow sheet = null;
             try
             {
-                // Сначала полностью создаём лист. При ошибке меню остаётся доступным
+                // При ошибке меню остаётся доступным
                 sheet = new MainWindow(character);
                 sheet.Closed += (s, e) =>
                 {
@@ -765,7 +763,7 @@ namespace VtM_LoCh_fP
                 }
                 if (!IsVisible) Show();
                 Application.Current.MainWindow = this;
-                MessageBox.Show(this,
+                ThemedDialog.Show(this,
                     "Не удалось открыть сохранение персонажа «" + (character.Name ?? "Без имени") + "». " +
                     "Приложение продолжит работу, а исходный JSON-файл останется нетронутым.\n\n" +
                     "Свяжитесь с разработчиком приложения для восстановления этого сохранения и передайте ему " +
