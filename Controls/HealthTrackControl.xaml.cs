@@ -98,7 +98,7 @@ namespace VtM_LoCh_fP.Controls
             {
                 string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "data.json");
                 if (!File.Exists(path)) return;
-                var root = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(File.ReadAllText(path));
+                var root = new JavaScriptSerializer { MaxJsonLength = int.MaxValue, RecursionLimit = 256 }.Deserialize<Dictionary<string, object>>(File.ReadAllText(path));
                 var healthLevels = FindHealthLevels(root);
                 if (healthLevels == null) return;
                 foreach (var raw in healthLevels)

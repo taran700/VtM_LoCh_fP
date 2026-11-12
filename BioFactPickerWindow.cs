@@ -37,7 +37,7 @@ namespace VtM_LoCh_fP
             _freeMode = string.Equals(character.CreationMode, "Свободный Неонат", StringComparison.OrdinalIgnoreCase);
             _definitions = BioFactService.GetAll();
             if (!_freeMode && !string.IsNullOrWhiteSpace(character.ClanName) &&
-                character.ClanName.IndexOf("каити", StringComparison.OrdinalIgnoreCase) >= 0)
+                character.ClanName.IndexOf("каитиф", StringComparison.OrdinalIgnoreCase) >= 0)
                 _definitions = _definitions.Where(x => !x.CaitiffRestricted).ToList();
 
             Title = "Добавить факт биографии";
@@ -99,13 +99,19 @@ namespace VtM_LoCh_fP
             root.Children.Add(selectionPanel);
 
             var descriptionPanel = new StackPanel();
-            Grid.SetRow(descriptionPanel, 2);
             _description = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 14, Margin = new Thickness(0, 4, 0, 14) };
             _levelTitle = new TextBlock { FontSize = 15, FontWeight = FontWeights.SemiBold, Foreground = (Brush)Application.Current.FindResource("HeadingBrush"), Margin = new Thickness(0, 0, 0, 6) };
             _levelDescription = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 14 };
             var descriptionCard = new Border { Padding = new Thickness(14), Background = (Brush)Application.Current.FindResource("CardBgBrush"), BorderBrush = (Brush)Application.Current.FindResource("BorderBrush"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(7), Child = new StackPanel { Children = { _description, _levelTitle, _levelDescription } } };
             descriptionPanel.Children.Add(descriptionCard);
-            root.Children.Add(descriptionPanel);
+            var descriptionScroll = new ScrollViewer
+            {
+                Content = descriptionPanel,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+            };
+            Grid.SetRow(descriptionScroll, 2);
+            root.Children.Add(descriptionScroll);
 
             var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 18, 0, 0) };
             Grid.SetRow(buttons, 3);

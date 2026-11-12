@@ -28,7 +28,7 @@ namespace VtM_LoCh_fP
         {
             if (_rules != null) return _rules;
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "data.json");
-            var serializer = new JavaScriptSerializer();
+            var serializer = new JavaScriptSerializer { MaxJsonLength = int.MaxValue, RecursionLimit = 256 };
             var db = serializer.Deserialize<Dictionary<string, object>>(File.ReadAllText(path));
             var baseRules = db["base_rules"] as Dictionary<string, object>;
             var rows = baseRules["generation_table"] as IList;

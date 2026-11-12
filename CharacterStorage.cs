@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -284,6 +284,7 @@ namespace VtM_LoCh_fP
             if (character.Rituals == null) character.Rituals = new System.Collections.ObjectModel.ObservableCollection<CharacterRitual>();
             if (character.BiographyFacts == null) character.BiographyFacts = new System.Collections.ObjectModel.ObservableCollection<BioFactEntry>();
             if (character.MeritsFlaws == null) character.MeritsFlaws = new System.Collections.ObjectModel.ObservableCollection<CharacterMeritFlaw>();
+            MeritFlawService.SynchronizeCharacterEntries(character);
             if (character.HealthDamageStates == null) character.HealthDamageStates = new System.Collections.ObjectModel.ObservableCollection<int>();
             if (character.CustomHumanityHierarchy == null) character.CustomHumanityHierarchy = new List<HumanityPathSinEntry>();
         }

@@ -29,7 +29,7 @@ namespace VtM_LoCh_fP
             if (!File.Exists(path))
                 throw new FileNotFoundException("Не найден файл базы данных Data\\data.json.", path);
 
-            var serializer = new JavaScriptSerializer();
+            var serializer = new JavaScriptSerializer { MaxJsonLength = int.MaxValue, RecursionLimit = 256 };
             var database = serializer.Deserialize<Dictionary<string, object>>(File.ReadAllText(path));
             if (database == null || !database.ContainsKey("clans"))
                 throw new InvalidDataException("В базе данных отсутствует раздел clans.");
@@ -99,7 +99,7 @@ namespace VtM_LoCh_fP
             if (_archetypes != null) return _archetypes;
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "data.json");
             if (!File.Exists(path)) throw new FileNotFoundException("Не найден файл базы данных Data\\data.json.", path);
-            var serializer = new JavaScriptSerializer();
+            var serializer = new JavaScriptSerializer { MaxJsonLength = int.MaxValue, RecursionLimit = 256 };
             var database = serializer.Deserialize<Dictionary<string, object>>(File.ReadAllText(path));
             if (database == null || !database.ContainsKey("archetypes"))
                 throw new InvalidDataException("В базе данных отсутствует раздел archetypes.");

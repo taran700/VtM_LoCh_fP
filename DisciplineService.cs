@@ -80,7 +80,7 @@ namespace VtM_LoCh_fP
         {
             if (_all != null) return _all;
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "data.json");
-            var db = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(File.ReadAllText(path));
+            var db = new JavaScriptSerializer { MaxJsonLength = int.MaxValue, RecursionLimit = 256 }.Deserialize<Dictionary<string, object>>(File.ReadAllText(path));
             var list = db["disciplines"] as IList;
             _all = new List<DisciplineDefinition>();
             foreach (var raw in list)
@@ -150,7 +150,7 @@ namespace VtM_LoCh_fP
         {
             if (string.IsNullOrWhiteSpace(clanName)) return new List<string>();
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "data.json");
-            var db = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(File.ReadAllText(path));
+            var db = new JavaScriptSerializer { MaxJsonLength = int.MaxValue, RecursionLimit = 256 }.Deserialize<Dictionary<string, object>>(File.ReadAllText(path));
             var clans = db["clans"] as IList;
             foreach (var raw in clans)
             {
@@ -272,17 +272,17 @@ namespace VtM_LoCh_fP
                 try
                 {
                     string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "data.json");
-                    var db = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(File.ReadAllText(path));
+                    var db = new JavaScriptSerializer { MaxJsonLength = int.MaxValue, RecursionLimit = 256 }.Deserialize<Dictionary<string, object>>(File.ReadAllText(path));
                     AddLocalizedTerms(db, "attributes");
                     AddLocalizedTerms(db, "abilities");
                 }
-                catch { /* Fallback to the built-in translations if optional data is unavailable. */ }
+                catch { }
             }
 
             string localized;
             if (_localizedTerms.TryGetValue(id, out localized)) return localized;
 
-            // Некоторые дайспулы допускают выбор одного из двух навыков.
+            // Некоторые дайспулы допускают выбор одного из двух навыков
             if (id.IndexOf("_or_", StringComparison.OrdinalIgnoreCase) >= 0)
                 return string.Join(" или ", id.Split(new[] { "_or_" }, StringSplitOptions.None).Select(Translate));
 

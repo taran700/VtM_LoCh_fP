@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -54,7 +54,7 @@ namespace VtM_LoCh_fP
         {
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "data.json");
             if (!File.Exists(path)) throw new FileNotFoundException("Не найден файл базы данных Data\\data.json.", path);
-            var serializer = new JavaScriptSerializer();
+            var serializer = new JavaScriptSerializer { MaxJsonLength = int.MaxValue, RecursionLimit = 256 };
             var db = serializer.Deserialize<Dictionary<string, object>>(File.ReadAllText(path));
             object raw;
             var items = new List<HumanityPathDefinition>();
