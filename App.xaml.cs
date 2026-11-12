@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -25,12 +25,12 @@ namespace VtM_LoCh_fP
             // Используем TLS 1.2 для всех сетевых запросов, в том числе на старых Windows.
             System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12;
             base.OnStartup(e);
-            CleanupUpdaterBackups();
             EventManager.RegisterClassHandler(typeof(ComboBox), UIElement.PreviewMouseWheelEvent,
                 new MouseWheelEventHandler(ComboBox_PreviewMouseWheel), true);
             InputManager.Current.PreProcessInput += OnPreProcessInput;
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
             AppSettings.Load();
+            CleanupUpdaterBackups();
             if (AppSettings.DarkTheme) ThemeManager.ApplyDark();
             else ThemeManager.ApplyLight();
             var window = new CharacterSelectionWindow();
@@ -40,45 +40,98 @@ namespace VtM_LoCh_fP
 
         private static void CleanupUpdaterBackups()
         {
-            // EZ_Updater оставляет резервные копии рядом с приложением с расширением .EZold.
-            // Удаляем их только при старте уже запущенного приложения, то есть после того,
-            // как новая версия смогла запуститься. Не обходим вложенные папки и не трогаем
-            // пользовательские данные.
-            string applicationDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            // EZ_Updater может оставлять резервные копии .EZold не только рядом с EXE,
+            // но и во вложенных каталогах Data и Generation. Удаляем их при старте.
+            string executablePath;
             try
             {
-                foreach (string backupFile in System.IO.Directory.GetFiles(
-                    applicationDirectory, "*.EZold", System.IO.SearchOption.TopDirectoryOnly))
+                executablePath = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
+            }
+            catch (Exception ex)
+            {
+                WriteStartupLog("Не удалось определить путь EXE для очистки .EZold: " + ex);
+                return;
+            }
+
+            string applicationDirectory = System.IO.Path.GetDirectoryName(executablePath);
+            if (string.IsNullOrWhiteSpace(applicationDirectory) || !System.IO.Directory.Exists(applicationDirectory))
+            {
+                WriteStartupLog("Папка приложения для очистки .EZold не найдена: " + (applicationDirectory ?? "<null>"));
+                return;
+            }
+
+            // Корень приложения, а также Data и Generation со всеми их вложенными папками.
+            // Остальные каталоги приложения не затрагиваются.
+            CleanupEzOldInDirectory(applicationDirectory, false);
+            string[] knownDataDirectories = { "Data", "Generation" };
+            foreach (string directoryName in knownDataDirectories)
+            {
+                string nestedDirectory = System.IO.Path.Combine(applicationDirectory, directoryName);
+                if (System.IO.Directory.Exists(nestedDirectory))
+                    CleanupEzOldInDirectory(nestedDirectory, true);
+            }
+        }
+
+        private static void CleanupEzOldInDirectory(string directory, bool recursive)
+        {
+            try
+            {
+                foreach (string backupFile in System.IO.Directory.GetFiles(directory, "*.EZold", System.IO.SearchOption.TopDirectoryOnly))
                 {
                     try
                     {
+                        System.IO.FileAttributes attributes = System.IO.File.GetAttributes(backupFile);
+                        if ((attributes & System.IO.FileAttributes.ReadOnly) != 0)
+                            System.IO.File.SetAttributes(backupFile, attributes & ~System.IO.FileAttributes.ReadOnly);
+
                         System.IO.File.Delete(backupFile);
+                        WriteStartupLog("Удалён файл обновлятора: " + backupFile);
                     }
-                    catch (System.IO.IOException)
+                    catch (Exception ex)
                     {
-                        // Если файл ещё занят, оставляем его для следующей попытки при запуске.
-                    }
-                    catch (System.UnauthorizedAccessException)
-                    {
-                        // Нет прав на удаление — не мешаем запуску приложения.
-                    }
-                    catch (System.Security.SecurityException)
-                    {
-                        // Политика безопасности запрещает удаление — оставляем резервную копию.
+                        WriteStartupLog("Не удалось удалить .EZold «" + backupFile + "»: " + ex);
                     }
                 }
             }
-            catch (System.IO.IOException)
+            catch (Exception ex)
             {
-                // Ошибка очистки не должна блокировать запуск приложения.
+                WriteStartupLog("Ошибка перечисления .EZold в «" + directory + "»: " + ex);
             }
-            catch (System.UnauthorizedAccessException)
+
+            if (!recursive)
+                return;
+
+            string[] childDirectories;
+            try
             {
-                // Ошибка доступа не должна блокировать запуск приложения.
+                childDirectories = System.IO.Directory.GetDirectories(directory, "*", System.IO.SearchOption.TopDirectoryOnly);
             }
-            catch (System.Security.SecurityException)
+            catch (Exception ex)
             {
-                // Ограничения безопасности не должны блокировать запуск приложения.
+                WriteStartupLog("Не удалось получить вложенные папки «" + directory + "»: " + ex);
+                return;
+            }
+
+            foreach (string childDirectory in childDirectories)
+                CleanupEzOldInDirectory(childDirectory, true);
+        }
+
+        private static void WriteStartupLog(string message)
+        {
+            try
+            {
+                string logDirectory = System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "VtM_LoCh_fP", "logs");
+                System.IO.Directory.CreateDirectory(logDirectory);
+                System.IO.File.AppendAllText(
+                    System.IO.Path.Combine(logDirectory, "updater.log"),
+                    "[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "] [StartupCleanup] " +
+                    (message ?? string.Empty) + Environment.NewLine);
+            }
+            catch
+            {
+                // Ошибка журналирования не должна препятствовать запуску.
             }
         }
 

@@ -74,7 +74,7 @@ namespace VtM_LoCh_fP
     internal static class DisciplineService
     {
         private static List<DisciplineDefinition> _all;
-        // Кэш русских названий атрибутов и способностей из Data/data.json
+        // Общий кэш русских названий атрибутов, способностей и ритуалов из Data/data.json
         private static Dictionary<string, string> _localizedTerms;
         public static IReadOnlyList<DisciplineDefinition> GetAll()
         {
@@ -121,9 +121,14 @@ namespace VtM_LoCh_fP
                     var t = (Dictionary<string, object>)rawTime;
                     string value = S(t, "value"), unit = S(t, "unit");
                     if (!string.IsNullOrWhiteSpace(value) && !string.IsNullOrWhiteSpace(unit))
-                        cast = value + " " + unit;
+                        cast = FormatCastTime(value, unit);
                 }
-                result.Add(new DisciplineRitual { Id=S(r,"id"), Level=I(r,"level"), Name=S(r,"name"), SystemText=Clean(S(r,"system_text")), CastTime=cast });
+                string ritualId = S(r, "id");
+                string ritualName = S(r, "name");
+                string cachedName;
+                if (!string.IsNullOrWhiteSpace(ritualId) && TryGetLocalizedTerm(ritualId, out cachedName))
+                    ritualName = cachedName;
+                result.Add(new DisciplineRitual { Id=ritualId, Level=I(r,"level"), Name=ritualName, SystemText=Clean(S(r,"system_text")), CastTime=cast });
             }
             return result;
         }
@@ -275,18 +280,68 @@ namespace VtM_LoCh_fP
                     var db = new JavaScriptSerializer { MaxJsonLength = int.MaxValue, RecursionLimit = 256 }.Deserialize<Dictionary<string, object>>(File.ReadAllText(path));
                     AddLocalizedTerms(db, "attributes");
                     AddLocalizedTerms(db, "abilities");
+                    AddLocalizedRitualTerms(db);
                 }
                 catch { }
             }
 
             string localized;
-            if (_localizedTerms.TryGetValue(id, out localized)) return localized;
+            if (TryGetLocalizedTerm(id, out localized)) return localized;
 
             // Некоторые дайспулы допускают выбор одного из двух навыков
             if (id.IndexOf("_or_", StringComparison.OrdinalIgnoreCase) >= 0)
                 return string.Join(" или ", id.Split(new[] { "_or_" }, StringSplitOptions.None).Select(Translate));
 
             return id.Replace('_', ' ');
+        }
+
+
+        private static bool TryGetLocalizedTerm(string id, out string localized)
+        {
+            localized = null;
+            if (string.IsNullOrWhiteSpace(id)) return false;
+            if (_localizedTerms == null) Translate("__initialize_cache__");
+            return _localizedTerms != null && _localizedTerms.TryGetValue(id, out localized);
+        }
+
+        private static void AddLocalizedRitualTerms(Dictionary<string, object> db)
+        {
+            if (db == null || !db.ContainsKey("disciplines") || !(db["disciplines"] is IList disciplines)) return;
+            foreach (var rawDiscipline in disciplines)
+            {
+                var discipline = rawDiscipline as Dictionary<string, object>;
+                if (discipline == null || !discipline.ContainsKey("rituals") || !(discipline["rituals"] is IList rituals)) continue;
+                foreach (var rawRitual in rituals)
+                {
+                    var ritual = rawRitual as Dictionary<string, object>;
+                    if (ritual == null) continue;
+                    string id = S(ritual, "id");
+                    string name = S(ritual, "name");
+                    if (!string.IsNullOrWhiteSpace(id) && !string.IsNullOrWhiteSpace(name))
+                        _localizedTerms[id] = name;
+                }
+            }
+        }
+
+        private static string FormatCastTime(string value, string unit)
+        {
+            int amount;
+            if (!int.TryParse(value, out amount)) return value + " " + TranslateTimeUnit(unit, 2);
+            return value + " " + TranslateTimeUnit(unit, amount);
+        }
+
+        private static string TranslateTimeUnit(string unit, int amount)
+        {
+            string key = (unit ?? string.Empty).Trim().ToLowerInvariant();
+            bool one = amount % 10 == 1 && amount % 100 != 11;
+            bool few = amount % 10 >= 2 && amount % 10 <= 4 && (amount % 100 < 12 || amount % 100 > 14);
+            switch (key)
+            {
+                case "turn": case "turns": return few ? "хода" : one ? "ход" : "ходов";
+                case "hour": case "hours": return few ? "часа" : one ? "час" : "часов";
+                case "minute": case "minutes": return few ? "минуты" : one ? "минута" : "минут";
+                default: return unit;
+            }
         }
 
         private static void AddLocalizedTerms(Dictionary<string, object> db, string section)

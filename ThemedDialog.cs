@@ -69,7 +69,12 @@ namespace VtM_LoCh_fP
             body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             string glyph = image == MessageBoxImage.Warning ? "\uE7BA" : image == MessageBoxImage.Error ? "\uE783" : image == MessageBoxImage.Information ? "\uE946" : "\uE8D4";
             var icon = new TextBlock { Text = glyph, FontFamily = new FontFamily("Segoe MDL2 Assets"), FontSize = 27, Margin = new Thickness(2, 1, 16, 0), VerticalAlignment = VerticalAlignment.Top };
-            icon.SetResourceReference(TextBlock.ForegroundProperty, "AccentBrush");
+            if (image == MessageBoxImage.Error)
+                icon.Foreground = new SolidColorBrush(Color.FromRgb(220, 70, 70));
+            else if (image == MessageBoxImage.Warning)
+                icon.Foreground = new SolidColorBrush(Color.FromRgb(220, 160, 55));
+            else
+                icon.SetResourceReference(TextBlock.ForegroundProperty, "AccentBrush");
             body.Children.Add(icon);
             var text = new TextBlock { Text = message ?? string.Empty, TextWrapping = TextWrapping.Wrap, FontSize = 14, MaxWidth = 390, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 2, 0, 0) };
             text.SetResourceReference(TextBlock.ForegroundProperty, "TextBrush");
@@ -90,9 +95,14 @@ namespace VtM_LoCh_fP
                 var button = new Button { Content = caption, MinWidth = 92, MinHeight = 36, Margin = new Thickness(9, 0, 0, 0), Padding = new Thickness(14, 6, 14, 6), IsDefault = primary, Cursor = Cursors.Hand };
                 if (primary)
                 {
-                    button.Background = new SolidColorBrush(Color.FromRgb(185, 28, 28));
-                    button.SetResourceReference(Control.ForegroundProperty, "OnAccentBrush");
-                    button.BorderBrush = new SolidColorBrush(Color.FromRgb(185, 28, 28));
+                    Color primaryColor = image == MessageBoxImage.Error
+                        ? Color.FromRgb(185, 28, 28)
+                        : image == MessageBoxImage.Warning
+                            ? Color.FromRgb(166, 112, 25)
+                            : Color.FromRgb(92, 72, 125);
+                    button.Background = new SolidColorBrush(primaryColor);
+                    button.Foreground = Brushes.White;
+                    button.BorderBrush = new SolidColorBrush(primaryColor);
                 }
                 else
                 {
