@@ -6,7 +6,6 @@
              x:Name="Root"
              PreviewMouseWheel="Root_PreviewMouseWheel">
     <UserControl.Resources>
-        <!-- MdXaml для отображения МД -->
         <Style TargetType="{x:Type ae:TextEditor}">
             <Setter Property="Background" Value="{DynamicResource InputBrush}" />
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
@@ -282,7 +282,7 @@ namespace VtM_LoCh_fP
                 {
                     Order = _character.CreationState.NextPurchaseOrder++, Block = "Достоинства и недостатки",
                     Category = _definition.Type, ItemId = _definition.Id, ItemName = _definition.Name,
-                    PreviousValue = 0, NewValue = cost, Resource = "freebie", Cost = balanceDelta
+                    PreviousValue = 0, NewValue = 1, Resource = "freebie", Cost = balanceDelta, Source = "Player"
                 });
             }
             DialogResult = true;

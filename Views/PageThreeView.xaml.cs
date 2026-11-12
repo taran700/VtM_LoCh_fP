@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
@@ -192,7 +192,7 @@ namespace VtM_LoCh_fP.Views
                             int initialOther = _character.CreationState.InitialDisciplineDots.Where(x => !string.Equals(x.Key, (item.IsSecondaryPath && !string.IsNullOrWhiteSpace(item.PathName) ? item.Name + " — " + item.PathName : item.Name), StringComparison.OrdinalIgnoreCase)).Sum(x => Math.Max(0, x.Value));
                             remaining = Math.Max(0, CharacterCreationRules.GetCreationLimit("disciplines") - initialOther - initialCurrent);
                             int paidDots = _character.CreationState.PurchaseLedger == null ? 0 : _character.CreationState.PurchaseLedger
-                                .Where(t => string.Equals(t.ItemName, (item.IsSecondaryPath && !string.IsNullOrWhiteSpace(item.PathName) ? item.Name + " — " + item.PathName : item.Name), StringComparison.OrdinalIgnoreCase) && t.Resource != "initial_pool")
+                                .Where(t => !t.IsCancelled && string.Equals(t.ItemName, (item.IsSecondaryPath && !string.IsNullOrWhiteSpace(item.PathName) ? item.Name + " — " + item.PathName : item.Name), StringComparison.OrdinalIgnoreCase) && t.Resource != "initial_pool")
                                 .Sum(t => Math.Max(0, t.NewValue - t.PreviousValue));
                             next = Math.Min(next, paidDots + initialCurrent + remaining);
                         }
@@ -206,7 +206,7 @@ namespace VtM_LoCh_fP.Views
                     string advancementKey = item.IsSecondaryPath ? "secondary_path" : "discipline";
                     string advancementName = item.IsSecondaryPath && !string.IsNullOrWhiteSpace(item.PathName)
                         ? item.Name + " — " + item.PathName : item.Name;
-                    bool hasRecordedPurchase = _character.CreationState.PurchaseLedger != null && _character.CreationState.PurchaseLedger.Any(t => string.Equals(t.ItemName, advancementName, StringComparison.OrdinalIgnoreCase));
+                    bool hasRecordedPurchase = _character.CreationState.PurchaseLedger != null && _character.CreationState.PurchaseLedger.Any(t => !t.IsCancelled && string.Equals(t.ItemName, advancementName, StringComparison.OrdinalIgnoreCase));
                     if (next != previous && (_character.CreationState.ConfirmedInitialBlocks.Contains("disciplines") || (hasRecordedPurchase && next < previous)) &&
                         AdvancementCheck != null && !AdvancementCheck(advancementKey, advancementName, previous, next))
                     { track.SetTrackValue(previous); return; }
@@ -216,7 +216,7 @@ namespace VtM_LoCh_fP.Views
                     {
                         string ledgerName = item.IsSecondaryPath && !string.IsNullOrWhiteSpace(item.PathName) ? item.Name + " — " + item.PathName : item.Name;
                         int paidDots = _character.CreationState.PurchaseLedger == null ? 0 : _character.CreationState.PurchaseLedger
-                            .Where(t => string.Equals(t.ItemName, ledgerName, StringComparison.OrdinalIgnoreCase) && t.Resource != "initial_pool")
+                            .Where(t => !t.IsCancelled && string.Equals(t.ItemName, ledgerName, StringComparison.OrdinalIgnoreCase) && t.Resource != "initial_pool")
                             .Sum(t => Math.Max(0, t.NewValue - t.PreviousValue));
                         _character.CreationState.InitialDisciplineDots[ledgerName] = Math.Max(0, next - paidDots);
                     }
@@ -245,7 +245,7 @@ namespace VtM_LoCh_fP.Views
                     string advancementName = item.IsSecondaryPath && !string.IsNullOrWhiteSpace(item.PathName) ? item.Name + " — " + item.PathName : item.Name;
                     string advancementKey = item.IsSecondaryPath ? "secondary_path" : "discipline";
                     string creationStateSnapshot = UndoService.CaptureCreationState(_character);
-                    bool hasRecordedPurchase = _character.CreationState.PurchaseLedger != null && _character.CreationState.PurchaseLedger.Any(t => string.Equals(t.ItemName, advancementName, StringComparison.OrdinalIgnoreCase));
+                    bool hasRecordedPurchase = _character.CreationState.PurchaseLedger != null && _character.CreationState.PurchaseLedger.Any(t => !t.IsCancelled && string.Equals(t.ItemName, advancementName, StringComparison.OrdinalIgnoreCase));
                     if (item.Level > 0 && hasRecordedPurchase && AdvancementCheck != null && !AdvancementCheck(advancementKey, advancementName, item.Level, 0)) return;
                     int restoreIndex = _character.Disciplines.IndexOf(item);
                     string removedKey = GetDisciplineSnapshotKey(item);
@@ -308,7 +308,7 @@ namespace VtM_LoCh_fP.Views
             if (_character.CreationState.ConfirmedInitialBlocks.Contains("disciplines")) return;
             if (_character.CreationState.InitialPurchases == null) _character.CreationState.InitialPurchases = new List<CreationPurchase>();
             _character.CreationState.InitialPurchases.RemoveAll(p => p.Block == "Дисциплины");
-            _character.CreationState.PurchaseLedger.RemoveAll(t => t.Resource == "initial_pool" && t.Block == "Дисциплины");
+            foreach (var transaction in _character.CreationState.PurchaseLedger.Where(t => !t.IsCancelled && t.Resource == "initial_pool" && t.Block == "Дисциплины")) transaction.IsCancelled = true;
             if (_character.CreationState.InitialDisciplineDots == null) _character.CreationState.InitialDisciplineDots = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             bool hadInitialDisciplineSnapshot = _character.CreationState.InitialDisciplineBlockEverConfirmed;
             if (!hadInitialDisciplineSnapshot) _character.CreationState.InitialDisciplineDots.Clear();
@@ -321,7 +321,7 @@ namespace VtM_LoCh_fP.Views
                 if (!_character.CreationState.InitialDisciplineDots.TryGetValue(snapshotKey, out initialLevel)) initialLevel = 0;
                 _character.CreationState.InitialPurchases.Add(new CreationPurchase { Block = "Дисциплины", ItemId = discipline.DisciplineId, ItemName = snapshotKey, PreviousValue = 0, NewValue = initialLevel, Cost = 0, Source = "initial" });
                 for (int level = 0; level < initialLevel; level++)
-                    _character.CreationState.PurchaseLedger.Add(new PurchaseTransaction { Order = _character.CreationState.NextPurchaseOrder++, Block = "Дисциплины", Category = "discipline", ItemId = discipline.DisciplineId, ItemName = snapshotKey, PreviousValue = level, NewValue = level + 1, Resource = "initial_pool", Cost = 0 });
+                    _character.CreationState.PurchaseLedger.Add(new PurchaseTransaction { Order = _character.CreationState.NextPurchaseOrder++, Block = "Дисциплины", Category = "discipline", ItemId = discipline.DisciplineId, ItemName = snapshotKey, PreviousValue = level, NewValue = level + 1, Resource = "initial_pool", Cost = 0, Source = "Initial" });
             }
             _character.CreationState.InitialDisciplineBlockEverConfirmed = true;
             _character.CreationState.ConfirmInitialBlock("disciplines");

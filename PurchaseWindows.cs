@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
@@ -150,7 +150,7 @@ namespace VtM_LoCh_fP
             {
                 Order = state.NextPurchaseOrder++, Block = block, Category = item.CostKey,
                 ItemId = item.Name, ItemName = item.Name, PreviousValue = previous, NewValue = next,
-                Resource = resource, Cost = cost, AffectsVirtueDerivedValues = item.CostKey == "virtue"
+                Resource = resource, Cost = cost, AffectsVirtueDerivedValues = item.CostKey == "virtue", Source = "Player"
             });
         }
 
@@ -358,7 +358,7 @@ namespace VtM_LoCh_fP
             {
                 Order = state.NextPurchaseOrder++, Block = block, Category = item.CostKey,
                 ItemId = item.Name, ItemName = item.Name, PreviousValue = previous, NewValue = next,
-                Resource = resource, Cost = cost, AffectsVirtueDerivedValues = item.CostKey == "virtue"
+                Resource = resource, Cost = cost, AffectsVirtueDerivedValues = item.CostKey == "virtue", Source = "Player"
             });
         }
 

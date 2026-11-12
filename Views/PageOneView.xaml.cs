@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -368,8 +368,8 @@ namespace VtM_LoCh_fP.Views
             }
             if (_character.CreationState.PurchaseLedger == null) _character.CreationState.PurchaseLedger = new List<PurchaseTransaction>();
             // Пересобираем только записи стартового распределения характеристик/способностей
-            _character.CreationState.PurchaseLedger.RemoveAll(t => t.Resource == "initial_pool" &&
-                (t.Block == "Характеристики" || t.Block == "Способности"));
+            foreach (var transaction in _character.CreationState.PurchaseLedger.Where(t => !t.IsCancelled && t.Resource == "initial_pool" &&
+                (t.Block == "Характеристики" || t.Block == "Способности"))) transaction.IsCancelled = true;
             if (_character.CreationState.InitialPurchases == null) _character.CreationState.InitialPurchases = new List<CreationPurchase>();
             _character.CreationState.InitialPurchases.RemoveAll(p => p.Block == "Характеристики" || p.Block == "Способности");
             foreach (var track in FindTracks(this))
@@ -408,7 +408,7 @@ namespace VtM_LoCh_fP.Views
             {
                 Order = state.NextPurchaseOrder++, Block = block, Category = category,
                 ItemId = itemName, ItemName = itemName, PreviousValue = previous, NewValue = next,
-                Resource = "initial_pool", Cost = 0
+                Resource = "initial_pool", Cost = 0, Source = "Initial"
             });
         }
 
@@ -617,7 +617,7 @@ namespace VtM_LoCh_fP.Views
                     int alreadySpent = GetInitialGroupSpent(groupNames, isAttributeGroup, track);
                     int remaining = Math.Max(0, pool - alreadySpent);
                     int paidDots = _character.CreationState.InitialAllocationEverCompleted && _character.CreationState.PurchaseLedger != null
-                        ? _character.CreationState.PurchaseLedger.Where(t => string.Equals(t.ItemName, track.Label, StringComparison.OrdinalIgnoreCase) && t.Resource != "initial_pool")
+                        ? _character.CreationState.PurchaseLedger.Where(t => !t.IsCancelled && string.Equals(t.ItemName, track.Label, StringComparison.OrdinalIgnoreCase) && t.Resource != "initial_pool")
                             .Sum(t => Math.Max(0, t.NewValue - t.PreviousValue)) : 0;
                     int allowedValue = baseValue + paidDots + remaining;
                     if (track.Value > allowedValue)
@@ -630,7 +630,7 @@ namespace VtM_LoCh_fP.Views
             {
                 int baseValue = attrs.Contains(track.Label) ? CharacterCreationRules.GetCreationLimit("attribute_base") : 0;
                 int paidDots = _character.CreationState.PurchaseLedger == null ? 0 : _character.CreationState.PurchaseLedger
-                    .Where(t => string.Equals(t.ItemName, track.Label, StringComparison.OrdinalIgnoreCase) && t.Resource != "initial_pool")
+                    .Where(t => !t.IsCancelled && string.Equals(t.ItemName, track.Label, StringComparison.OrdinalIgnoreCase) && t.Resource != "initial_pool")
                     .Sum(t => Math.Max(0, t.NewValue - t.PreviousValue));
                 int initialDots = Math.Max(0, track.Value - baseValue - paidDots);
                 if (attrs.Contains(track.Label)) _character.CreationState.InitialAttributeDots[track.Label] = initialDots;
@@ -1474,7 +1474,7 @@ namespace VtM_LoCh_fP.Views
             if (_character.CreationState.InitialAttributeDots != null) _character.CreationState.InitialAttributeDots.Clear();
             if (_character.CreationState.InitialAbilityDots != null) _character.CreationState.InitialAbilityDots.Clear();
             if (_character.CreationState.PurchaseLedger != null)
-                _character.CreationState.PurchaseLedger.RemoveAll(t => t.Block == "Характеристики" && t.Resource == "initial_pool");
+                foreach (var transaction in _character.CreationState.PurchaseLedger.Where(t => !t.IsCancelled && t.Block == "Характеристики" && t.Resource == "initial_pool")) transaction.IsCancelled = true;
             if (_character.CreationState.InitialPurchases != null)
                 _character.CreationState.InitialPurchases.RemoveAll(p => p.Block == "Характеристики");
 
@@ -1531,7 +1531,7 @@ namespace VtM_LoCh_fP.Views
             if (state.InitialPurchases != null)
                 state.InitialPurchases.RemoveAll(p => string.Equals(p.Block, "Дисциплины", StringComparison.OrdinalIgnoreCase));
             if (state.PurchaseLedger != null)
-                state.PurchaseLedger.RemoveAll(t => string.Equals(t.Block, "Дисциплины", StringComparison.OrdinalIgnoreCase));
+                foreach (var transaction in state.PurchaseLedger.Where(t => !t.IsCancelled && t.Resource == "initial_pool" && string.Equals(t.Block, "Дисциплины", StringComparison.OrdinalIgnoreCase))) transaction.IsCancelled = true;
             if (state.FreebiePurchases != null)
                 state.FreebiePurchases.RemoveAll(p => string.Equals(p.Block, "Дисциплины", StringComparison.OrdinalIgnoreCase) && oldItemNames.Contains(p.ItemName));
             if (state.ExperiencePurchases != null)

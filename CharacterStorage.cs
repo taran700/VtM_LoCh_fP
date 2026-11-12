@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -262,6 +262,12 @@ namespace VtM_LoCh_fP
                 character.CreationState = new CharacterCreationState();
             if (character.CreationState.PurchaseLedger == null)
                 character.CreationState.PurchaseLedger = new List<PurchaseTransaction>();
+            foreach (var transaction in character.CreationState.PurchaseLedger)
+            {
+                if (string.IsNullOrWhiteSpace(transaction.TransactionId)) transaction.TransactionId = Guid.NewGuid().ToString("N");
+                if (string.IsNullOrWhiteSpace(transaction.Source))
+                    transaction.Source = transaction.Resource == "initial_pool" ? "Initial" : "Player";
+            }
             if (character.CreationState.ExperiencePurchases == null)
                 character.CreationState.ExperiencePurchases = new List<ExperiencePurchase>();
             if (character.CreationState.AttributeDots == null) character.CreationState.AttributeDots = new Dictionary<string, int>();

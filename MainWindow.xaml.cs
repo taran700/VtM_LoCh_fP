@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
@@ -275,10 +275,10 @@ namespace VtM_LoCh_fP
             if (state.InitialAttributeDots == null) state.InitialAttributeDots = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             if (state.InitialAbilityDots == null) state.InitialAbilityDots = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             if (state.InitialAttributeDots.Count == 0)
-                foreach (var group in state.PurchaseLedger.Where(t => t.Resource == "initial_pool" && t.Block == "Характеристики").GroupBy(t => t.ItemName, StringComparer.OrdinalIgnoreCase))
+                foreach (var group in state.PurchaseLedger.Where(t => !t.IsCancelled && t.Resource == "initial_pool" && t.Block == "Характеристики").GroupBy(t => t.ItemName, StringComparer.OrdinalIgnoreCase))
                     state.InitialAttributeDots[group.Key] = group.Sum(t => Math.Max(0, t.NewValue - t.PreviousValue));
             if (state.InitialAbilityDots.Count == 0)
-                foreach (var group in state.PurchaseLedger.Where(t => t.Resource == "initial_pool" && t.Block == "Способности").GroupBy(t => t.ItemName, StringComparer.OrdinalIgnoreCase))
+                foreach (var group in state.PurchaseLedger.Where(t => !t.IsCancelled && t.Resource == "initial_pool" && t.Block == "Способности").GroupBy(t => t.ItemName, StringComparer.OrdinalIgnoreCase))
                     state.InitialAbilityDots[group.Key] = group.Sum(t => Math.Max(0, t.NewValue - t.PreviousValue));
             if (state.InitialBackgroundDots == null) state.InitialBackgroundDots = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             if (state.InitialBackgroundDots.Count == 0)
@@ -380,7 +380,7 @@ namespace VtM_LoCh_fP
             {
                 Order = state.NextPurchaseOrder++, Block = block, Category = category,
                 ItemId = itemName, ItemName = itemName, PreviousValue = previous, NewValue = next,
-                Resource = resource, Cost = cost, AffectsVirtueDerivedValues = virtueDerived
+                Resource = resource, Cost = cost, AffectsVirtueDerivedValues = virtueDerived, Source = "Player"
             });
         }
 
@@ -389,7 +389,7 @@ namespace VtM_LoCh_fP
             var state = _character.CreationState;
             if (state.PurchaseLedger == null) state.PurchaseLedger = new List<PurchaseTransaction>();
             var matches = state.PurchaseLedger
-                .Where(t => string.Equals(t.ItemName, itemName, StringComparison.OrdinalIgnoreCase) &&
+                .Where(t => !t.IsCancelled && string.Equals(t.ItemName, itemName, StringComparison.OrdinalIgnoreCase) &&
                             t.NewValue > newValue && t.PreviousValue < oldValue)
                 .OrderByDescending(t => t.Order).ToList();
 
@@ -451,11 +451,21 @@ namespace VtM_LoCh_fP
                             AdvantagesPage.RefreshBiographyFacts();
                         }
                     }
-                    if (from <= transaction.PreviousValue) state.PurchaseLedger.Remove(transaction);
-                    else
+                    // Сохраняем исходную запись для аудита. При частичном откате создаём
+                    // активную запись на оставшийся диапазон, а исходную помечаем отменённой.
+                    transaction.IsCancelled = true;
+                    if (from > transaction.PreviousValue)
                     {
-                        transaction.NewValue = from;
-                        transaction.Cost = (from - transaction.PreviousValue) * unitCost;
+                        state.PurchaseLedger.Add(new PurchaseTransaction
+                        {
+                            GenerationBatchId = transaction.GenerationBatchId,
+                            Order = state.NextPurchaseOrder++, Block = transaction.Block, Category = transaction.Category,
+                            ItemId = transaction.ItemId, ItemName = transaction.ItemName,
+                            PreviousValue = transaction.PreviousValue, NewValue = from,
+                            Resource = transaction.Resource, Cost = (from - transaction.PreviousValue) * unitCost,
+                            AffectsVirtueDerivedValues = transaction.AffectsVirtueDerivedValues,
+                            DependencyGroupId = transaction.DependencyGroupId, Source = transaction.Source
+                        });
                     }
                 }
                 // Синхронизируем legacy-журналы, чтобы старые окна и списки не показывали уже отменённое.
@@ -785,7 +795,8 @@ namespace VtM_LoCh_fP
                 {
                     state.FreebiePoints += purchase.Cost;
                     if (state.PurchaseLedger != null)
-                        state.PurchaseLedger.RemoveAll(t => t.Resource == "freebie" && string.Equals(t.ItemId, purchase.ItemId, StringComparison.OrdinalIgnoreCase));
+                        foreach (var transaction in state.PurchaseLedger.Where(t => !t.IsCancelled && t.Resource == "freebie" && string.Equals(t.ItemId, purchase.ItemId, StringComparison.OrdinalIgnoreCase)))
+                            transaction.IsCancelled = true;
                 }
                 HistoryPage.RefreshMeritsFlaws();
                 RefreshGenerationFromCharacter();
@@ -796,13 +807,13 @@ namespace VtM_LoCh_fP
             // также возвращаются в свои исходные бюджеты в порядке LIFO.
             var ledgerItems = state.PurchaseLedger == null
                 ? new List<string>()
-                : state.PurchaseLedger.Where(t => string.Equals(t.Block, block, StringComparison.OrdinalIgnoreCase)).Select(t => t.ItemName).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                : state.PurchaseLedger.Where(t => !t.IsCancelled && string.Equals(t.Block, block, StringComparison.OrdinalIgnoreCase)).Select(t => t.ItemName).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             foreach (string name in selectedNames) if (!ledgerItems.Contains(name, StringComparer.OrdinalIgnoreCase)) ledgerItems.Add(name);
 
             foreach (string itemName in ledgerItems)
             {
                 var itemTransactions = state.PurchaseLedger == null ? new List<PurchaseTransaction>() :
-                    state.PurchaseLedger.Where(t => string.Equals(t.Block, block, StringComparison.OrdinalIgnoreCase) && string.Equals(t.ItemName, itemName, StringComparison.OrdinalIgnoreCase)).ToList();
+                    state.PurchaseLedger.Where(t => !t.IsCancelled && string.Equals(t.Block, block, StringComparison.OrdinalIgnoreCase) && string.Equals(t.ItemName, itemName, StringComparison.OrdinalIgnoreCase)).ToList();
                 int current = 0;
                 int baseline = itemTransactions.Count > 0 ? itemTransactions.Min(t => t.PreviousValue) :
                     ((purchases ?? new List<CreationPurchase>()).FirstOrDefault(p => string.Equals(p.ItemName, itemName, StringComparison.OrdinalIgnoreCase))?.PreviousValue ?? 0);
@@ -879,7 +890,8 @@ namespace VtM_LoCh_fP
                 state.InitialPurchases.RemoveAll(p => string.Equals(p.Block, block, StringComparison.OrdinalIgnoreCase) ||
                     (block == "Фоны" && p.Block == "Факты биографии") || (block == "Добродетели" && p.Block == "Сила воли"));
             if (state.PurchaseLedger != null)
-                state.PurchaseLedger.RemoveAll(t => string.Equals(t.Block, block, StringComparison.OrdinalIgnoreCase));
+                foreach (var transaction in state.PurchaseLedger.Where(t => !t.IsCancelled && string.Equals(t.Block, block, StringComparison.OrdinalIgnoreCase)))
+                    transaction.IsCancelled = true;
             if (block == "Добродетели") state.UnconfirmInitialBlock("virtues");
             if (block == "Дисциплины") state.UnconfirmInitialBlock("disciplines");
             if (block == "Фоны") state.UnconfirmInitialBlock("backgrounds");
