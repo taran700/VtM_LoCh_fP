@@ -1,4 +1,4 @@
-<UserControl x:Class="VtM_LoCh_fP.Controls.MarkdownFieldControl"
+﻿<UserControl x:Class="VtM_LoCh_fP.Controls.MarkdownFieldControl"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:md="clr-namespace:MdXaml;assembly=MdXaml"
@@ -18,8 +18,18 @@
     </UserControl.Resources>
     <StackPanel x:Name="LayoutRoot">
         <TextBlock Text="{Binding Label, ElementName=Root}"
-                   Style="{StaticResource FieldLabelStyle}"
-                   Margin="0,0,0,3" />
+                   Margin="0,0,0,3">
+            <TextBlock.Style>
+                <Style TargetType="TextBlock" BasedOn="{StaticResource FieldLabelStyle}">
+                    <Setter Property="Visibility" Value="Visible"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Label, ElementName=Root}" Value="">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBlock.Style>
+        </TextBlock>
         <Border x:Name="FieldBorder"
                 BorderBrush="{DynamicResource BorderBrush}"
                 BorderThickness="1"
@@ -29,7 +39,7 @@
                 MinHeight="42">
             <Grid x:Name="ContentHost">
                 <md:MarkdownScrollViewer x:Name="Preview"
-                    Markdown="{Binding InputText, ElementName=Root, UpdateSourceTrigger=PropertyChanged}"
+                    
                     MarkdownStyleName="Sasabune"
                     ClickAction="SafetyOpenBrowser"
                     Visibility="Visible"

@@ -50,7 +50,7 @@ namespace VtM_LoCh_fP
             Grid.SetColumn(generate, 0); footer.Children.Add(generate);
             var buttons = new WrapPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
             update = new Button { Content = "Доступно обновление", Padding = new Thickness(12, 8, 12, 8), Margin = new Thickness(0, 0, 8, 0), Visibility = Visibility.Collapsed };
-            var enableAutoUpdate = new Button { Content = "Включить автообновление", Padding = new Thickness(12, 8, 12, 8), Margin = new Thickness(0, 0, 8, 0), Visibility = Visibility.Collapsed };
+            var enableAutoUpdate = new Button { Content = "Включить уведомления", Padding = new Thickness(12, 8, 12, 8), Margin = new Thickness(0, 0, 8, 0), Visibility = Visibility.Collapsed };
             checkUpdatesButton = new Button { Content = "Проверить обновления", Padding = new Thickness(12, 8, 12, 8), Margin = new Thickness(0, 0, 8, 0) };
             checkUpdatesButton.Click += async (sender, args) =>
             {
@@ -101,22 +101,11 @@ namespace VtM_LoCh_fP
                 }
             };
 
-            enableAutoUpdate.Click += async (sender, args) =>
+            enableAutoUpdate.Click += (sender, args) =>
             {
                 AppSettings.UpdateNotificationsEnabled = true;
                 AppSettings.Save();
                 enableAutoUpdate.Visibility = Visibility.Collapsed;
-                try
-                {
-                    UpdateCheckResult result = await UpdateService.CheckAsync(false);
-                    ApplyUpdateCheckResult(result);
-                }
-                catch (Exception ex)
-                {
-                    updateAvailableCached = UpdateService.RestoreCachedUpdaterState();
-                    update.Visibility = updateAvailableCached ? Visibility.Visible : Visibility.Collapsed;
-                    ShowUpdateError("Не удалось включить проверку обновлений", ex);
-                }
             };
 
             if (!AppSettings.UpdateNotificationsEnabled)
@@ -136,25 +125,15 @@ namespace VtM_LoCh_fP
             _list.MouseDoubleClick += (s,e) => OpenSelected();
             _list.PreviewKeyDown += (s, e) => { if (e.Key == System.Windows.Input.Key.Enter && _list.SelectedItem != null) { OpenSelected(); e.Handled = true; } };
             // Пока окно выбора скрыто, приложение живёт ради открытого листа
-            Loaded += async (s, e) =>
+            Loaded += (s, e) =>
             {
                 ShowStorageLoadWarnings();
-                if (!AppSettings.UpdateNotificationsEnabled) return;
-                try
-                {
-                    UpdateCheckResult result = await UpdateService.CheckAsync(false);
-                    ApplyUpdateCheckResult(result);
-                    if (!result.WasCached && !result.UpdateAvailable &&
-                        !string.IsNullOrWhiteSpace(result.Message) &&
-                        result.Message.IndexOf("последняя версия", StringComparison.OrdinalIgnoreCase) < 0)
-                        ThemedDialog.Show(this, result.Message, "Проверка обновлений", MessageBoxButton.OK, MessageBoxImage.Warning);
-                }
-                catch (Exception ex)
-                {
-                    updateAvailableCached = UpdateService.RestoreCachedUpdaterState();
-                    update.Visibility = updateAvailableCached ? Visibility.Visible : Visibility.Collapsed;
-                    ShowUpdateError("Не удалось проверить обновления", ex);
-                }
+                // При запуске приложения обновления автоматически не проверяем.
+                // Проверка выполняется только по явному нажатию пользователем кнопки.
+                updateAvailableCached = UpdateService.RestoreCachedUpdaterState();
+                update.Visibility = AppSettings.UpdateNotificationsEnabled && updateAvailableCached
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
             };
             Closed += (s, e) =>
             {
@@ -622,17 +601,71 @@ namespace VtM_LoCh_fP
             Characters.Add(character); SaveCharacters(); _list.SelectedItem = character; OpenSelected();
         }
 
+        private static bool IsAdministrator()
+        {
+            try
+            {
+                using (var identity = System.Security.Principal.WindowsIdentity.GetCurrent())
+                {
+                    var principal = new System.Security.Principal.WindowsPrincipal(identity);
+                    return principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+                }
+            }
+            catch { return false; }
+        }
+
+        private void RequestAdministratorAndContinueUpdate()
+        {
+            try
+            {
+                string executable = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
+                var startInfo = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = executable,
+                    Arguments = "--install-update-elevated",
+                    UseShellExecute = true,
+                    Verb = "runas",
+                    WorkingDirectory = System.IO.Path.GetDirectoryName(executable)
+                };
+
+                UpdateService.WriteLog("Для установки обновления запрашиваются права администратора через UAC.");
+                System.Diagnostics.Process.Start(startInfo);
+                Application.Current.Shutdown();
+            }
+            catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
+            {
+                UpdateService.WriteLog("Пользователь отменил запрос UAC. Текущий запуск приложения продолжает работу.");
+                ThemedDialog.Show(this,
+                    "Запрос прав администратора был отменён. Обновление не установлено; приложение продолжит работу.",
+                    "Установка отменена", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                UpdateService.WriteLog("Не удалось перезапустить обновлятор с правами администратора: " + ex);
+                ShowUpdateError("Не удалось запросить права администратора", ex);
+            }
+        }
+
+        internal void StartUpdateInstallation()
+        {
+            Update_Click(this, new RoutedEventArgs());
+        }
+
         private void Update_Click(object sender, RoutedEventArgs e)
         {
             UpdateService.WriteLog("Начат этап установки обновления через EZ_Updater.");
             try
             {
+                if (Updater.CannotWriteOnDir && !IsAdministrator())
+                {
+                    RequestAdministratorAndContinueUpdate();
+                    return;
+                }
+
                 if (Updater.CannotWriteOnDir)
                 {
-                    ShowUpdateError("Недостаточно прав для обновления",
-                        new UnauthorizedAccessException(
-                            "EZ_Updater сообщает, что приложение не может записывать файлы в папку установки. " +
-                            "Проверьте права доступа к папке или установите приложение в каталог, доступный для записи."));
+                    ShowUpdateError("Не удалось получить доступ даже с правами администратора",
+                        new UnauthorizedAccessException("EZ_Updater по-прежнему сообщает, что папка установки недоступна для записи."));
                     return;
                 }
 

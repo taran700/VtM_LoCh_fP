@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
@@ -63,6 +63,12 @@ namespace VtM_LoCh_fP.Controls
             set { SetValue(FieldHeightProperty, value); }
         }
 
+        public bool IsReadOnly
+        {
+            get { return Editor != null && Editor.IsReadOnly; }
+            set { if (Editor != null) Editor.IsReadOnly = value; }
+        }
+
         private static void OnInputTextChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             MarkdownFieldControl control = (MarkdownFieldControl)d;
@@ -76,6 +82,7 @@ namespace VtM_LoCh_fP.Controls
                 control._updating = false;
             }
 
+            control.UpdatePreviewMarkdown();
             control.QueueResize();
             if (control.IsLoaded)
             {
@@ -100,6 +107,7 @@ namespace VtM_LoCh_fP.Controls
 
         private void Preview_Loaded(object sender, RoutedEventArgs e)
         {
+            UpdatePreviewMarkdown();
             ApplyDocumentTheme();
             QueueResize();
         }
@@ -150,7 +158,7 @@ namespace VtM_LoCh_fP.Controls
 
         private void BeginEdit()
         {
-            if (_editing) return;
+            if (_editing || IsReadOnly) return;
 
             _editing = true;
             _updating = true;
@@ -174,6 +182,7 @@ namespace VtM_LoCh_fP.Controls
             if (_updating) return;
 
             SetCurrentValue(InputTextProperty, Editor.Text);
+            UpdatePreviewMarkdown();
             TextChangedEventHandler handler = InputTextChanged;
             if (handler != null) handler(this, e);
 
@@ -204,6 +213,53 @@ namespace VtM_LoCh_fP.Controls
         private void Editor_SizeChanged(object sender, SizeChangedEventArgs e)
         {
             if (_editing) QueueResize();
+        }
+
+        private void UpdatePreviewMarkdown()
+        {
+            if (Preview == null) return;
+            Preview.Markdown = NormalizeLineBreaksForMarkdown(InputText ?? string.Empty);
+        }
+        private static string NormalizeLineBreaksForMarkdown(string source)
+        {
+            string normalized = (source ?? string.Empty).Replace("\r\n", "\n").Replace('\r', '\n');
+            string[] lines = normalized.Split('\n');
+            var result = new System.Text.StringBuilder(normalized.Length + lines.Length * 2);
+            char fenceCharacter = '\0';
+            int fenceLength = 0;
+
+            for (int i = 0; i < lines.Length; i++)
+            {
+                string line = lines[i];
+                string trimmed = line.TrimStart();
+                int markerLength = 0;
+                char marker = '\0';
+                if (trimmed.StartsWith("```", StringComparison.Ordinal) || trimmed.StartsWith("~~~", StringComparison.Ordinal))
+                {
+                    marker = trimmed[0];
+                    while (markerLength < trimmed.Length && trimmed[markerLength] == marker) markerLength++;
+                }
+
+                bool isFenceLine = markerLength >= 3;
+                if (isFenceLine && fenceCharacter == '\0')
+                {
+                    fenceCharacter = marker;
+                    fenceLength = markerLength;
+                }
+                else if (isFenceLine && marker == fenceCharacter && markerLength >= fenceLength)
+                {
+                    fenceCharacter = '\0';
+                    fenceLength = 0;
+                }
+                else if (fenceCharacter == '\0' && line.Length > 0)
+                {
+                    line = line.TrimEnd() + "  ";
+                }
+
+                result.Append(line);
+                if (i < lines.Length - 1) result.Append('\n');
+            }
+            return result.ToString();
         }
 
         private void QueueResize()

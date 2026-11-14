@@ -1,9 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.Globalization;
+﻿using System;
 using System.IO;
 using System.Linq;
-using System.Net;
 using System.Net.Http;
 using System.Reflection;
 using System.Text.RegularExpressions;
@@ -25,8 +22,8 @@ namespace VtM_LoCh_fP
 
     internal static class UpdateService
     {
-        private const string ReleaseApi = "https://api.github.com/repos/taran700/VtM_LoCh_fP/releases/latest";
-        private const int CheckIntervalMinutes = 15;
+        private const string VersionJsonUrl = "https://raw.githubusercontent.com/taran700/VtM_LoCh_fP/refs/heads/master/version.json";
+        private const int AutomaticCheckIntervalMinutes = 24 * 60;
         private static readonly HttpClient Client = CreateClient();
         private static int _isChecking;
 
@@ -34,7 +31,8 @@ namespace VtM_LoCh_fP
         {
             var client = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
             client.DefaultRequestHeaders.UserAgent.ParseAdd("VtM_LoCh_fP-Updater/1.0");
-            client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
+            client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+            client.DefaultRequestHeaders.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue { NoCache = true };
             return client;
         }
 
@@ -60,127 +58,84 @@ namespace VtM_LoCh_fP
         private static async Task<UpdateCheckResult> CheckCoreAsync(bool manual)
         {
             DateTime now = DateTime.UtcNow;
-            if (AppSettings.UpdateRateLimitUntilUtc.HasValue && now < AppSettings.UpdateRateLimitUntilUtc.Value)
-            {
-                string until = AppSettings.UpdateRateLimitUntilUtc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss");
-                WriteLog("Проверка заблокирована ограничением GitHub до " + until + ".");
-                return new UpdateCheckResult
-                {
-                    UpdateAvailable = RestoreCachedUpdaterState(),
-                    WasCached = true,
-                    ReleaseVersion = AppSettings.UpdateLastKnownVersion,
-                    Message = "GitHub временно ограничил количество запросов. Следующая проверка будет доступна: " + until
-                };
-            }
-
             if (!manual && AppSettings.UpdateLastAttemptUtc.HasValue &&
-                now - AppSettings.UpdateLastAttemptUtc.Value < TimeSpan.FromMinutes(CheckIntervalMinutes))
+                now - AppSettings.UpdateLastAttemptUtc.Value < TimeSpan.FromMinutes(AutomaticCheckIntervalMinutes))
             {
-                WriteLog("Использован кеш: с последней попытки прошло менее 15 минут.");
+                WriteLog("Автоматическая проверка пропущена: 24-часовое КД ещё действует.");
                 bool available = RestoreCachedUpdaterState();
                 return new UpdateCheckResult
                 {
                     UpdateAvailable = available,
                     WasCached = true,
                     ReleaseVersion = AppSettings.UpdateLastKnownVersion,
-                    Message = AppSettings.UpdateLastCheckMessage ?? (available ? "Доступна новая версия." : "Проверка обновлений недавно выполнялась.")
+                    Message = AppSettings.UpdateLastCheckMessage ?? (available ? "Доступна новая версия." : "Автоматическая проверка недавно выполнялась.")
                 };
             }
 
-            // Фиксируем попытку до сетевого вызова: ошибки сети также получают 15-минутную паузу.
-            AppSettings.UpdateLastAttemptUtc = now;
-            AppSettings.Save();
-            WriteLog("Начата проверка. Текущая версия: " + GetCurrentVersionText() + "; ручная: " + manual + ".");
+            if (!manual)
+            {
+                AppSettings.UpdateLastAttemptUtc = now;
+                AppSettings.Save();
+            }
+            WriteLog("Начата проверка через version.json. Текущая версия: " + GetCurrentVersionText() + "; ручная: " + manual + ".");
 
             try
             {
-                using (HttpResponseMessage response = await Client.GetAsync(ReleaseApi).ConfigureAwait(true))
+                using (HttpResponseMessage response = await Client.GetAsync(VersionJsonUrl).ConfigureAwait(true))
                 {
                     int status = (int)response.StatusCode;
-                    string remaining = Header(response, "X-RateLimit-Remaining");
-                    string reset = Header(response, "X-RateLimit-Reset");
-                    WriteLog("GitHub HTTP " + status + "; X-RateLimit-Remaining=" + (remaining ?? "нет") + "; X-RateLimit-Reset=" + (reset ?? "нет") + ".");
-
-                    if (response.StatusCode == HttpStatusCode.NotFound)
-                    {
-                        CompleteAttempt();
-                        AppSettings.UpdateLastSuccessUtc = DateTime.UtcNow;
-                        AppSettings.UpdateLastKnownVersion = string.Empty;
-                        AppSettings.UpdateLastAssetUrl = string.Empty;
-                        AppSettings.UpdateLastCheckMessage = "На GitHub пока нет опубликованного релиза для проверки обновлений.";
-                        AppSettings.Save();
-                        WriteLog("Релиз не найден (404). Опубликованных релизов пока нет.");
-                        return new UpdateCheckResult { UpdateAvailable = false, Message = AppSettings.UpdateLastCheckMessage };
-                    }
-
-                    if (response.StatusCode == HttpStatusCode.Forbidden)
-                    {
-                        string body = await response.Content.ReadAsStringAsync();
-                        bool rateLimited = string.Equals(remaining, "0", StringComparison.Ordinal) ||
-                            body.IndexOf("rate limit", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                            body.IndexOf("API rate limit exceeded", StringComparison.OrdinalIgnoreCase) >= 0;
-                        if (rateLimited)
-                        {
-                            DateTime? resetAt = ParseUnixReset(reset);
-                            if (!resetAt.HasValue) resetAt = DateTime.UtcNow.AddMinutes(CheckIntervalMinutes);
-                            AppSettings.UpdateLastAttemptUtc = DateTime.UtcNow;
-                            DateTime rateLimitRetry = resetAt.Value.AddSeconds(5);
-                            DateTime minimumRetry = DateTime.UtcNow.AddMinutes(CheckIntervalMinutes);
-                            AppSettings.UpdateRateLimitUntilUtc = rateLimitRetry > minimumRetry ? rateLimitRetry : minimumRetry;
-                            AppSettings.UpdateLastCheckMessage = "GitHub временно ограничил количество запросов. Следующая проверка будет доступна: " + AppSettings.UpdateRateLimitUntilUtc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss");
-                            AppSettings.Save();
-                            WriteLog("Обнаружен rate limit 403. Следующая попытка после " + resetAt.Value.ToString("o") + " UTC.");
-                            return new UpdateCheckResult { UpdateAvailable = RestoreCachedUpdaterState(), WasCached = false, ReleaseVersion = AppSettings.UpdateLastKnownVersion, Message = AppSettings.UpdateLastCheckMessage };
-                        }
-                        throw new InvalidOperationException("GitHub вернул 403 Forbidden. Доступ к репозиторию запрещён; это не похоже на превышение лимита запросов.");
-                    }
-
+                    WriteLog("version.json HTTP " + status + ".");
                     if ((int)response.StatusCode == 429)
-                    {
-                        DateTime retryAt = ParseRetryAfter(response) ?? DateTime.UtcNow.AddMinutes(CheckIntervalMinutes);
-                        AppSettings.UpdateLastAttemptUtc = DateTime.UtcNow;
-                        DateTime retryAfter = retryAt.AddSeconds(5);
-                        DateTime minimumRetry = DateTime.UtcNow.AddMinutes(CheckIntervalMinutes);
-                        AppSettings.UpdateRateLimitUntilUtc = retryAfter > minimumRetry ? retryAfter : minimumRetry;
-                        AppSettings.UpdateLastCheckMessage = "GitHub временно ограничил количество запросов. Следующая проверка будет доступна: " + AppSettings.UpdateRateLimitUntilUtc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss");
-                        AppSettings.Save();
-                        WriteLog("Получен HTTP 429. Следующая попытка после " + retryAt.ToString("o") + " UTC.");
-                        return new UpdateCheckResult { UpdateAvailable = RestoreCachedUpdaterState(), WasCached = false, ReleaseVersion = AppSettings.UpdateLastKnownVersion, Message = AppSettings.UpdateLastCheckMessage };
-                    }
-
+                        throw new InvalidOperationException("Сервер временно ограничил запросы к version.json (HTTP 429). Попробуйте позже.");
                     if ((int)response.StatusCode >= 500 && (int)response.StatusCode <= 599)
-                        throw new InvalidOperationException("Сервер GitHub временно недоступен (HTTP " + status + "). Приложение продолжит работу.");
+                        throw new InvalidOperationException("Сервер обновлений временно недоступен (HTTP " + status + "). Приложение продолжит работу.");
                     if (!response.IsSuccessStatusCode)
-                        throw new InvalidOperationException("GitHub вернул ошибку HTTP " + status + " (" + response.ReasonPhrase + ").");
+                        throw new InvalidOperationException("Не удалось получить version.json: HTTP " + status + " (" + response.ReasonPhrase + ").");
 
-                    string json = await response.Content.ReadAsStringAsync();
-                    JObject release = JObject.Parse(json);
-                    string tag = (string)release["tag_name"];
-                    if (string.IsNullOrWhiteSpace(tag)) throw new InvalidOperationException("В последнем релизе GitHub отсутствует тег версии.");
-                    string normalizedTag = tag.Trim();
+                    string versionJson = await response.Content.ReadAsStringAsync();
+                    JObject versionInfo = JObject.Parse(versionJson);
+                    string versionText = (string)versionInfo["version"];
+                    if (string.IsNullOrWhiteSpace(versionText))
+                        throw new InvalidOperationException("В version.json отсутствует поле version.");
+                    string normalizedTag = versionText.Trim();
                     if (normalizedTag.StartsWith("v", StringComparison.OrdinalIgnoreCase)) normalizedTag = normalizedTag.Substring(1);
                     Version releaseVersion;
-                    if (!Version.TryParse(normalizedTag, out releaseVersion)) throw new InvalidOperationException("Тег релиза «" + tag + "» не соответствует формату версии.");
+                    if (!Version.TryParse(normalizedTag, out releaseVersion))
+                        throw new InvalidOperationException("Версия «" + versionText + "» в version.json имеет неверный формат.");
 
-                    string assetName = "VtM_LoCh_fP_v" + releaseVersion + ".zip";
-                    JArray assets = release["assets"] as JArray;
-                    JObject asset = assets == null ? null : assets.OfType<JObject>().FirstOrDefault(a => string.Equals((string)a["name"], assetName, StringComparison.Ordinal));
-                    if (asset == null) throw new InvalidOperationException("В релизе " + tag + " отсутствует обязательный файл «" + assetName + "».");
-                    string downloadUrl = (string)asset["browser_download_url"];
+                    string assetName = (string)versionInfo["assetName"];
+                    if (string.IsNullOrWhiteSpace(assetName)) assetName = "VtM_LoCh_fP_v" + releaseVersion + ".zip";
+                    if (!string.Equals(assetName, "VtM_LoCh_fP_v" + releaseVersion + ".zip", StringComparison.Ordinal))
+                        throw new InvalidOperationException("Имя ZIP-архива в version.json не соответствует версии.");
+                    string downloadUrl = (string)versionInfo["downloadUrl"];
+                    if (string.IsNullOrWhiteSpace(downloadUrl))
+                        downloadUrl = "https://github.com/taran700/VtM_LoCh_fP/releases/download/v" + releaseVersion + "/" + assetName;
                     Uri downloadUri;
-                    if (string.IsNullOrWhiteSpace(downloadUrl) || !Uri.TryCreate(downloadUrl, UriKind.Absolute, out downloadUri) ||
-                        downloadUri.Scheme != Uri.UriSchemeHttps || !string.Equals(downloadUri.Host, "github.com", StringComparison.OrdinalIgnoreCase))
-                        throw new InvalidOperationException("GitHub не предоставил безопасную HTTPS-ссылку на ZIP-архив обновления.");
+                    if (!Uri.TryCreate(downloadUrl, UriKind.Absolute, out downloadUri) ||
+                        downloadUri.Scheme != Uri.UriSchemeHttps ||
+                        !string.Equals(downloadUri.Host, "github.com", StringComparison.OrdinalIgnoreCase) ||
+                        !downloadUri.AbsolutePath.Contains("/releases/download/"))
+                        throw new InvalidOperationException("В version.json указана небезопасная или некорректная ссылка на ZIP-архив.");
 
+                    JObject release = new JObject
+                    {
+                        ["tag_name"] = "v" + releaseVersion,
+                        ["name"] = (string)versionInfo["releaseName"] ?? ("v" + releaseVersion),
+                        ["body"] = (string)versionInfo["releaseNotes"] ?? string.Empty,
+                        ["assets"] = new JArray(new JObject
+                        {
+                            ["name"] = assetName,
+                            ["browser_download_url"] = downloadUrl
+                        })
+                    };
+                    string json = release.ToString(Formatting.None);
                     Version currentVersion;
                     if (!Version.TryParse(GetCurrentVersionText(), out currentVersion))
                         throw new InvalidOperationException("Не удалось определить версию установленного приложения.");
-
-                    // Передаём уже полученные данные EZ_Updater. Проверочный HTTP-запрос библиотеки не вызывается.
                     ConfigureEzUpdater(releaseVersion, assetName, downloadUrl, (string)release["name"], (string)release["body"], json);
                     bool available = releaseVersion > currentVersion;
 
-                    CompleteAttempt();
+                    CompleteAttempt(manual);
                     AppSettings.UpdateLastSuccessUtc = DateTime.UtcNow;
                     AppSettings.UpdateLastKnownVersion = releaseVersion.ToString();
                     AppSettings.UpdateLastAssetUrl = downloadUrl;
@@ -192,17 +147,17 @@ namespace VtM_LoCh_fP
             }
             catch (TaskCanceledException ex)
             {
-                RecordFailure("Превышено время ожидания ответа GitHub. Проверьте интернет-соединение.", ex);
+                RecordFailure("Превышено время ожидания ответа сервера обновлений. Проверьте интернет-соединение.", ex, manual);
                 return new UpdateCheckResult { UpdateAvailable = RestoreCachedUpdaterState(), WasCached = false, ReleaseVersion = AppSettings.UpdateLastKnownVersion, Message = AppSettings.UpdateLastCheckMessage };
             }
             catch (HttpRequestException ex)
             {
-                RecordFailure("Не удалось подключиться к GitHub. Проверьте интернет-соединение.", ex);
+                RecordFailure("Не удалось подключиться к серверу обновлений. Проверьте интернет-соединение.", ex, manual);
                 return new UpdateCheckResult { UpdateAvailable = RestoreCachedUpdaterState(), WasCached = false, ReleaseVersion = AppSettings.UpdateLastKnownVersion, Message = AppSettings.UpdateLastCheckMessage };
             }
             catch (Exception ex)
             {
-                RecordFailure(ex.Message, ex);
+                RecordFailure(ex.Message, ex, manual);
                 return new UpdateCheckResult { UpdateAvailable = RestoreCachedUpdaterState(), WasCached = false, ReleaseVersion = AppSettings.UpdateLastKnownVersion, Message = AppSettings.UpdateLastCheckMessage };
             }
         }
@@ -237,11 +192,6 @@ namespace VtM_LoCh_fP
             Updater.OriginalFileName = "VtM_LoCh_fP.exe";
             Updater.GitHub_Asset = assetName;
             Updater.CustomLogger = WriteLog;
-
-            // EZ_Updater 0.5.3.1 does not expose a public API for injecting a release.
-            // Its Update() calls GitHub again unless API_Executed/APIResponse/AssetSelected
-            // have been primed. Adapt only the pinned library's private state, keeping its
-            // original ZIP download, extraction, rollback and replacement implementation.
             Assembly assembly = typeof(Updater).Assembly;
             if (assembly.GetName().Version != new Version(0, 5, 3, 1))
                 throw new InvalidOperationException("Версия EZ_Updater отличается от проверенной 0.5.3.1; передача релиза в установщик отменена.");
@@ -320,19 +270,18 @@ namespace VtM_LoCh_fP
         {
             AppSettings.UpdateLastAttemptUtc = DateTime.UtcNow;
             AppSettings.Save();
-            WriteLog("Установка завершена успешно. Автоматическая проверка отложена на 15 минут после установки.");
+            WriteLog("Установка завершена успешно. Автоматическая проверка отложена на 24 часа после установки.");
         }
 
-        private static void CompleteAttempt()
+        private static void CompleteAttempt(bool manual)
         {
-            AppSettings.UpdateLastAttemptUtc = DateTime.UtcNow;
+            if (!manual) AppSettings.UpdateLastAttemptUtc = DateTime.UtcNow;
         }
 
-        private static void RecordFailure(string message, Exception exception)
+        private static void RecordFailure(string message, Exception exception, bool manual)
         {
-            CompleteAttempt();
+            CompleteAttempt(manual);
             AppSettings.UpdateLastCheckMessage = message;
-            // LastKnownVersion/LastAssetUrl/LastSuccessUtc не трогаем: сохраняем последний успешный результат.
             AppSettings.Save();
             WriteLog("Ошибка проверки: " + message + Environment.NewLine + exception);
         }
@@ -344,28 +293,6 @@ namespace VtM_LoCh_fP
             return string.IsNullOrWhiteSpace(version) ? "" : version;
         }
 
-        private static string Header(HttpResponseMessage response, string name)
-        {
-            IEnumerable<string> values;
-            return response.Headers.TryGetValues(name, out values) ? values.FirstOrDefault() : null;
-        }
-
-        private static DateTime? ParseUnixReset(string value)
-        {
-            long seconds;
-            if (!long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out seconds)) return null;
-            try { return DateTimeOffset.FromUnixTimeSeconds(seconds).UtcDateTime; }
-            catch { return null; }
-        }
-
-        private static DateTime? ParseRetryAfter(HttpResponseMessage response)
-        {
-            if (response.Headers.RetryAfter == null) return null;
-            if (response.Headers.RetryAfter.Date.HasValue) return response.Headers.RetryAfter.Date.Value.UtcDateTime;
-            if (response.Headers.RetryAfter.Delta.HasValue) return DateTime.UtcNow.Add(response.Headers.RetryAfter.Delta.Value);
-            return null;
-        }
-
         public static void WriteLog(string message)
         {
             try
@@ -375,7 +302,7 @@ namespace VtM_LoCh_fP
                 string safe = Regex.Replace(message ?? string.Empty, @"(?i)(gh[pousr]_[A-Za-z0-9_]+|github_pat_[A-Za-z0-9_]+|Bearer\s+[A-Za-z0-9._\-]+)", "[REDACTED]");
                 File.AppendAllText(Path.Combine(directory, "updater.log"), "[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "] " + safe + Environment.NewLine);
             }
-            catch { /* Диагностика не должна мешать запуску приложения. */ }
+            catch { /* никогда не завершаем приложение при ошибке, приложение ВСЕГДА рабоатет */ }
         }
     }
 }

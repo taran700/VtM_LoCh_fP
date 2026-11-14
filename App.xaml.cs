@@ -40,6 +40,15 @@ namespace VtM_LoCh_fP
             var window = new CharacterSelectionWindow();
             MainWindow = window;
             window.Show();
+
+            // Повышенный экземпляр запускается только для продолжения уже подтверждённой
+            // пользователем установки обновления после ответа на запрос UAC.
+            if (e.Args != null && Array.Exists(e.Args,
+                arg => string.Equals(arg, "--install-update-elevated", StringComparison.OrdinalIgnoreCase)))
+            {
+                window.Dispatcher.BeginInvoke(new Action(() => window.StartUpdateInstallation()),
+                    System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            }
         }
 
         private static void Window_LoadedForEscape(object sender, RoutedEventArgs e)

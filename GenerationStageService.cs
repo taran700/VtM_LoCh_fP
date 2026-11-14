@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -70,33 +70,89 @@ namespace VtM_LoCh_fP
             };
             for (int i = 0; i < pairs.GetLength(0); i++) text = text.Replace(pairs[i, 0], pairs[i, 1]);
             string[,] plain = {
-                {"был/была", female ? "была" : "был"}, {"жил/жила", female ? "жила" : "жил"},
-                {"остался/осталась", female ? "осталась" : "остался"}, {"сохранил/сохранила", female ? "сохранила" : "сохранил"},
-                {"снимал/снимала", female ? "снимала" : "снимал"}, {"выбрал/выбрала", female ? "выбрала" : "выбрал"},
-                {"спас/спасла", female ? "спасла" : "спас"}, {"вылечил/вылечила", female ? "вылечила" : "вылечил"},
-                {"научил/научила", female ? "научила" : "научил"}, {"собрал/собрала", female ? "собрала" : "собрал"},
-                {"достал/достала", female ? "достала" : "достал"}, {"слил/слила", female ? "слила" : "слил"},
-                {"прикрыл/прикрыла", female ? "прикрыла" : "прикрыл"}, {"устроил/устроила", female ? "устроила" : "устроил"},
-                {"провалил/провалила", female ? "провалила" : "провалил"}, {"один/одна", female ? "одна" : "один"},
-                {"одного/одну", female ? "одну" : "одного"}, {"сам/сама", female ? "сама" : "сам"},
-                {"самим/самой", female ? "самой" : "самим"}, {"другим/другой", female ? "другой" : "другим"},
-                {"другого/другую", female ? "другую" : "другого"}, {"уязвимым/уязвимой", female ? "уязвимой" : "уязвимым"},
-                {"слабым/слабой", female ? "слабой" : "слабым"}, {"потерянным/потерянной", female ? "потерянной" : "потерянным"},
-                {"безумным/безумной", female ? "безумной" : "безумным"}, {"победителем/победительницей", female ? "победительницей" : "победителем"},
-                {"спешит/спешит", "спешит"}, {"знает/знает", "знает"}, {"входит/входит", "входит"}
+    {"{был/была}", female ? "была" : "был"},
+    {"{жил/жила}", female ? "жила" : "жил"},
+    {"{остался/осталась}", female ? "осталась" : "остался"},
+    {"{сохранил/сохранила}", female ? "сохранила" : "сохранил"},
+    {"{снимал/снимала}", female ? "снимала" : "снимал"},
+    {"{выбрал/выбрала}", female ? "выбрала" : "выбрал"},
+    {"{спас/спасла}", female ? "спасла" : "спас"},
+    {"{вылечил/вылечила}", female ? "вылечила" : "вылечил"},
+    {"{научил/научила}", female ? "научила" : "научил"},
+    {"{собрал/собрала}", female ? "собрала" : "собрал"},
+    {"{достал/достала}", female ? "достала" : "достал"},
+    {"{слил/слила}", female ? "слила" : "слил"},
+    {"{прикрыл/прикрыла}", female ? "прикрыла" : "прикрыл"},
+    {"{устроил/устроила}", female ? "устроила" : "устроил"},
+    {"{провалил/провалила}", female ? "провалила" : "провалил"},
+    {"{один/одна}", female ? "одна" : "один"},
+    {"{одного/одну}", female ? "одну" : "одного"},
+    {"{сам/сама}", female ? "сама" : "сам"},
+    {"{самим/самой}", female ? "самой" : "самим"},
+    {"{другим/другой}", female ? "другой" : "другим"},
+    {"{другого/другую}", female ? "другую" : "другого"},
+    {"{уязвимым/уязвимой}", female ? "уязвимой" : "уязвимым"},
+    {"{слабым/слабой}", female ? "слабой" : "слабым"},
+    {"{потерянным/потерянной}", female ? "потерянной" : "потерянным"},
+    {"{безумным/безумной}", female ? "безумной" : "безумным"},
+    {"{победителем/победительницей}", female ? "победительницей" : "победителем"},
+    {"{спешит/спешит}", "спешит"},
+    {"{знает/знает}", "знает"},
+    {"{входит/входит}", "входит"}
             };
             for (int i = 0; i < plain.GetLength(0); i++) text = text.Replace(plain[i, 0], plain[i, 1]);
             text = Regex.Replace(text, @"\{?([А-Яа-яЁё-]+)/([А-Яа-яЁё-]+)\}?", m => female ? m.Groups[2].Value : m.Groups[1].Value);
             return text;
         }
 
+        private static string SireGenderReplace(string text, bool sireFemale)
+        {
+            if (string.IsNullOrEmpty(text)) return text;
+            var verbs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "обратил", "обратила" }, { "даровал", "даровала" },
+                { "выбрал", "выбрала" }, { "увидел", "увидела" },
+                { "удержался", "удержалась" }, { "назвал", "назвала" },
+                { "искал", "искала" }, { "нашёл", "нашла" }, { "нашел", "нашла" },
+                { "пожалел", "пожалела" }, { "дождался", "дождалась" },
+                { "пришёл", "пришла" }, { "пришел", "пришла" },
+                { "забрал", "забрала" }, { "решился", "решилась" },
+                { "предложил", "предложила" }, { "запомнил", "запомнила" },
+                { "стал", "стала" }, { "объявился", "объявилась" }
+            };
+
+            return Regex.Replace(text,
+                @"(?<prefix>\bсир(?:\s+[А-ЯЁ][а-яё-]+)?\s+)(?<neg>не\s+)?(?<verb>обратил|даровал|выбрал|увидел|удержался|назвал|искал|нашёл|нашел|пожалел|дождался|пришёл|пришел|забрал|решился|предложил|запомнил|стал|объявился)\b",
+                match =>
+                {
+                    if (!sireFemale) return match.Value;
+                    string verb = match.Groups["verb"].Value;
+                    string replacement;
+                    if (!verbs.TryGetValue(verb, out replacement)) return match.Value;
+                    if (char.IsUpper(verb[0])) replacement = char.ToUpper(replacement[0]) + replacement.Substring(1);
+                    return match.Groups["prefix"].Value + match.Groups["neg"].Value + replacement;
+                }, RegexOptions.IgnoreCase);
+        }
+
         private static string Resolve(string text, bool female, string profession, string sphere, string sire, string nature)
         {
             if (string.IsNullOrEmpty(text)) return text;
             text = text.Replace("{профессия}", profession ?? string.Empty).Replace("{сфера}", sphere ?? string.Empty)
-                .Replace("{сир}", sire ?? string.Empty).Replace("{Сир}", sire ?? string.Empty)
+                .Replace("{сир}", sire ?? string.Empty).Replace("{Сир}", "Сир " + (sire ?? string.Empty))
                 .Replace("{натура}", nature ?? string.Empty);
-            return GenderReplace(text, female);
+            text = GenderReplace(text, female);
+            bool sireFemale = !female;
+            text = text.Replace("{сир_не_пожалел}", sireFemale ? "не пожалела" : "не пожалел")
+                .Replace("{сир_не_стал}", sireFemale ? "не стала" : "не стал")
+                .Replace("{сир_назвал}", sireFemale ? "назвала" : "назвал")
+                .Replace("{сир_не_удержался}", sireFemale ? "не удержалась" : "не удержался")
+                .Replace("{сир_дал}", sireFemale ? "дала" : "дал")
+                .Replace("{сир_увидел}", sireFemale ? "увидела" : "увидел")
+                .Replace("{сир_не_прогадал}", sireFemale ? "не прогадала" : "не прогадал")
+                .Replace("{сир_забрал}", sireFemale ? "забрала" : "забрал")
+                .Replace("{сир_предложил}", sireFemale ? "предложила" : "предложил")
+                .Replace("{сир_нашёл}", sireFemale ? "нашла" : "нашёл");
+            return SireGenderReplace(text, sireFemale);
         }
 
         public static void GenerateAll(CharacterProfile character, NameGenerationPattern profile, Random random)
@@ -119,6 +175,10 @@ namespace VtM_LoCh_fP
             c.SireName = sire;
 
             var blocks = new List<string>();
+            string characterName = !string.IsNullOrWhiteSpace(c.Name) ? c.Name.Trim() : profile.Name;
+            string characterPossessive = female ? "Её" : "Его";
+            blocks.Add(characterName + " — персонаж. "
+                + characterPossessive + " сир — " + sire + ".");
             blocks.Add(Resolve(roleTemplate, female, profession, sphere, sire, nature));
 
             int wealth = GetBackgroundDots(c, "Богатство");
@@ -179,26 +239,49 @@ namespace VtM_LoCh_fP
             JArray forms = ArrayAt("stage4", "3. Форма");
             JArray pain = ArrayAt("stage4", "4. Болезненность");
             JArray attitude = ArrayAt("stage4", "5. Отношение");
+            JArray templates = ArrayAt("stage4", "Формулировки склейки");
             var part = body[random.Next(body.Count)];
             string zone = StringAt(part, "zones_or_allowed");
+            string where = StringAt(part, "where");
+
             var type = types.Where(x => ContainsAllowed(StringAt(x, "zones_or_allowed"), zone)
                 && forms.Any(f => ContainsAllowed(StringAt(f, "zones_or_allowed"), StringAt(x, "name")))
                 && pain.Any(p => ContainsAllowed(StringAt(p, "zones_or_allowed"), StringAt(x, "name")))).ToList();
+
             var selectedType = type[random.Next(type.Count)];
             string typeName = StringAt(selectedType, "name");
             var shape = forms.Where(x => ContainsAllowed(StringAt(x, "zones_or_allowed"), typeName)).ToList();
             var selectedShape = shape[random.Next(shape.Count)];
+            string formName = StringAt(selectedShape, "name");
             var pains = pain.Where(x => ContainsAllowed(StringAt(x, "zones_or_allowed"), typeName)).ToList();
             var selectedPain = pains[random.Next(pains.Count)];
             string painName = StringAt(selectedPain, "name");
             var attitudes = attitude.Where(x => RelationAllows(StringAt(x, "zones_or_allowed"), painName)).ToList();
             var selectedAttitude = attitudes[random.Next(attitudes.Count)];
-            string formName = StringAt(selectedShape, "name");
-            string first = "На " + ToBodyLocation(StringAt(part, "name")) + " — " + typeName + " " + ToFormPhrase(formName) + ", " + painName + ".";
-            string second = (female ? "Она " : "Он ") + StringAt(selectedAttitude, "name") + ".";
-            c.BiographyAppearance = first + " " + second;
-        }
+            string attitudeName = StringAt(selectedAttitude, "name");
+            
 
+            string template = templates.Count > 0
+                ? templates[random.Next(templates.Count)].ToString()
+                : "{Где} — {вид}, {форма}. {Состояние}. {Он/она} {отношение}.";
+            string result = template
+                .Replace("{Где}", where)
+                .Replace("{где}", where)
+                .Replace("{вид}", typeName.ToLower())
+                .Replace("{Вид}", typeName)
+                .Replace("{форма}", formName.ToLower())
+                .Replace("{Состояние}", painName)
+                .Replace("{состояние}", painName.ToLower())
+                .Replace("{отношение}", attitudeName.ToLower())
+                .Replace("{Он/она}", female ? "Она" : "Он");
+            result = Regex.Replace(result.Trim(), @"\s+", " ");
+            if (result.Length > 0)
+            {
+                result = char.ToUpper(result[0]) + result.Substring(1);
+            }
+
+            c.BiographyAppearance = result;
+        }
         private static bool RelationAllows(string raw, string painName)
         {
             var aliases = new List<string> { painName };
@@ -234,52 +317,32 @@ namespace VtM_LoCh_fP
         }
 
 
-        private static string ToBodyLocation(string bodyPart)
-        {
-            var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["левая щека"]="левой щеке", ["правая щека"]="правой щеке", ["лоб"]="лбу", ["подбородок"]="подбородке",
-                ["переносица"]="переносице", ["шея спереди"]="передней стороне шеи", ["шея сбоку"]="боковой стороне шеи",
-                ["левое плечо"]="левом плече", ["правое плечо"]="правом плече", ["левое предплечье"]="левом предплечье",
-                ["правое предплечье"]="правом предплечье", ["тыльная сторона левой кисти"]="тыльной стороне левой кисти",
-                ["тыльная сторона правой кисти"]="тыльной стороне правой кисти", ["левая ладонь"]="левой ладони", ["правая ладонь"]="правой ладони",
-                ["грудь слева"]="левой стороне груди", ["грудь справа"]="правой стороне груди", ["живот"]="животе",
-                ["левая лопатка"]="левой лопатке", ["поясница"]="пояснице"
-            };
-            return map.ContainsKey(bodyPart) ? map[bodyPart] : bodyPart;
-        }
-
-        private static string ToFormPhrase(string form)
-        {
-            var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["круглая"]="круглой формы", ["овальная"]="овальной формы", ["вытянутая"]="вытянутой формы", ["рваная"]="рваной формы",
-                ["ровная"]="ровной формы", ["асимметричная"]="асимметричной формы", ["в виде полосы"]="в виде полосы", ["в виде капли"]="в виде капли",
-                ["звёздчатая"]="звёздчатой формы", ["симметричная"]="симметричной формы", ["в виде креста"]="в виде креста", ["в виде кольца"]="в виде кольца",
-                ["в виде полумесяца"]="в виде полумесяца", ["в виде лабиринта"]="в виде лабиринта", ["в виде паутины"]="в виде паутины", ["в виде трещины"]="в виде трещины",
-                ["в виде спирали"]="в виде спирали", ["в виде треугольника"]="в виде треугольника", ["в виде отпечатка"]="в виде отпечатка", ["в виде карты"]="в виде карты"
-            };
-            return map.ContainsKey(form) ? map[form] : form;
-        }
-
-
-        private static string ShortenClothingDescription(string description)
-        {
-            if (string.IsNullOrWhiteSpace(description)) return string.Empty;
-            string value = Regex.Replace(description.Trim(), @"\s+", " ");
-            value = Regex.Split(value, @"[,;—]|\s+(?:сидит|выглядит|лежит|висит|держит|добавляет|струится|подчёркивает|не стесняет|не требует|не мешает)\b", RegexOptions.IgnoreCase)[0];
-            return value.Trim().TrimEnd('.', ',', ';', '—');
-        }
-
         private static void GenerateEquipment(CharacterProfile c, NameGenerationPattern profile, bool female, Random random)
         {
             string genderKey = female ? "female" : "male";
             string top = PickFromObject("stage5", genderKey + ".mask", c.Demeanor, random);
             string bottom = PickFromObject("stage5", genderKey + ".nature", c.Nature, random);
             string accessory = PickFromObject("stage5", genderKey + ".clan", c.ClanName, random);
-            c.EquipmentClothing = string.Join("; ", new[] { top, bottom, accessory }
-                .Where(x => !string.IsNullOrWhiteSpace(x))
-                .Select(ShortenClothingDescription));
+
+            JArray templates = ArrayAt("stage5", "clothing_templates");
+            string template = templates.Count > 0
+                ? templates[random.Next(templates.Count)].ToString()
+                : "{верх}. {низ}. {аксессуар}.";
+
+            string result = template
+                .Replace("{верх}", top.Trim().TrimEnd('.'))
+                .Replace("{низ}", bottom.Trim().TrimEnd('.'))
+                .Replace("{аксессуар}", accessory.Trim().TrimEnd('.'));
+
+            result = Regex.Replace(result.Trim(), @"\s+", " ");
+            if (result.Length > 0)
+            {
+                result = char.ToUpper(result[0]) + result.Substring(1);
+            }
+
+            if (!result.EndsWith(".")) result += ".";
+
+            c.EquipmentClothing = result;
 
             JArray items = ArrayAt("stage6", "items");
             JObject weights = Data["stage6"]?["weights"] as JObject;
@@ -299,8 +362,7 @@ namespace VtM_LoCh_fP
                 selectedItems.Add(pool[index]);
                 pool.RemoveAt(index);
             }
-            c.EquipmentPockets = string.Join(" \n\n ", selectedItems);
-
+            c.EquipmentPockets = string.Join("\n", selectedItems);
 
             var skillValues = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             foreach (string skill in new[] { "Драка", "Фехтование", "Стрельба" })
@@ -318,6 +380,7 @@ namespace VtM_LoCh_fP
                 weapons.Add(weapon);
             }
             c.EquipmentWeapons = string.Join(Environment.NewLine, weapons);
+
             int armorRoll = random.Next(1, 101);
             c.EquipmentArmor = armorRoll <= 25 ? Pick(Values("stage7", "armor"), random) : "Принципиально не носит броню";
         }
