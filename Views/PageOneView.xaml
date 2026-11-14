@@ -50,17 +50,15 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0" Margin="2,0,4,4">
+                    <StackPanel Grid.Column="0" Margin="6,0,6,4">
                         <TextBlock Text="Клановый изъян" Style="{StaticResource FieldLabelStyle}"/>
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBox x:Name="ClanWeaknessInput" Grid.Column="0" MinHeight="64"
-                                     AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" HorizontalContentAlignment="Left" TextAlignment="Left"
-                                     VerticalScrollBarVisibility="Auto"
-                                     TextChanged="ClanWeaknessInput_TextChanged"/>
+                            <controls:MarkdownFieldControl x:Name="ClanWeaknessInput" Grid.Column="0"
+                                     FieldHeight="64" Margin="0" InputTextChanged="ClanWeaknessInput_TextChanged"/>
                             <Button x:Name="ResetClanWeaknessButton" Grid.Column="1"
                                     Content="↶" Width="30" Height="30" Margin="5,0,0,0"
                                     VerticalAlignment="Top" Visibility="Collapsed"
@@ -70,12 +68,13 @@
                         <StackPanel x:Name="VentrueTastePanel" Visibility="Collapsed" Margin="0,9,0,0">
                             <TextBlock x:Name="VentrueTasteLabel" Text="Утончённый вкус"
                                        Style="{StaticResource FieldLabelStyle}"/>
-                            <TextBox x:Name="VentrueTasteInput" MinHeight="32"/>
+                            <controls:MarkdownFieldControl x:Name="VentrueTasteInput" FieldHeight="48"
+                                Margin="0" InputTextChanged="VentrueTasteInput_TextChanged"/>
                         </StackPanel>
                     </StackPanel>
-                    <controls:FieldControl x:Name="ChroniclePillarsField" Grid.Column="1" Label="Опоры и принципы" Multiline="True" FieldHeight="64" Tag="Pillars" InputTextChanged="ProfileField_InputTextChanged"/>
-                    <controls:FieldControl x:Name="ChronicleTenetsField" Grid.Column="2" Label="Догмы хроники" Multiline="True" FieldHeight="64" Tag="Tenets" InputTextChanged="ProfileField_InputTextChanged"/>
-                    <controls:FieldControl x:Name="HuntingStyleField" Grid.Column="3" Label="Стиль охоты" Multiline="True" FieldHeight="64" Tag="HuntingStyle" InputTextChanged="ProfileField_InputTextChanged"/>
+                    <controls:MarkdownFieldControl x:Name="ChroniclePillarsField" Grid.Column="1" Margin="6,0,6,4" Label="Опоры и принципы" FieldHeight="64" Tag="Pillars" InputTextChanged="ProfileField_InputTextChanged"/>
+                    <controls:MarkdownFieldControl x:Name="ChronicleTenetsField" Grid.Column="2" Margin="6,0,6,4" Label="Догмы хроники" FieldHeight="64" Tag="Tenets" InputTextChanged="ProfileField_InputTextChanged"/>
+                    <controls:MarkdownFieldControl x:Name="HuntingStyleField" Grid.Column="3" Margin="6,0,6,4" Label="Стиль охоты" FieldHeight="64" Tag="HuntingStyle" InputTextChanged="ProfileField_InputTextChanged"/>
                 </Grid>
             </GroupBox>
 

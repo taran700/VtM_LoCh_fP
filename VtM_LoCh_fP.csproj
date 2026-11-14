@@ -242,6 +242,7 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+    <None Include="version.json" />
     <Resource Include="Fonts\Friz Quadrata.ttf" />
     <Resource Include="Fonts\Playfair Display.ttf" />
     <Resource Include="Fonts\Trajan Pro 3.ttf" />

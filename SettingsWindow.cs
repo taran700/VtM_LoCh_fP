@@ -7,7 +7,6 @@ namespace VtM_LoCh_fP
     internal sealed class SettingsWindow : Window
     {
         private readonly ComboBox _theme, _points, _healing, _ruleOfSeven;
-        private readonly ComboBox _storytellerPrices;
         private readonly ComboBox _neonatePurchaseMode;
 
         public SettingsWindow()
@@ -115,18 +114,6 @@ namespace VtM_LoCh_fP
             panel.Children.Add(combo);
         }
 
-        private static CheckBox AddToggle(Panel panel, string label, bool value)
-        {
-            var check = new CheckBox
-            {
-                Content = label,
-                IsChecked = value,
-                Margin = new Thickness(0, 0, 0, 10),
-                Foreground = (System.Windows.Media.Brush)Application.Current.Resources["TextBrush"]
-            };
-            panel.Children.Add(check);
-            return check;
-        }
 
         private void Save_Click(object sender, RoutedEventArgs e)
         {

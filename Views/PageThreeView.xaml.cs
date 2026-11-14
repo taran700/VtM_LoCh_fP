@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
@@ -224,16 +224,14 @@ namespace VtM_LoCh_fP.Views
                     InitialPurchaseProgressChanged?.Invoke();
                 };
                 root.Children.Add(track);
-                root.Children.Add(new TextBlock { Text = "Обоснование изучения дисциплины", Margin = new Thickness(0, 8, 0, 3), Foreground = BrushResource("MutedBrush") });
-                var justification = new TextBox
+                var justification = new MarkdownFieldControl
                 {
-                    Text = item.Justification ?? string.Empty,
-                    MinHeight = 48,
-                    AcceptsReturn = true,
-                    TextWrapping = TextWrapping.Wrap,
-                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+                    Label = "Обоснование изучения дисциплины",
+                    InputText = item.Justification ?? string.Empty,
+                    FieldHeight = 48,
+                    Margin = new Thickness(0, 8, 0, 0)
                 };
-                justification.TextChanged += (s, e) => item.Justification = justification.Text;
+                justification.InputTextChanged += (s, e) => item.Justification = justification.InputText;
                 root.Children.Add(justification);
                 Grid.SetColumn(root, 0);
                 layout.Children.Add(root);

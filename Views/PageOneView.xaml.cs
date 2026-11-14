@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -93,27 +93,7 @@ namespace VtM_LoCh_fP.Views
 
         private void ConfirmInitialPurchase_Click(object sender, RoutedEventArgs e) { }
 
-        private int GetAllocatedTotal(bool attributes)
-        {
-            var values = attributes ? _character.CreationState.AttributeDots : _character.CreationState.AbilityDots;
-            return values == null ? 0 : values.Values.Sum();
-        }
-        private int GetAllocationPool(bool attributes)
-        {
-            string key = attributes ? "attributes." : "abilities.";
-            string[] groups = attributes ? new[] { "Физические", "Социальные", "Ментальные" } : new[] { "Таланты", "Навыки", "Знания" };
-            int total = 0;
-            foreach (var group in groups)
-            {
-                string priority;
-                if (_character.CreationState.Priorities.TryGetValue(key + group, out priority))
-                {
-                    string id = priority == "Первичная" ? "primary" : priority == "Вторичная" ? "secondary" : "tertiary";
-                    total += CharacterCreationRules.GetPriorityPool(attributes ? "attributes" : "abilities", id, !attributes);
-                }
-            }
-            return total;
-        }
+       
         private void RefreshInitialBlockControls()
         {
             if (_character == null) return;
@@ -124,10 +104,6 @@ namespace VtM_LoCh_fP.Views
                 TalentsRemainingText, SkillsRemainingText, KnowledgeRemainingText };
             foreach (var label in remainingLabels)
                 if (label != null) label.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-
-            // Поля примечаний к способностям не занимают место до подтверждения
-            // стартового распределения. Значения NoteText и AbilityNotes при этом
-            // остаются нетронутыми и сохраняются даже в скрытом состоянии.
             bool showAbilityNotes = _character.CreationState.InitialAllocationCompleted;
             TalentsTrackList.ShowNotes = showAbilityNotes;
             SkillsTrackList.ShowNotes = showAbilityNotes;
@@ -367,7 +343,6 @@ namespace VtM_LoCh_fP.Views
                 _character.CreationState.InitialAbilityDots.Clear();
             }
             if (_character.CreationState.PurchaseLedger == null) _character.CreationState.PurchaseLedger = new List<PurchaseTransaction>();
-            // Пересобираем только записи стартового распределения характеристик/способностей
             foreach (var transaction in _character.CreationState.PurchaseLedger.Where(t => !t.IsCancelled && t.Resource == "initial_pool" &&
                 (t.Block == "Характеристики" || t.Block == "Способности"))) transaction.IsCancelled = true;
             if (_character.CreationState.InitialPurchases == null) _character.CreationState.InitialPurchases = new List<CreationPurchase>();
@@ -432,9 +407,6 @@ namespace VtM_LoCh_fP.Views
             return new ToolTip
             {
                 Content = content,
-                // PopupToolTipStyle задаёт строковый ContentTemplate. Для UIElement-контента
-                // он вызывает ToString() и показывает имя типа (например, StackPanel).
-                // Сбрасываем шаблон, чтобы ContentPresenter показал сам визуальный элемент.
                 ContentTemplate = null,
                 Style = (Style)FindResource("PopupToolTipStyle"),
                 Placement = System.Windows.Controls.Primitives.PlacementMode.Mouse,
@@ -517,16 +489,29 @@ namespace VtM_LoCh_fP.Views
         private void ProfileField_InputTextChanged(object sender, TextChangedEventArgs e)
         {
             if (_character == null) return;
-            var field = sender as FieldControl;
-            if (field == null) return;
-            switch (Convert.ToString(field.Tag))
+            string tag;
+            string value;
+            var markdownField = sender as MarkdownFieldControl;
+            if (markdownField != null)
             {
-                case "Player": _character.PlayerName = field.InputText; break;
-                case "Chronicle": _character.ChronicleName = field.InputText; break;
-                case "Role": _character.RoleName = field.InputText; break;
-                case "Pillars": _character.ChroniclePillars = field.InputText; break;
-                case "Tenets": _character.ChronicleTenets = field.InputText; break;
-                case "HuntingStyle": _character.HuntingStyle = field.InputText; break;
+                tag = Convert.ToString(markdownField.Tag);
+                value = markdownField.InputText;
+            }
+            else
+            {
+                var field = sender as FieldControl;
+                if (field == null) return;
+                tag = Convert.ToString(field.Tag);
+                value = field.InputText;
+            }
+            switch (tag)
+            {
+                case "Player": _character.PlayerName = value; break;
+                case "Chronicle": _character.ChronicleName = value; break;
+                case "Role": _character.RoleName = value; break;
+                case "Pillars": _character.ChroniclePillars = value; break;
+                case "Tenets": _character.ChronicleTenets = value; break;
+                case "HuntingStyle": _character.HuntingStyle = value; break;
             }
         }
 
@@ -536,9 +521,6 @@ namespace VtM_LoCh_fP.Views
             int max = AppSettings.GenerationPointIncrease
                 ? (_character.TraitMax > 0 ? _character.TraitMax : 5)
                 : 5;
-
-            // Во время создания атрибуты ограничены 5, способности — 3
-            // После подтверждения стартовой закупки применяется лимит поколения
             int attributeMax = _character.CreationState.InitialAllocationCompleted ? max : Math.Min(5, max);
             PhysicalAttributesTrackList.Count = attributeMax;
             SocialAttributes.Count = attributeMax;
@@ -558,7 +540,6 @@ namespace VtM_LoCh_fP.Views
 
         private void ApplySavedAllocations()
         {
-            // Применение сохранённого распределения (в том числе перераспределения характеристик для Носферату) не является прокачкой и не должно запускать списание свободных пунктов или опыта.
             foreach (var track in FindTracks(this))
                 track.ValueChanged -= AllocationTrack_ValueChanged;
             foreach (var track in FindTracks(this))
@@ -759,8 +740,6 @@ namespace VtM_LoCh_fP.Views
             return panel;
         }
 
-        // Каждый элемент получает собственный ToolTip: один экземпляр ToolTip нельзя
-        // одновременно назначать TextBox и Button (у WPF ToolTip — отдельный Popup).
         private void UpdateSireDescriptionToolTips()
         {
             string description = _character?.SireDescription;
@@ -1038,9 +1017,6 @@ namespace VtM_LoCh_fP.Views
 
         private void ClearAppliedClanRules()
         {
-            // Сохраняем ID последнего выбранного клана при ручном редактировании
-            // текстового поля: он нужен, чтобы последующий выбор другого клана
-            // корректно распознал смену и выполнил сброс.
             _character.OriginalClanWeakness = null;
             _character.ClanWeakness = string.Empty;
             SetWeaknessText(string.Empty);
@@ -1338,9 +1314,6 @@ namespace VtM_LoCh_fP.Views
             return new ToolTip
             {
                 Content = content,
-                // PopupToolTipStyle задаёт строковый ContentTemplate. Для UIElement-контента
-                // он вызывает ToString() и показывает имя типа (например, StackPanel).
-                // Сбрасываем шаблон, чтобы ContentPresenter показал сам визуальный элемент.
                 ContentTemplate = null,
                 Style = (Style)FindResource("PopupToolTipStyle"),
                 MaxWidth = 410
@@ -1361,8 +1334,6 @@ namespace VtM_LoCh_fP.Views
             bool actualClanChange = !string.IsNullOrWhiteSpace(previousClanId) &&
                 !string.Equals(previousClanId, clan.Id, StringComparison.OrdinalIgnoreCase);
 
-            // При первом выборе клана тоже проверяем уже распределённые характеристики:
-            // игрок мог распределить их до того, как указал клан.
             if (selectionChanged && isNewClan)
             {
                 int baseValue = CharacterCreationRules.GetCreationLimit("attribute_base");
@@ -1380,7 +1351,6 @@ namespace VtM_LoCh_fP.Views
 
             if (actualClanChange)
             {
-                // Дисциплины сбрасываются только при фактической смене уже выбранного клана.
                 ResetDisciplinesForClanChange(previousClanId);
             }
 
@@ -1400,12 +1370,8 @@ namespace VtM_LoCh_fP.Views
             bool isNosferatu = string.Equals(clan.Id, "nosferatu", StringComparison.OrdinalIgnoreCase);
             bool plasticSurgeryDone = isNosferatu && _character.NosferatuPlasticSurgery;
             string forcedZeroAttribute = isNosferatu && !plasticSurgeryDone ? "Привлекательность" : null;
-            // При смене клана восстанавливаем сохранённые точки, а затем применяем
-            // ограничение Носферату. Так при уходе из клана точки не теряются.
             SocialAttributes.ForcedZeroName = null;
             ApplySavedAllocations();
-            // При уходе из Носферату Привлекательность возвращается к базовой
-            // точке 1, даже если в сохранённом распределении для неё было 0.
             if (selectionChanged && wasNosferatu && !isNosferatu)
             {
                 int baseValue = CharacterCreationRules.GetCreationLimit("attribute_base");
@@ -1429,10 +1395,10 @@ namespace VtM_LoCh_fP.Views
 
             bool isVentrue = string.Equals(clan.Id, "ventrue", StringComparison.OrdinalIgnoreCase);
             VentrueTastePanel.Visibility = isVentrue ? Visibility.Visible : Visibility.Collapsed;
-            VentrueTasteInput.Text = _character.VentruePreyCategory ?? string.Empty;
+            VentrueTasteInput.InputText = _character.VentruePreyCategory ?? string.Empty;
             VentrueTasteInput.IsReadOnly = _character.VentruePreyCategoryLocked;
-            VentrueTasteInput.TextChanged -= VentrueTasteInput_TextChanged;
-            VentrueTasteInput.TextChanged += VentrueTasteInput_TextChanged;
+            VentrueTasteInput.InputTextChanged -= VentrueTasteInput_TextChanged;
+            VentrueTasteInput.InputTextChanged += VentrueTasteInput_TextChanged;
             UpdateRedistributeAttributesButton(isNosferatu && !plasticSurgeryDone);
         }
 
@@ -1494,10 +1460,6 @@ namespace VtM_LoCh_fP.Views
             string newClanName = _character.ClanName;
             var previousClan = ClanService.GetClans().FirstOrDefault(c =>
                 string.Equals(c.Id, previousClanId, StringComparison.OrdinalIgnoreCase));
-
-            // Расчёт возврата опыта зависит от того, была ли дисциплина клановой
-            // и от множителя Каитифов. Во время возврата временно используем старый клан,
-            // поскольку новое имя клана уже записано обработчиком SelectionChanged.
             if (previousClan != null) _character.ClanName = previousClan.Name;
             try
             {
@@ -1516,7 +1478,6 @@ namespace VtM_LoCh_fP.Views
             }
 
             _character.Disciplines.Clear();
-            // Ритуалы принадлежат дисциплинам старого клана.
             if (_character.Rituals != null) _character.Rituals.Clear();
 
             if (state.InitialDisciplineDots == null)
@@ -1525,9 +1486,6 @@ namespace VtM_LoCh_fP.Views
             state.InitialDisciplineBlockEverConfirmed = false;
             state.UnconfirmInitialBlock("disciplines");
 
-            // Удаляем все записи стартовой закупки. Оплаченные freebie/experience
-            // транзакции к этому моменту уже обработаны RefundAdvancement; очистка
-            // ниже защищает от осиротевших записей старых/мигрированных персонажей.
             if (state.InitialPurchases != null)
                 state.InitialPurchases.RemoveAll(p => string.Equals(p.Block, "Дисциплины", StringComparison.OrdinalIgnoreCase));
             if (state.PurchaseLedger != null)
@@ -1572,7 +1530,7 @@ namespace VtM_LoCh_fP.Views
         private void SetWeaknessText(string value)
         {
             _updatingWeakness = true;
-            ClanWeaknessInput.Text = value ?? string.Empty;
+            ClanWeaknessInput.InputText = value ?? string.Empty;
             _updatingWeakness = false;
             UpdateResetButton();
         }
@@ -1580,14 +1538,14 @@ namespace VtM_LoCh_fP.Views
         private void ClanWeaknessInput_TextChanged(object sender, TextChangedEventArgs e)
         {
             if (_updatingWeakness || _character == null) return;
-            _character.ClanWeakness = ClanWeaknessInput.Text;
+            _character.ClanWeakness = ClanWeaknessInput.InputText;
             UpdateResetButton();
         }
 
         private void UpdateResetButton()
         {
             bool changed = _character != null &&
-                !string.Equals(ClanWeaknessInput.Text, _character.OriginalClanWeakness ?? string.Empty,
+                !string.Equals(ClanWeaknessInput.InputText, _character.OriginalClanWeakness ?? string.Empty,
                     StringComparison.Ordinal);
             ResetClanWeaknessButton.Visibility = changed ? Visibility.Visible : Visibility.Collapsed;
         }
@@ -1634,7 +1592,7 @@ namespace VtM_LoCh_fP.Views
         private void VentrueTasteInput_TextChanged(object sender, TextChangedEventArgs e)
         {
             if (_character == null) return;
-            _character.VentruePreyCategory = VentrueTasteInput.Text;
+            _character.VentruePreyCategory = VentrueTasteInput.InputText;
         }
     }
 }
