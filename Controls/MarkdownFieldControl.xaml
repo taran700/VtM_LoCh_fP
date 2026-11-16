@@ -70,7 +70,17 @@
                     LostKeyboardFocus="Editor_LostKeyboardFocus"
                     SizeChanged="Editor_SizeChanged"
                     PreviewMouseWheel="Root_PreviewMouseWheel"
-                    MinHeight="32" />
+                    MinHeight="32">
+                    <TextBox.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="Вырезать" Command="{x:Static ApplicationCommands.Cut}" CommandTarget="{Binding PlacementTarget, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                            <MenuItem Header="Копировать" Command="{x:Static ApplicationCommands.Copy}" CommandTarget="{Binding PlacementTarget, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                            <MenuItem Header="Вставить" Command="{x:Static ApplicationCommands.Paste}" CommandTarget="{Binding PlacementTarget, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                            <Separator/>
+                            <MenuItem Header="Выделить всё" Command="{x:Static ApplicationCommands.SelectAll}" CommandTarget="{Binding PlacementTarget, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                        </ContextMenu>
+                    </TextBox.ContextMenu>
+                </TextBox>
             </Grid>
         </Border>
     </StackPanel>
