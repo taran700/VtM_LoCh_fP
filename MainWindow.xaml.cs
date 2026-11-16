@@ -916,6 +916,12 @@ namespace VtM_LoCh_fP
             }
         }
 
+        private void Reference_Click(object sender, RoutedEventArgs e)
+        {
+            var window = new ReferenceWindow { Owner = this };
+            window.ShowDialog();
+        }
+
         private void Settings_Click(object sender, RoutedEventArgs e)
         {
             var settings = new SettingsWindow { Owner = this };

@@ -53,6 +53,7 @@ namespace VtM_LoCh_fP
             window.SetResourceReference(Window.BackgroundProperty, "BgBrush");
             window.SetResourceReference(Control.ForegroundProperty, "TextBrush");
             window.SourceInitialized += (s, e) => ApplyNativeTitleBar(window);
+            window.Loaded += (s, e) => ApplyNativeTitleBar(window);
         }
 
         private static void RefreshOpenWindows()

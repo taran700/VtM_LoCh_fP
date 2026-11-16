@@ -8,7 +8,7 @@ namespace VtM_LoCh_fP
     {
         private string _name;
         public event PropertyChangedEventHandler PropertyChanged;
-        protected void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        private void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
@@ -84,6 +84,8 @@ namespace VtM_LoCh_fP
         public string BiographyWeight { get; set; }
         public string BiographyBackstory { get; set; }
         public string BiographyAppearance { get; set; }
+        // PNG 512x512, закодированный в Base64
+        public string PortraitBase64 { get; set; }
         public string HumanityPathId { get; set; } = "humanity";
         public int HumanityPathRating { get; set; } = 2;
         public int? TemporaryWillpower { get; set; }
