@@ -1,9 +1,11 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.IO;
 using VtM_LoCh_fP.Controls;
 
 namespace VtM_LoCh_fP.Views
@@ -86,12 +88,55 @@ namespace VtM_LoCh_fP.Views
             SetField("Weight", _character.BiographyWeight);
             BackstoryField.InputText = _character.BiographyBackstory ?? string.Empty;
             AppearanceField.InputText = _character.BiographyAppearance ?? string.Empty;
+            LoadPortrait();
             _loading = false;
             RenderMeritsFlaws();
         }
-                // Повреждённый/неподдерживаемый портрет не крашит приложение
 
-                // Повреждённый/неподдерживаемый портрет не должен мешать открытию старого сохранения.
+
+        private void PortraitButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_character == null) return;
+            var window = new PortraitCropWindow(Window.GetWindow(this));
+            if (window.ShowDialog() != true || string.IsNullOrWhiteSpace(window.ResultBase64)) return;
+            _character.PortraitBase64 = window.ResultBase64;
+            LoadPortrait();
+            CharacterSelectionWindow.SaveCharacters();
+        }
+
+        private void LoadPortrait()
+        {
+            PortraitImage.Source = null;
+            if (_character == null || string.IsNullOrWhiteSpace(_character.PortraitBase64))
+            {
+                PortraitImage.Visibility = Visibility.Collapsed;
+                PortraitPlaceholder.Visibility = Visibility.Visible;
+                return;
+            }
+            try
+            {
+                byte[] bytes = Convert.FromBase64String(_character.PortraitBase64);
+                var bitmap = new BitmapImage();
+                using (var stream = new MemoryStream(bytes))
+                {
+                    bitmap.BeginInit();
+                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                    bitmap.StreamSource = stream;
+                    bitmap.EndInit();
+                    bitmap.Freeze();
+                }
+                PortraitImage.Source = bitmap;
+                PortraitImage.Visibility = Visibility.Visible;
+                PortraitPlaceholder.Visibility = Visibility.Collapsed;
+            }
+            catch
+            {
+                // Повреждённый/неподдерживаемый портрет не крашит приложение
+                PortraitImage.Visibility = Visibility.Collapsed;
+                PortraitPlaceholder.Visibility = Visibility.Visible;
+            }
+        }
+
         private bool IsFreeNeonate
         {
             get { return string.Equals(_character == null ? null : _character.CreationMode, "Свободный Неонат", StringComparison.OrdinalIgnoreCase); }

@@ -33,33 +33,57 @@
                 </GroupBox>
             </Grid>
 
-            <GroupBox Header="БИОГРАФИЯ" Style="{StaticResource SectionBoxStyle}" Margin="4,8,4,8" Height="440">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="0.9*"/>
-                        <ColumnDefinition Width="1.1*"/>
-                    </Grid.ColumnDefinitions>
-                    <Grid Grid.Column="0" Margin="0,0,8,0">
+            <GroupBox Header="БИОГРАФИЯ" Style="{StaticResource SectionBoxStyle}" Margin="4,8,4,8" Height="650">
+                <Grid Margin="2">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="280"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Grid Grid.Row="0">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="1.15*"/>
+                            <ColumnDefinition Width="0.85*"/>
                         </Grid.ColumnDefinitions>
+                        <Grid Grid.Column="0" Margin="0,0,10,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <controls:FieldControl x:Name="BirthDateField" Grid.Row="0" Grid.Column="0" Label="Дата рождения" ToolTip="Дата, когда ваш персонаж родился человеком." Tag="BirthDate" InputTextChanged="BiographyField_InputTextChanged"/>
+                            <controls:FieldControl x:Name="DeathDateField" Grid.Row="0" Grid.Column="1" Label="Дата смерти" ToolTip="Дата вашей смерти как человека и становления вампиром." Tag="DeathDate" InputTextChanged="BiographyField_InputTextChanged"/>
+                            <controls:FieldControl x:Name="TrueAgeField" Grid.Row="1" Grid.Column="0" Label="Истинный возраст" ToolTip="Сколько лет персонажу прошло с момента рождения, включая годы после обращения." Tag="TrueAge" InputTextChanged="BiographyField_InputTextChanged"/>
+                            <controls:FieldControl x:Name="ApparentAgeField" Grid.Row="1" Grid.Column="1" Label="Видимый возраст" ToolTip="На сколько лет выглядит персонаж. Обычно соответствует возрасту на момент обращения." Tag="ApparentAge" InputTextChanged="BiographyField_InputTextChanged"/>
+                            <controls:FieldControl x:Name="HeightField" Grid.Row="2" Grid.Column="0" Label="Рост" ToolTip="Рост персонажа." Tag="Height" InputTextChanged="BiographyField_InputTextChanged"/>
+                            <controls:FieldControl x:Name="WeightField" Grid.Row="2" Grid.Column="1" Label="Вес" ToolTip="Вес персонажа." Tag="Weight" InputTextChanged="BiographyField_InputTextChanged"/>
+                        </Grid>
+                        <StackPanel Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top">
+                            <TextBlock Text="ПОРТРЕТ ПЕРСОНАЖА" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource HeadingBrush}" HorizontalAlignment="Center" Margin="0,0,0,7"/>
+                            <Button x:Name="PortraitButton" Width="250" Height="250" Padding="0" Click="PortraitButton_Click" ToolTip="Нажмите, чтобы выбрать или изменить портрет">
+                                <Border BorderBrush="{DynamicResource MutedBrush}" BorderThickness="1" Background="{DynamicResource CardBgBrush}">
+                                    <Grid>
+                                        <Image x:Name="PortraitImage" Stretch="UniformToFill" Visibility="Collapsed"/>
+                                        <StackPanel x:Name="PortraitPlaceholder" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <TextBlock Text="＋" FontSize="42" HorizontalAlignment="Center" Foreground="{DynamicResource MutedBrush}"/>
+                                            <TextBlock Text="Добавить портрет" FontSize="12" Foreground="{DynamicResource MutedBrush}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                    <Grid Grid.Row="1" Margin="0,8,0,0">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-                        <controls:FieldControl x:Name="BirthDateField" Grid.Row="0" Grid.Column="0" Label="Дата рождения" ToolTip="Дата, когда ваш персонаж родился человеком." Tag="BirthDate" InputTextChanged="BiographyField_InputTextChanged"/>
-                        <controls:FieldControl x:Name="DeathDateField" Grid.Row="0" Grid.Column="1" Label="Дата смерти" ToolTip="Дата вашей смерти как человека и становления вампиром." Tag="DeathDate" InputTextChanged="BiographyField_InputTextChanged"/>
-                        <controls:FieldControl x:Name="TrueAgeField" Grid.Row="1" Grid.Column="0" Label="Истинный возраст" ToolTip="Сколько лет персонажу прошло с момента рождения, включая годы после обращения." Tag="TrueAge" InputTextChanged="BiographyField_InputTextChanged"/>
-                        <controls:FieldControl x:Name="ApparentAgeField" Grid.Row="1" Grid.Column="1" Label="Видимый возраст" ToolTip="На сколько лет выглядит персонаж. Обычно соответствует возрасту на момент обращения." Tag="ApparentAge" InputTextChanged="BiographyField_InputTextChanged"/>
-                        <controls:FieldControl x:Name="HeightField" Grid.Row="2" Grid.Column="0" Label="Рост" ToolTip="Рост персонажа. Можно указать в сантиметрах или другой удобной системе." Tag="Height" InputTextChanged="BiographyField_InputTextChanged"/>
-                        <controls:FieldControl x:Name="WeightField" Grid.Row="2" Grid.Column="1" Label="Вес" ToolTip="Вес персонажа. Можно указать в килограммах или другой удобной системе." Tag="Weight" InputTextChanged="BiographyField_InputTextChanged"/>
-                        <controls:MarkdownFieldControl x:Name="AppearanceField" Label="Отличительные черты внешности" ToolTip="Особенности внешности, по которым персонажа можно узнать: шрамы, татуировки, цвет глаз, манера одеваться и другие детали." FieldHeight="135" Tag="Appearance" InputTextChanged="BiographyField_InputTextChanged"  Grid.ColumnSpan="2" Margin="0,97,0,-201" Grid.Row="2"/>
+                        <controls:MarkdownFieldControl x:Name="BackstoryField" Grid.Row="0" Label="Предыстория" ToolTip="Краткая история жизни персонажа до игры: происхождение, важные события, отношения, причины обращения и цели." FieldHeight="230" Tag="Backstory" InputTextChanged="BiographyField_InputTextChanged"/>
+                        <controls:MarkdownFieldControl x:Name="AppearanceField" Grid.Row="1" Margin="0,8,0,0" Label="Отличительные черты внешности" ToolTip="Особенности внешности, по которым персонажа можно узнать: шрамы, татуировки, цвет глаз, манера одеваться и другие детали." FieldHeight="105" Tag="Appearance" InputTextChanged="BiographyField_InputTextChanged"/>
                     </Grid>
-                    <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                        <controls:MarkdownFieldControl x:Name="BackstoryField" Label="Предыстория" ToolTip="Краткая история жизни персонажа до игры: происхождение, важные события, отношения, причины обращения и цели." FieldHeight="360" Tag="Backstory" InputTextChanged="BiographyField_InputTextChanged"/>
-                    </StackPanel>
                 </Grid>
             </GroupBox>
 

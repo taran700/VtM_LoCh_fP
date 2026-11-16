@@ -72,7 +72,7 @@ namespace VtM_LoCh_fP
                 }
             };
 
-            update.Click += async (sender, args) =>
+            update.Click += (sender, args) =>
             {
                 // Кнопка отображается только при подтверждённом наличии новой версии
                 if (!updateAvailableCached)

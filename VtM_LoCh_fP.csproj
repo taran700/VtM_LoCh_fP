@@ -81,6 +81,7 @@
       <DependentUpon>App.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="ReferenceWindow.cs" />
     <Compile Include="MainWindow.xaml.cs">
       <DependentUpon>MainWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
@@ -89,6 +90,7 @@
     <Compile Include="AppSettings.cs" />
     <Compile Include="UpdateService.cs" />
     <Compile Include="CharacterProfile.cs" />
+    <Compile Include="PortraitCropWindow.cs" />
     <Compile Include="CharacterStorage.cs" />
     <Compile Include="UndoService.cs" />
     <Compile Include="CharacterCreationRules.cs" />
@@ -256,6 +258,9 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Data\DataBase_Globulus_Maximus.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="Data\data.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -265,7 +270,7 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
-    <Resource Include="Resources\\Vampiric.ico" />
+    <Resource Include="Resources\Vampiric.ico" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Data\Generation\stages_3_7.json">
