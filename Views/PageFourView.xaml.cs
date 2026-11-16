@@ -89,7 +89,9 @@ namespace VtM_LoCh_fP.Views
             _loading = false;
             RenderMeritsFlaws();
         }
+                // Повреждённый/неподдерживаемый портрет не крашит приложение
 
+                // Повреждённый/неподдерживаемый портрет не должен мешать открытию старого сохранения.
         private bool IsFreeNeonate
         {
             get { return string.Equals(_character == null ? null : _character.CreationMode, "Свободный Неонат", StringComparison.OrdinalIgnoreCase); }
