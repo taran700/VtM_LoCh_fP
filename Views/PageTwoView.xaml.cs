@@ -335,12 +335,6 @@ namespace VtM_LoCh_fP.Views
             int courage;
             if (initial.TryGetValue("Смелость", out courage))
             {
-                int previousWillpower = GetWillpowerPermanent();
-                const string willpowerName = "Постоянная сила воли";
-                if (previousWillpower > courage && AdvancementCheck != null)
-                    AdvancementCheck("willpower", willpowerName, previousWillpower, courage);
-                else if (previousWillpower < courage && AdvancementCheck != null)
-                    AdvancementCheck("willpower", willpowerName, courage, previousWillpower);
                 SetWillpowerPermanent(courage);
             }
             var names = GetVirtueNames();
@@ -348,12 +342,6 @@ namespace VtM_LoCh_fP.Views
             if (names.Count >= 2 && initial.TryGetValue(names[0], out first) && initial.TryGetValue(names[1], out second))
             {
                 int nextPath = Math.Min(10, first + second);
-                int previousPath = _character.HumanityPathRating;
-                string pathName = _character.HumanityPathIsCustom ? _character.CustomHumanityPathName : _character.HumanityPathId;
-                if (previousPath > nextPath && AdvancementCheck != null)
-                    AdvancementCheck("humanity_path", pathName, previousPath, nextPath);
-                else if (previousPath < nextPath && AdvancementCheck != null)
-                    AdvancementCheck("humanity_path", pathName, previousPath, nextPath);
                 SetHumanityPathRating(nextPath);
             }
         }
