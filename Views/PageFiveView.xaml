@@ -15,26 +15,26 @@
             <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                 <GroupBox Grid.Column="0" Header="Важные НПС" Style="{StaticResource SectionBoxStyle}">
-                    <controls:MarkdownFieldControl x:Name="ImportantNpcsField" Label="Имя · отношение · важные сведения" FieldHeight="190" Tag="Npcs" InputTextChanged="NotesField_InputTextChanged"/>
+                    <controls:MarkdownFieldControl x:Name="ImportantNpcsField" Label="Имя · отношение · важные сведения" ToolTip="Заметки о важных НПС: имена, отношения к персонажу, цели, связи и важные сведения. А может быть и нет. Это поле только ваше и его у вас не отнять." FieldHeight="190" Tag="Npcs" InputTextChanged="NotesField_InputTextChanged"/>
                 </GroupBox>
                 <GroupBox Grid.Column="1" Header="Заметки" Style="{StaticResource SectionBoxStyle}">
-                    <controls:MarkdownFieldControl x:Name="GeneralNotesOneField" FieldHeight="190" Tag="GeneralOne" InputTextChanged="NotesField_InputTextChanged"/>
+                    <controls:MarkdownFieldControl Label="Личные записи персонажа" x:Name="GeneralNotesOneField" ToolTip="Свободное поле для заметок о событиях хроники, важных договорённостях и другой важной для вас информации." FieldHeight="190" Tag="GeneralOne" InputTextChanged="NotesField_InputTextChanged"/>
                 </GroupBox>
             </Grid>
             <GroupBox Header="Важные локации" Style="{StaticResource SectionBoxStyle}">
-                <controls:MarkdownFieldControl x:Name="ImportantLocationsField" Label="Название · описание · кому принадлежит" FieldHeight="150" Tag="Locations" InputTextChanged="NotesField_InputTextChanged"/>
+                <controls:MarkdownFieldControl x:Name="ImportantLocationsField" Label="Название · описание · кому принадлежит" ToolTip="Опишите важные места (Домены), их особенности, владельцев и связанные с ними события." FieldHeight="150" Tag="Locations" InputTextChanged="NotesField_InputTextChanged"/>
             </GroupBox>
             <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                 <GroupBox Grid.Column="0" Header="Заметки" Style="{StaticResource SectionBoxStyle}">
-                    <controls:MarkdownFieldControl x:Name="GeneralNotesTwoField" FieldHeight="180" Tag="GeneralTwo" InputTextChanged="NotesField_InputTextChanged"/>
+                    <controls:MarkdownFieldControl x:Name="GeneralNotesTwoField" ToolTip="Дополнительные заметки о персонаже, хронике и текущих сюжетных линиях." FieldHeight="180" Tag="GeneralTwo" InputTextChanged="NotesField_InputTextChanged"/>
                 </GroupBox>
                 <GroupBox Grid.Column="1" Header="Заметки" Style="{StaticResource SectionBoxStyle}">
-                    <controls:MarkdownFieldControl x:Name="GeneralNotesThreeField" FieldHeight="180" Tag="GeneralThree" InputTextChanged="NotesField_InputTextChanged"/>
+                    <controls:MarkdownFieldControl x:Name="GeneralNotesThreeField" ToolTip=" Ещё одни дополнительные заметки, идеи и сведения, которые важно сохранить." FieldHeight="180" Tag="GeneralThree" InputTextChanged="NotesField_InputTextChanged"/>
                 </GroupBox>
             </Grid>
             <GroupBox Header="Заметки" Style="{StaticResource SectionBoxStyle}">
-                <controls:MarkdownFieldControl x:Name="GeneralNotesFourField" FieldHeight="180" Tag="GeneralFour" InputTextChanged="NotesField_InputTextChanged"/>
+                <controls:MarkdownFieldControl x:Name="GeneralNotesFourField" ToolTip="Свободные заметки для любой информации, полезной во время игры." FieldHeight="180" Tag="GeneralFour" InputTextChanged="NotesField_InputTextChanged"/>
             </GroupBox>
         </StackPanel>
     </ScrollViewer>

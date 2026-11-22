@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System;
 
@@ -26,6 +26,13 @@ namespace VtM_LoCh_fP.Controls
             InitializeComponent();
             ApplyModes();
             Input.TextChanged += (sender, args) => InputTextChanged?.Invoke(this, args);
+            Loaded += (sender, args) =>
+            {
+                object fieldToolTip = ToolTipService.GetToolTip(this);
+                if (fieldToolTip == null) return;
+                Input.ToolTip = fieldToolTip;
+                ToolTipService.SetToolTip(this, null);
+            };
         }
 
         public string Label

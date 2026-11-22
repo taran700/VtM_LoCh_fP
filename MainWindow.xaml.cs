@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
@@ -50,6 +50,9 @@ namespace VtM_LoCh_fP
             HistoryPage.InitializeCharacter(character);
             EquipmentPage.InitializeCharacter(character);
             NotesPage.InitializeCharacter(character);
+            // Запускаем миграцию после инициализации всех страниц, но до WPF Loaded.
+            // Так старые значения успевают прочитаться, а Loaded ещё не обрезает Путь.
+            AdvantagesPage.MigrateLegacyHumanityPathIfNeeded();
             AdvantagesPage.InitialPurchaseProgressChanged += UpdateInitialPurchaseButton;
             CharacterPage.InitialPurchaseRequested += () =>
             {
@@ -104,15 +107,19 @@ namespace VtM_LoCh_fP
             }
 
             bool isFreeNeonate = string.Equals(_character.CreationMode, "Свободный Неонат", StringComparison.OrdinalIgnoreCase);
-            bool isFledgling = string.Equals(_character.CreationMode, "Птенец на поводке Сира", StringComparison.OrdinalIgnoreCase);
+            bool isFledgling = CharacterCreationRules.IsFledgling(_character);
             int increase = next - previous;
 
             // Поддерживаем оба старых написания смешанного режима и применяем
             // выбранную последовательность ресурсов к обоим режимам персонажа.
             // Раньше для Птенца useFreebies всегда был false, поэтому программа
             // требовала опыт даже при ненулевом остатке свободных пунктов.
-            string mode = (AppSettings.NeonatePurchaseMode ?? "Свободные пункты затем опыт")
-                .Trim().Replace("→", "затем").ToLowerInvariant();
+            // Для Птенца автоматическая закупка всегда идёт сначала за свободные
+            // пункты, затем за опыт. Настройка приложения на этот режим не влияет.
+            string mode = isFledgling
+                ? "свободные пункты затем опыт"
+                : (AppSettings.NeonatePurchaseMode ?? "Свободные пункты затем опыт")
+                    .Trim().Replace("→", "затем").ToLowerInvariant();
             bool mixedMode = mode == "свободные пункты затем опыт";
             bool freebieOnlyMode = mode == "только свободные пункты";
             bool experienceOnlyMode = mode == "только опыт";
@@ -122,12 +129,32 @@ namespace VtM_LoCh_fP
             // затем остаток повышения оплачивается опытом.
             bool useFreebies = costKey == "background" || (automaticMode && (mixedMode || freebieOnlyMode));
             bool useExperience = automaticMode && (mixedMode || experienceOnlyMode);
+            bool restrictedPath = string.Equals(costKey, "humanity_path", StringComparison.OrdinalIgnoreCase) &&
+                CharacterCreationRules.IsHumanityPathLimitActive(_character);
+            bool humanityRestoration = string.Equals(costKey, "humanity_path", StringComparison.OrdinalIgnoreCase) &&
+                _character.CreationState.HumanityPathConfirmedRating >= 0 && previous < _character.CreationState.HumanityPathConfirmedRating;
+            if (humanityRestoration)
+            {
+                // Возврат утраченного рейтинга всегда оплачивается опытом,
+                // даже если автоматическая закупка обычно начинает со свободных пунктов.
+                useFreebies = false;
+                useExperience = true;
+                automaticMode = true;
+            }
+            if (restrictedPath && next > 5 && (!automaticMode || !useExperience))
+            {
+                ThemedDialog.Show(this,
+                    "При включённом ограничении Путь выше 5 нельзя повышать за счёт свободных пунктов или обычного изменения шкалы. Для повышения выше 5 используйте опыт.",
+                    "Ограничение рейтинга Пути", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return false;
+            }
             if (automaticMode && !useFreebies && !useExperience)
                 return true; // Вручную, без автоматического списания.
 
             int freebieUnitCost = useFreebies ? CharacterCreationRules.GetFreebieCost(costKey) : 0;
+            int freebieLimit = restrictedPath ? Math.Max(0, Math.Min(next, 5) - previous) : increase;
             int freebieLevels = freebieUnitCost > 0
-                ? Math.Min(increase, _character.CreationState.FreebiePoints / freebieUnitCost)
+                ? Math.Min(freebieLimit, _character.CreationState.FreebiePoints / freebieUnitCost)
                 : 0;
             int experienceLevels = increase - freebieLevels;
 
@@ -232,7 +259,7 @@ namespace VtM_LoCh_fP
         private void RestoreAdvancementModelValue(string costKey, string itemName, int value)
         {
             string key = NormalizeCostKey(costKey);
-            if (key == "humanity_path") AdvantagesPage.SetHumanityPathRating(value);
+            if (key == "humanity_path") AdvantagesPage.SetHumanityPathRatingFromAdvancement(value);
             else if (key == "background")
             {
                 var fact = _character.BiographyFacts.FirstOrDefault(x => string.Equals(x.Name, itemName, StringComparison.OrdinalIgnoreCase));
@@ -389,7 +416,7 @@ namespace VtM_LoCh_fP
             var state = _character.CreationState;
             if (state.PurchaseLedger == null) state.PurchaseLedger = new List<PurchaseTransaction>();
             var matches = state.PurchaseLedger
-                .Where(t => !t.IsCancelled && string.Equals(t.ItemName, itemName, StringComparison.OrdinalIgnoreCase) &&
+                .Where(t => !t.IsCancelled && !t.RefundLocked && string.Equals(t.ItemName, itemName, StringComparison.OrdinalIgnoreCase) &&
                             t.NewValue > newValue && t.PreviousValue < oldValue)
                 .OrderByDescending(t => t.Order).ToList();
 
@@ -468,12 +495,19 @@ namespace VtM_LoCh_fP
                         });
                     }
                 }
-                // Синхронизируем legacy-журналы, чтобы старые окна и списки не показывали уже отменённое.
+                state.PurchaseLedger.RemoveAll(t => t.IsCancelled);
                 TrimLegacyPurchaseRecords(itemName, newValue);
                 UpdateInitialPurchaseButton();
                 DisciplinesPage.RefreshGenerationLimits();
                 return;
             }
+
+            // Если запись уже зафиксирована подтверждением Пути, не пытаемся
+            // вернуть её через старые списки покупок персонажей прежних версий.
+            bool hasLockedMatchingTransaction = state.PurchaseLedger.Any(t => !t.IsCancelled && t.RefundLocked &&
+                string.Equals(t.ItemName, itemName, StringComparison.OrdinalIgnoreCase) &&
+                t.NewValue > newValue && t.PreviousValue < oldValue);
+            if (hasLockedMatchingTransaction) return;
 
             // Совместимость с персонажами, созданными до появления единого журнала.
             int refundFreebies = 0;
@@ -619,7 +653,7 @@ namespace VtM_LoCh_fP
             try
             {
                 new ExperiencePurchaseWindow(this, _character,
-                    BuildAdvancementOptions().Where(x => x.CostKey != "background")).ShowDialog();
+                    BuildAdvancementOptions(true).Where(x => x.CostKey != "background")).ShowDialog();
             }
             finally { _manualPurchaseInProgress = false; }
         }
@@ -649,12 +683,12 @@ namespace VtM_LoCh_fP
             _manualPurchaseInProgress = true;
             try
             {
-                new FreebiePurchaseWindow(this, _character, BuildAdvancementOptions().Where(x => x.CostKey != "background")).ShowDialog();
+                new FreebiePurchaseWindow(this, _character, BuildAdvancementOptions(false).Where(x => x.CostKey != "background")).ShowDialog();
             }
             finally { _manualPurchaseInProgress = false; }
         }
 
-        private List<AdvancementOption> BuildAdvancementOptions()
+        private List<AdvancementOption> BuildAdvancementOptions(bool experiencePurchase)
         {
             var options = new List<AdvancementOption>();
             foreach (var track in FindTracks(CharacterPage))
@@ -779,14 +813,28 @@ namespace VtM_LoCh_fP
             options.Add(new AdvancementOption { Category = "Сила воли", CostKey = "willpower", Name = "Постоянная сила воли",
                 CurrentValue = AdvantagesPage.GetWillpowerPermanent(), Maximum = 10,
                 Apply = value => AdvantagesPage.SetWillpowerPermanent(value) });
+            // Настройка ограничения действует независимо от способа оплаты,
+            // в том числе для мигрировавших персонажей и покупок за опыт.
+            // Опыт всегда может повышать Путь до 10. Ограничение относится
+            // только к покупкам за свободные пункты.
+            int pathMaximum = experiencePurchase || !CharacterCreationRules.IsHumanityPathLimitActive(_character) ? 10 : 5;
             options.Add(new AdvancementOption { Category = "Путь", CostKey = "humanity_path", Name = _character.HumanityPathIsCustom ? _character.CustomHumanityPathName : _character.HumanityPathId,
-                CurrentValue = _character.HumanityPathRating, Maximum = 10,
-                Apply = value => AdvantagesPage.SetHumanityPathRating(value) });
+                CurrentValue = _character.HumanityPathRating, Maximum = pathMaximum,
+                Apply = value => AdvantagesPage.SetHumanityPathRatingFromAdvancement(value),
+                CanPurchase = () => experiencePurchase || _character.HumanityPathRating >= _character.CreationState.HumanityPathConfirmedRating,
+                PurchaseRestrictionMessage = "Восстановление утраченной Человечности/Пути возможно только за опыт." });
             return options;
         }
 
         private void ResetFreebieBlock(string block, List<CreationPurchase> purchases)
         {
+            if (string.Equals(block, "Путь", StringComparison.OrdinalIgnoreCase))
+            {
+                ThemedDialog.Show(this,
+                    "Человечность/Путь нельзя сбросить через журнал закупок. Повышение подтверждается отдельно, а снижение оформляется только действием «Деградировать».",
+                    "Изменение Пути недоступно", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
             var state = _character.CreationState;
             var selectedNames = new HashSet<string>((purchases ?? new List<CreationPurchase>()).Select(p => p.ItemName), StringComparer.OrdinalIgnoreCase);
             if (block == "Достоинства и недостатки")
@@ -795,8 +843,7 @@ namespace VtM_LoCh_fP
                 {
                     state.FreebiePoints += purchase.Cost;
                     if (state.PurchaseLedger != null)
-                        foreach (var transaction in state.PurchaseLedger.Where(t => !t.IsCancelled && t.Resource == "freebie" && string.Equals(t.ItemId, purchase.ItemId, StringComparison.OrdinalIgnoreCase)))
-                            transaction.IsCancelled = true;
+                        state.PurchaseLedger.RemoveAll(t => t.Resource == "freebie" && string.Equals(t.ItemId, purchase.ItemId, StringComparison.OrdinalIgnoreCase));
                 }
                 HistoryPage.RefreshMeritsFlaws();
                 RefreshGenerationFromCharacter();
@@ -890,8 +937,7 @@ namespace VtM_LoCh_fP
                 state.InitialPurchases.RemoveAll(p => string.Equals(p.Block, block, StringComparison.OrdinalIgnoreCase) ||
                     (block == "Фоны" && p.Block == "Факты биографии") || (block == "Добродетели" && p.Block == "Сила воли"));
             if (state.PurchaseLedger != null)
-                foreach (var transaction in state.PurchaseLedger.Where(t => !t.IsCancelled && string.Equals(t.Block, block, StringComparison.OrdinalIgnoreCase)))
-                    transaction.IsCancelled = true;
+                state.PurchaseLedger.RemoveAll(t => string.Equals(t.Block, block, StringComparison.OrdinalIgnoreCase));
             if (block == "Добродетели") state.UnconfirmInitialBlock("virtues");
             if (block == "Дисциплины") state.UnconfirmInitialBlock("disciplines");
             if (block == "Фоны") state.UnconfirmInitialBlock("backgrounds");
@@ -924,7 +970,7 @@ namespace VtM_LoCh_fP
 
         private void Settings_Click(object sender, RoutedEventArgs e)
         {
-            var settings = new SettingsWindow { Owner = this };
+            var settings = new SettingsWindow(_character) { Owner = this };
 
             if (settings.ShowDialog() != true)
                 return;
@@ -934,6 +980,7 @@ namespace VtM_LoCh_fP
                 ? (AppSettings.GenerationPointIncrease ? Math.Max(5, _character.TraitMax) : 5)
                 : 5);
             DisciplinesPage.InitializeCharacter(_character);
+            AdvantagesPage.RefreshHumanityPathLimitSetting();
         }
 
         public void NavigateToTab(int index)
@@ -989,24 +1036,29 @@ namespace VtM_LoCh_fP
             return false;
         }
 
+        private static bool IsTextEditing()
+        {
+            var focused = System.Windows.Input.Keyboard.FocusedElement as DependencyObject;
+            return focused is System.Windows.Controls.Primitives.TextBoxBase ||
+                focused is System.Windows.Controls.PasswordBox ||
+                focused is System.Windows.Controls.ComboBox combo && combo.IsEditable ||
+                (focused != null && focused.GetType().Name == "TextArea");
+        }
+
         private void MainWindow_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
+            bool textEditing = IsTextEditing();
             if (e.Key == System.Windows.Input.Key.Z &&
                 (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) != 0 &&
                 (System.Windows.Input.Keyboard.Modifiers & (System.Windows.Input.ModifierKeys.Alt | System.Windows.Input.ModifierKeys.Shift)) == 0)
             {
-                // Не перехватываем штатный Ctrl+Z внутри редактируемого текста.
-                var focused = System.Windows.Input.Keyboard.FocusedElement as DependencyObject;
-                bool textEditing = focused is System.Windows.Controls.Primitives.TextBoxBase ||
-                    focused is System.Windows.Controls.PasswordBox ||
-                    (focused != null && focused.GetType().Name == "TextArea");
                 if (!textEditing && UndoService.TryUndo(this))
                 {
                     e.Handled = true;
                     return;
                 }
             }
-            if ((System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Alt) == 0) return;
+            if (textEditing || (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Alt) == 0) return;
             int target = -1;
             var pressedKey = e.Key == System.Windows.Input.Key.System ? e.SystemKey : e.Key;
             int keyCode = (int)pressedKey;
@@ -1028,6 +1080,13 @@ namespace VtM_LoCh_fP
         private void Tabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             UpdateInitialPurchaseButton();
+            if (SheetTabs.SelectedIndex == 1)
+            {
+                AdvantagesPage.RefreshHumanityPathActions();
+                // Сама миграция выполняется при загрузке персонажа;
+                // здесь показываем только отложенное уведомление.
+                AdvantagesPage.ShowLegacyHumanityPathMigrationNoticeIfNeeded();
+            }
             if (!(e.AddedItems.Count > 0) || !(e.AddedItems[0] is TabItem tab)) return;
             if (!(tab.Content is FrameworkElement content)) return;
 

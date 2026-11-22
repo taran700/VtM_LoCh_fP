@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.ComponentModel;
@@ -25,6 +25,15 @@ namespace VtM_LoCh_fP
         public List<CreationPurchase> InitialPurchases { get; set; } = new List<CreationPurchase>();
         public List<ExperiencePurchase> ExperiencePurchases { get; set; } = new List<ExperiencePurchase>();
         public List<PurchaseTransaction> PurchaseLedger { get; set; } = new List<PurchaseTransaction>();
+        // Подтверждённый максимум — точка отсчёта для восстановления после деградации
+        public int HumanityPathConfirmedRating { get; set; } = -1;
+        public bool HumanityPathPendingConfirmation { get; set; }
+        public int HumanityPathPendingPreviousRating { get; set; }
+        public int HumanityPathDegradationCount { get; set; }
+        public bool LegacyHumanityPathMigrationDone { get; set; }
+        public bool LegacyHumanityPathMigrationNoticePending { get; set; }
+        public int LegacyHumanityPathRefundedExperience { get; set; }
+        public int LegacyHumanityPathRefundedFreebies { get; set; }
         public string GenerationBatchId { get; set; }
         public long NextPurchaseOrder { get; set; } = 1;
         public bool IsRestoringPurchase { get; set; }
@@ -106,6 +115,7 @@ namespace VtM_LoCh_fP
         public string DependencyGroupId { get; set; }
         public string Source { get; set; } = "Player";
         public bool IsCancelled { get; set; }
+        public bool RefundLocked { get; set; }
         public DateTime TimestampUtc { get; set; } = DateTime.UtcNow;
     }
 
@@ -128,6 +138,29 @@ namespace VtM_LoCh_fP
         {
             var values = new[] { first, second, third };
             return values.All(v => PriorityOrder.Contains(v)) && values.Distinct().Count() == 3;
+        }
+
+        public static bool IsHumanityPath(CharacterProfile character)
+        {
+            return character != null && !character.HumanityPathIsCustom &&
+                string.Equals(character.HumanityPathId, "humanity", StringComparison.OrdinalIgnoreCase);
+        }
+
+        public static bool IsHumanityPathLimitActive(CharacterProfile character)
+        {
+            // Настройка «Без границ / С ограничением» относится только к Путям по правилам
+            if (character == null || IsHumanityPath(character)) return false;
+            // Ограничение хранится в самом листе персонажа, а не в общих настройках так, как импрорт мастеру будет страдать
+            // В режиме Птенца оно обязательно включено независимо от сохранённого значения (Хотя невозможно выключить, на всякий)
+            if (IsFledgling(character)) return true;
+            return character.HumanityPathLimitEnabled;
+        }
+
+        public static bool IsFledgling(CharacterProfile character)
+        {
+            return character != null &&
+                (string.Equals(character.CreationMode, "Птенец на поводке Сира", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(character.CreationMode, "Птенец", StringComparison.OrdinalIgnoreCase));
         }
 
         public static int GetPriorityPool(string category, string priority, bool abilities)

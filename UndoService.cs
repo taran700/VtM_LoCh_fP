@@ -36,6 +36,12 @@ namespace VtM_LoCh_fP
         public static bool CanUndo { get { return _restore != null; } }
         public static string Description { get { return _description ?? string.Empty; } }
 
+        public static void Clear()
+        {
+            _restore = null;
+            _description = null;
+        }
+
         public static void Store(string description, Action restore)
         {
             if (IsRestoring || restore == null) return;

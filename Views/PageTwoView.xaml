@@ -72,17 +72,15 @@
                             <Button x:Name="CreateHumanityPathButton" Content="Создать" Padding="10,4" Margin="6,0,0,0"
                                     Click="CreateHumanityPath_Click" Visibility="Collapsed"/>
                             <TextBox x:Name="HumanityPathInput" MinHeight="30" Padding="6,3"
-                                     TextChanged="HumanityPathInput_TextChanged" KeyDown="HumanityPathInput_KeyDown"/>
+                                     TextChanged="HumanityPathInput_TextChanged" GotKeyboardFocus="HumanityPathInput_GotKeyboardFocus" PreviewMouseLeftButtonDown="HumanityPathInput_PreviewMouseLeftButtonDown" KeyDown="HumanityPathInput_KeyDown"/>
                         </DockPanel>
-                        <Popup x:Name="HumanityPathSuggestionsPopup" PlacementTarget="{Binding ElementName=HumanityPathInput}"
-                               Placement="Bottom" StaysOpen="True" AllowsTransparency="True" PopupAnimation="Fade">
-                            <Border BorderThickness="1" CornerRadius="4" Padding="3" MaxHeight="220"
-                                    Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderBrush}">
-                                <ListBox x:Name="HumanityPathSuggestions" DisplayMemberPath="Name" MinWidth="250"
-                                         BorderThickness="0" SelectionChanged="HumanityPathSuggestions_SelectionChanged"
-                                         MouseUp="HumanityPathSuggestions_MouseUp"/>
-                            </Border>
-                        </Popup>
+                        <Border x:Name="HumanityPathSuggestionsContainer" BorderThickness="1" CornerRadius="4"
+                                Padding="3" Margin="0,0,8,5" MaxHeight="220" Visibility="Collapsed"
+                                Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderBrush}">
+                            <ListBox x:Name="HumanityPathSuggestions" DisplayMemberPath="Name" MinWidth="250"
+                                     BorderThickness="0" SelectionChanged="HumanityPathSuggestions_SelectionChanged"
+                                     MouseUp="HumanityPathSuggestions_MouseUp"/>
+                        </Border>
                         <DockPanel Margin="2,2,0,5" LastChildFill="False">
                             <TextBlock x:Name="HumanityPathName" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
                             <Button Content="···" FontSize="18" Padding="5,0" Margin="7,0,0,0" ToolTip="Информация о Пути" Click="HumanityPathInfo_Click"/>
@@ -94,6 +92,10 @@
                                     Click="HumanitySinTable_Click"/>
                             <Button x:Name="EditHumanityPathButton" Content="Редактировать Путь" Padding="10,5"
                                     Click="EditHumanityPath_Click" Visibility="Collapsed"/>
+                            <Button x:Name="ConfirmHumanityPathButton" Content="Подтвердить распределение" Padding="10,5" Margin="7,0,0,0"
+                                    Click="ConfirmHumanityPath_Click" Visibility="Collapsed"/>
+                            <Button x:Name="DegradeHumanityPathButton" Content="Деградировать" Padding="10,5" Margin="7,0,0,0"
+                                    Click="DegradeHumanityPath_Click" Visibility="Collapsed"/>
                         </WrapPanel>
                     </StackPanel>
 

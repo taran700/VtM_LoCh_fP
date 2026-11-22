@@ -44,6 +44,7 @@ namespace VtM_LoCh_fP
         {
             if (character == null) throw new ArgumentNullException(nameof(character));
             if (string.IsNullOrWhiteSpace(filePath)) throw new ArgumentException("Не указан путь экспорта.", nameof(filePath));
+            EnsureIdentity(character);
             string json = Serializer.Serialize(character);
             File.WriteAllText(filePath, json, new System.Text.UTF8Encoding(false));
         }
@@ -81,6 +82,7 @@ namespace VtM_LoCh_fP
                 copy.Id = Guid.NewGuid().ToString("N");
                 copy.Name = newName;
                 copy.CreationMode = "Свободный Неонат";
+                EnsureIdentity(copy);
 
                 string path = Path.Combine(StorageDirectory, "character_" + copy.Id + ".json");
                 string json = Serializer.Serialize(copy);
@@ -262,6 +264,7 @@ namespace VtM_LoCh_fP
                 character.CreationState = new CharacterCreationState();
             if (character.CreationState.PurchaseLedger == null)
                 character.CreationState.PurchaseLedger = new List<PurchaseTransaction>();
+            character.CreationState.PurchaseLedger.RemoveAll(transaction => transaction == null || transaction.IsCancelled);
             foreach (var transaction in character.CreationState.PurchaseLedger)
             {
                 if (string.IsNullOrWhiteSpace(transaction.TransactionId)) transaction.TransactionId = Guid.NewGuid().ToString("N");
@@ -295,6 +298,7 @@ namespace VtM_LoCh_fP
 
         private static void WriteCharacter(CharacterProfile character)
         {
+            EnsureIdentity(character);
             string path = Path.Combine(StorageDirectory, "character_" + character.Id + ".json");
             string temp = path + ".tmp";
             string json = Serializer.Serialize(character);

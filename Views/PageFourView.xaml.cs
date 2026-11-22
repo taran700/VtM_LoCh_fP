@@ -244,8 +244,7 @@ namespace VtM_LoCh_fP.Views
                     else if (owned.FreebieCharged)
                         state.FreebiePoints += owned.Type == "flaw" ? -owned.Cost : owned.Cost;
                     if (state.PurchaseLedger != null)
-                        foreach (var transaction in state.PurchaseLedger.Where(t => !t.IsCancelled && t.Resource == "freebie" && string.Equals(t.ItemId, owned.Id, StringComparison.OrdinalIgnoreCase)))
-                            transaction.IsCancelled = true;
+                        state.PurchaseLedger.RemoveAll(t => t.Resource == "freebie" && string.Equals(t.ItemId, owned.Id, StringComparison.OrdinalIgnoreCase));
                     _character.MeritsFlaws.Remove(owned);
                 }
 

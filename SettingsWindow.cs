@@ -7,16 +7,21 @@ namespace VtM_LoCh_fP
     internal sealed class SettingsWindow : Window
     {
         private readonly ComboBox _theme, _points, _healing, _ruleOfSeven;
-        private readonly ComboBox _neonatePurchaseMode;
+        private readonly ComboBox _neonatePurchaseMode, _humanityPathLimit;
+        private readonly bool _isFledgling;
+        private readonly CharacterProfile _character;
 
-        public SettingsWindow()
+        public SettingsWindow(CharacterProfile character)
         {
+            _character = character;
+            _isFledgling = CharacterCreationRules.IsFledgling(character);
             Title = "Вампстройки";
             Icon = new BitmapImage(new System.Uri("pack://application:,,,/Resources/Vampiric.ico", System.UriKind.Absolute));
             Width = 460;
-            Height = 540;
-            MinHeight = 540;
-            MaxHeight = 540;
+            // Обычный режим показывает все настройки без прокрутки; в режиме Птенца скрытые параметры не занимают место, поэтому окно компактнее
+            Height = _isFledgling ? 420 : 620;
+            MinHeight = _isFledgling ? 420 : 620;
+            MaxHeight = _isFledgling ? 420 : 620;
             ResizeMode = ResizeMode.NoResize;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
             ThemeManager.AttachWindow(this);
@@ -80,23 +85,43 @@ namespace VtM_LoCh_fP
 
            
             
-            AddSetting(panel, "Автоматическая закупка",
+            var purchaseSettings = new StackPanel();
+            AddSetting(purchaseSettings, "Автоматическая закупка",
                 _neonatePurchaseMode = new ComboBox
                 {
                     Items = { "Свободные пункты затем опыт", "Только свободные пункты", "Только опыт", "Без автоматической закупки" },
                     SelectedItem = AppSettings.NeonatePurchaseMode,
                     Height = 36
                 },
-                "При смешанном режиме сначала списываются свободные пункты. Если их нет используется опыт. В режиме Птенца опыт обязателен независимо от этой настройки.");
-            panel.Children.Add(new TextBlock
+                "При смешанном режиме сначала списываются свободные пункты, затем опыт.");
+            purchaseSettings.Children.Add(new TextBlock
             {
-                Text = "При смешанном режиме сначала списываются свободные пункты, затем опыт. Это правило применяется к автоматической закупке в обоих режимах создания персонажа.",
+                Text = "В режиме Птенца автоматическая закупка всегда выполняется сначала за свободные пункты, затем за опыт.",
                 TextWrapping = TextWrapping.Wrap,
                 Foreground = (System.Windows.Media.Brush)Application.Current.Resources["MutedBrush"],
                 Margin = new Thickness(0, 0, 0, 14)
             });
+            panel.Children.Add(purchaseSettings);
 
-            
+            var pathLimitSettings = new StackPanel();
+            AddSetting(pathLimitSettings, "Ограничение рейтинга Пути",
+                _humanityPathLimit = new ComboBox
+                {
+                    Items = { "Ограничение есть", "Без границ" },
+                    SelectedItem = character == null || character.HumanityPathLimitEnabled ? "Ограничение есть" : "Без границ",
+                    Height = 36
+                },
+                "Для любого Пути, кроме Человечности, свободными пунктами выше 5 покупать нельзя. За опыт повышение выше 5 разрешено.");
+            panel.Children.Add(pathLimitSettings);
+
+            if (_isFledgling)
+            {
+                // Для Птенца обе настройки скрыты: правила принудительно включены
+                purchaseSettings.Visibility = Visibility.Collapsed;
+                pathLimitSettings.Visibility = Visibility.Collapsed;
+                _neonatePurchaseMode.SelectedItem = "Свободные пункты затем опыт";
+                _humanityPathLimit.SelectedItem = "Ограничение есть";
+            }
 
             Content = root;
         }
@@ -121,10 +146,16 @@ namespace VtM_LoCh_fP
             AppSettings.GenerationPointIncrease = (_points.SelectedItem as string) != "Отключено";
             AppSettings.WoundHealingMode = _healing.SelectedItem as string ?? "Работать Гуль!";
             AppSettings.RuleOfSeven = (_ruleOfSeven.SelectedItem as string) == "Мы чтим книгу!";
-            AppSettings.NeonatePurchaseMode = _neonatePurchaseMode.SelectedItem as string ?? "Свободные пункты затем опыт";
-            AppSettings.FreebiePurchasesEnabled = AppSettings.NeonatePurchaseMode == "Свободные пункты затем опыт" || AppSettings.NeonatePurchaseMode == "Только свободные пункты";
-            AppSettings.ExperiencePurchasesEnabled = AppSettings.NeonatePurchaseMode == "Свободные пункты затем опыт" || AppSettings.NeonatePurchaseMode == "Только опыт";
+            if (!_isFledgling)
+            {
+                AppSettings.NeonatePurchaseMode = _neonatePurchaseMode.SelectedItem as string ?? "Свободные пункты затем опыт";
+                AppSettings.FreebiePurchasesEnabled = AppSettings.NeonatePurchaseMode == "Свободные пункты затем опыт" || AppSettings.NeonatePurchaseMode == "Только свободные пункты";
+                AppSettings.ExperiencePurchasesEnabled = AppSettings.NeonatePurchaseMode == "Свободные пункты затем опыт" || AppSettings.NeonatePurchaseMode == "Только опыт";
+            }
+            if (!_isFledgling && _character != null)
+                _character.HumanityPathLimitEnabled = (_humanityPathLimit.SelectedItem as string) != "Без границ";
             AppSettings.Save();
+            if (_character != null) CharacterSelectionWindow.SaveCharacters();
             DialogResult = true;
         }
     }
