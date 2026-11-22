@@ -306,7 +306,7 @@ namespace VtM_LoCh_fP.Views
             if (_character.CreationState.ConfirmedInitialBlocks.Contains("disciplines")) return;
             if (_character.CreationState.InitialPurchases == null) _character.CreationState.InitialPurchases = new List<CreationPurchase>();
             _character.CreationState.InitialPurchases.RemoveAll(p => p.Block == "Дисциплины");
-            foreach (var transaction in _character.CreationState.PurchaseLedger.Where(t => !t.IsCancelled && t.Resource == "initial_pool" && t.Block == "Дисциплины")) transaction.IsCancelled = true;
+            _character.CreationState.PurchaseLedger.RemoveAll(t => t.Resource == "initial_pool" && t.Block == "Дисциплины");
             if (_character.CreationState.InitialDisciplineDots == null) _character.CreationState.InitialDisciplineDots = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             bool hadInitialDisciplineSnapshot = _character.CreationState.InitialDisciplineBlockEverConfirmed;
             if (!hadInitialDisciplineSnapshot) _character.CreationState.InitialDisciplineDots.Clear();

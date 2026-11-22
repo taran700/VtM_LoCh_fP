@@ -12,21 +12,21 @@
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                 <GroupBox Grid.Row="0" Grid.Column="0" Header="Одежда и аксессуары" Style="{StaticResource SectionBoxStyle}">
-                    <controls:MarkdownFieldControl x:Name="ClothingInput" FieldHeight="170" InputTextChanged="Equipment_TextChanged"/>
+                    <controls:MarkdownFieldControl x:Name="ClothingInput" ToolTip="Одежда, обувь, украшения и аксессуары персонажа." FieldHeight="170" InputTextChanged="Equipment_TextChanged"/>
                 </GroupBox>
                 <GroupBox Grid.Row="0" Grid.Column="1" Header="Карманы одежды" Style="{StaticResource SectionBoxStyle}">
-                    <controls:MarkdownFieldControl x:Name="PocketsInput" FieldHeight="170" InputTextChanged="Equipment_TextChanged"/>
+                    <controls:MarkdownFieldControl x:Name="PocketsInput" ToolTip="Предметы, которые персонаж носит в карманах одежды и небольших сумках." FieldHeight="170" InputTextChanged="Equipment_TextChanged"/>
                 </GroupBox>
                 <GroupBox Grid.Row="1" Grid.Column="0" Header="Броня" Style="{StaticResource SectionBoxStyle}">
                     <DockPanel>
                         <Button DockPanel.Dock="Right" Content="Подробнее" Style="{StaticResource ToolbarButtonStyle}" Click="ArmorDetails_Click" Margin="8,0,0,0"/>
-                        <controls:MarkdownFieldControl x:Name="ArmorInput" FieldHeight="210" InputTextChanged="Equipment_TextChanged"/>
+                        <controls:MarkdownFieldControl x:Name="ArmorInput" ToolTip="Защитное снаряжение персонажа, его тип и игровые свойсва.&#10;А может быть и ещё больше это поле ваше." FieldHeight="210" InputTextChanged="Equipment_TextChanged"/>
                     </DockPanel>
                 </GroupBox>
                 <GroupBox Grid.Row="1" Grid.Column="1" Header="Оружие" Style="{StaticResource SectionBoxStyle}">
                     <DockPanel>
                         <Button DockPanel.Dock="Right" Content="Подробнее" Style="{StaticResource ToolbarButtonStyle}" Click="WeaponDetails_Click" Margin="8,0,0,0"/>
-                        <controls:MarkdownFieldControl x:Name="WeaponsInput" FieldHeight="210" InputTextChanged="Equipment_TextChanged"/>
+                        <controls:MarkdownFieldControl x:Name="WeaponsInput" ToolTip="Оружие персонажа, боеприпасы и важные для вас характеристики." FieldHeight="210" InputTextChanged="Equipment_TextChanged"/>
                     </DockPanel>
                 </GroupBox>
             </Grid>

@@ -15,6 +15,7 @@ namespace VtM_LoCh_fP
         public static string NeonatePurchaseMode { get; set; } = "Свободные пункты затем опыт";
         public static bool ExperiencePurchasesEnabled { get; set; } = true;
         public static bool FreebiePurchasesEnabled { get; set; } = true;
+        public static bool HumanityPathLimitEnabled { get; set; } = true;
         public static bool UpdateNotificationsEnabled { get; set; } = true;
         public static DateTime? UpdateLastAttemptUtc { get; set; }
         public static DateTime? UpdateLastSuccessUtc { get; set; }
@@ -37,6 +38,7 @@ namespace VtM_LoCh_fP
                 NeonatePurchaseMode = (string)root.Element("NeonatePurchaseMode") ?? "Свободные пункты затем опыт";
                 ExperiencePurchasesEnabled = (bool?)root.Element("ExperiencePurchasesEnabled") ?? true;
                 FreebiePurchasesEnabled = (bool?)root.Element("FreebiePurchasesEnabled") ?? true;
+                HumanityPathLimitEnabled = (bool?)root.Element("HumanityPathLimitEnabled") ?? true;
                 UpdateNotificationsEnabled = (bool?)root.Element("UpdateNotificationsEnabled") ?? true;
                 UpdateLastAttemptUtc = ParseUtc((string)root.Element("UpdateLastAttemptUtc"));
                 UpdateLastSuccessUtc = ParseUtc((string)root.Element("UpdateLastSuccessUtc"));
@@ -77,6 +79,7 @@ namespace VtM_LoCh_fP
                     new XElement("NeonatePurchaseMode", NeonatePurchaseMode),
                     new XElement("ExperiencePurchasesEnabled", ExperiencePurchasesEnabled),
                     new XElement("FreebiePurchasesEnabled", FreebiePurchasesEnabled),
+                    new XElement("HumanityPathLimitEnabled", HumanityPathLimitEnabled),
                     new XElement("UpdateNotificationsEnabled", UpdateNotificationsEnabled),
                     new XElement("UpdateLastAttemptUtc", FormatUtc(UpdateLastAttemptUtc)),
                     new XElement("UpdateLastSuccessUtc", FormatUtc(UpdateLastSuccessUtc)),

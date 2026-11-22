@@ -5,6 +5,7 @@ using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Input;
 using System.Windows.Controls.Primitives;
+using System.Windows.Threading;
 using System.Collections.Generic;
 using System.Linq;
 using VtM_LoCh_fP.Controls;
@@ -26,10 +27,10 @@ namespace VtM_LoCh_fP.Views
         private TextBox _demeanorInput;
         private Button _natureDescriptionButton;
         private Button _demeanorDescriptionButton;
-        private Popup _naturePopup;
-        private Popup _demeanorPopup;
         private ListBox _natureSuggestions;
         private ListBox _demeanorSuggestions;
+        private Popup _natureSuggestionsPopup;
+        private Popup _demeanorSuggestionsPopup;
         private bool _settingArchetypeText;
         private ComboBox _generationSelector;
         private TextBox _generationInput;
@@ -52,6 +53,7 @@ namespace VtM_LoCh_fP.Views
         public PageOneView()
         {
             InitializeComponent();
+            AddHandler(Mouse.PreviewMouseDownEvent, new MouseButtonEventHandler(PageOne_PreviewMouseDown), true);
             Loaded += (s, e) =>
             {
                 ApplyGenerationLimits();
@@ -63,10 +65,90 @@ namespace VtM_LoCh_fP.Views
                 }
             };
             InitializeInlinePrioritySelectors();
+            InitializePriorityWheelForwarding();
+            PageScrollViewer.PreviewMouseWheel += PageScrollViewer_PreviewMouseWheel;
+            PageScrollViewer.ScrollChanged += PageScrollViewer_ScrollChanged;
             VentrueTasteInput.ToolTip = CreateVentrueTasteToolTip();
             VentrueTasteLabel.ToolTip = CreateVentrueTasteToolTip();
         }
 
+
+        private void PageOne_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            var source = e.OriginalSource as DependencyObject;
+
+            if (_natureSuggestionsPopup != null && !IsWithinElement(source, _natureInput) && !IsWithinElement(source, _natureSuggestions))
+                _natureSuggestionsPopup.IsOpen = false;
+
+            if (_demeanorSuggestionsPopup != null && !IsWithinElement(source, _demeanorInput) && !IsWithinElement(source, _demeanorSuggestions))
+                _demeanorSuggestionsPopup.IsOpen = false;
+
+            if (_clanSelector != null && !IsWithinElement(source, _clanSelector) &&
+                !IsWithinComboBoxDropdown(source, _clanSelector))
+                _clanSelector.IsDropDownOpen = false;
+
+            if (_clanSuggestionsPopup != null && !IsWithinElement(source, _clanInput) &&
+                !IsWithinElement(source, _clanSuggestions))
+                _clanSuggestionsPopup.IsOpen = false;
+        }
+
+        private static bool IsWithinElement(DependencyObject source, DependencyObject target)
+        {
+            while (source != null)
+            {
+                if (ReferenceEquals(source, target)) return true;
+                if (source is FrameworkContentElement contentElement)
+                    source = contentElement.Parent;
+                else if (source is Visual)
+                    source = VisualTreeHelper.GetParent(source);
+                else
+                    source = LogicalTreeHelper.GetParent(source);
+            }
+            return false;
+        }
+
+        private static bool IsWithinComboBoxDropdown(DependencyObject source, ComboBox comboBox)
+        {
+            while (source != null)
+            {
+                var item = source as ComboBoxItem;
+                if (item != null && ItemsControl.ItemsControlFromItemContainer(item) == comboBox)
+                    return true;
+                source = GetParentElement(source);
+            }
+            return false;
+        }
+
+        private static DependencyObject GetParentElement(DependencyObject element)
+        {
+            if (element is FrameworkContentElement contentElement)
+                return contentElement.Parent;
+            if (element is Visual || element is System.Windows.Media.Media3D.Visual3D)
+                return VisualTreeHelper.GetParent(element);
+            return LogicalTreeHelper.GetParent(element);
+        }
+
+        private void CloseClanSuggestionsWhenFocusLeaves(object sender, KeyboardFocusChangedEventArgs e)
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (_clanInput == null || _clanSuggestions == null || _clanSuggestionsPopup == null) return;
+                if (_clanInput.IsKeyboardFocusWithin || _clanSuggestions.IsKeyboardFocusWithin) return;
+                var pointer = Mouse.DirectlyOver as DependencyObject;
+                if (IsWithinElement(pointer, _clanSuggestions)) return;
+                _clanSuggestionsPopup.IsOpen = false;
+            }), DispatcherPriority.Background);
+        }
+
+        private void CloseArchetypeSuggestionsWhenFocusLeaves(TextBox input, ListBox list, Popup popup)
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (input.IsKeyboardFocusWithin || list.IsKeyboardFocusWithin) return;
+                if (IsWithinElement(Mouse.DirectlyOver as DependencyObject, list)) return;
+                popup.IsOpen = false;
+            }), DispatcherPriority.Background);
+        }
 
         private void OpenInitialAllocation_Click(object sender, RoutedEventArgs e)
         {
@@ -144,6 +226,91 @@ namespace VtM_LoCh_fP.Views
         }
 
         private ComboBox[] GetPriorityCombos() => new[] { PhysicalPriority, SocialPriority, MentalPriority, TalentsPriority, SkillsPriority, KnowledgePriority };
+
+        private void InitializePriorityWheelForwarding()
+        {
+            foreach (var combo in GetPriorityCombos())
+            {
+                combo.AddHandler(UIElement.PreviewMouseWheelEvent,
+                    new MouseWheelEventHandler(PriorityCombo_PreviewMouseWheel), true);
+                combo.DropDownOpened += (sender, args) => Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    AttachPriorityPopupWheel(combo);
+                }), DispatcherPriority.Loaded);
+            }
+        }
+
+        private void PageScrollViewer_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            CloseSelectionPopups();
+        }
+
+        private void PageScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
+        {
+            if (!ReferenceEquals(e.OriginalSource, PageScrollViewer) || e.VerticalChange == 0) return;
+            CloseSelectionPopups();
+        }
+
+        public void CloseSelectionPopups()
+        {
+            ClosePriorityDropdowns();
+            if (_clanSelector != null) _clanSelector.IsDropDownOpen = false;
+            if (_clanSuggestionsPopup != null) _clanSuggestionsPopup.IsOpen = false;
+            if (_natureSuggestionsPopup != null) _natureSuggestionsPopup.IsOpen = false;
+            if (_demeanorSuggestionsPopup != null) _demeanorSuggestionsPopup.IsOpen = false;
+        }
+
+        private void ClosePriorityDropdowns()
+        {
+            foreach (var combo in GetPriorityCombos())
+                if (combo != null && combo.IsDropDownOpen)
+                    combo.IsDropDownOpen = false;
+        }
+
+        private void PriorityCombo_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            e.Handled = true;
+            ClosePriorityDropdowns();
+            ScrollPageFromWheel(e.Delta);
+        }
+
+        private void PriorityDropdown_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            e.Handled = true;
+            ClosePriorityDropdowns();
+            ScrollPageFromWheel(e.Delta);
+        }
+
+        private void ScrollPageFromWheel(int delta)
+        {
+            if (PageScrollViewer == null || delta == 0) return;
+            PageScrollViewer.ScrollToVerticalOffset(PageScrollViewer.VerticalOffset - delta);
+        }
+
+        private void AttachPriorityPopupWheel(ComboBox combo)
+        {
+            if (combo == null) return;
+            combo.ApplyTemplate();
+            if (combo.Template == null) return;
+            var popup = combo.Template.FindName("PART_Popup", combo) as Popup;
+            var viewer = popup == null ? null : FindPriorityScrollViewer(popup.Child);
+            if (viewer == null) return;
+            viewer.PreviewMouseWheel -= PriorityDropdown_PreviewMouseWheel;
+            viewer.PreviewMouseWheel += PriorityDropdown_PreviewMouseWheel;
+        }
+
+        private ScrollViewer FindPriorityScrollViewer(DependencyObject parent)
+        {
+            if (parent == null) return null;
+            var viewer = parent as ScrollViewer;
+            if (viewer != null) return viewer;
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                var found = FindPriorityScrollViewer(VisualTreeHelper.GetChild(parent, i));
+                if (found != null) return found;
+            }
+            return null;
+        }
 
         private void InitializeInlinePrioritySelectors()
         {
@@ -343,8 +510,8 @@ namespace VtM_LoCh_fP.Views
                 _character.CreationState.InitialAbilityDots.Clear();
             }
             if (_character.CreationState.PurchaseLedger == null) _character.CreationState.PurchaseLedger = new List<PurchaseTransaction>();
-            foreach (var transaction in _character.CreationState.PurchaseLedger.Where(t => !t.IsCancelled && t.Resource == "initial_pool" &&
-                (t.Block == "Характеристики" || t.Block == "Способности"))) transaction.IsCancelled = true;
+            _character.CreationState.PurchaseLedger.RemoveAll(t => t.Resource == "initial_pool" &&
+                (t.Block == "Характеристики" || t.Block == "Способности"));
             if (_character.CreationState.InitialPurchases == null) _character.CreationState.InitialPurchases = new List<CreationPurchase>();
             _character.CreationState.InitialPurchases.RemoveAll(p => p.Block == "Характеристики" || p.Block == "Способности");
             foreach (var track in FindTracks(this))
@@ -894,7 +1061,7 @@ namespace VtM_LoCh_fP.Views
                 {
                     PlacementTarget = _clanInput,
                     Placement = PlacementMode.Bottom,
-                    StaysOpen = false,
+                    StaysOpen = true,
                     AllowsTransparency = true,
                     Child = _clanSuggestions
                 };
@@ -902,11 +1069,15 @@ namespace VtM_LoCh_fP.Views
                     new Binding("ActualWidth") { Source = _clanInput });
                 _clanInput.Text = _character.ClanName ?? string.Empty;
                 var initialClan = FindClanByName(_character.ClanName);
-                if (initialClan != null && _character.ClanSelectedFromSuggestions)
-                    SetClanFieldToolTip(_clanInput, initialClan, CreateClanTooltipTemplate());
+                SetClanFieldToolTip(_clanInput,
+                    _character.ClanSelectedFromSuggestions ? initialClan : null,
+                    CreateClanTooltipTemplate());
                 _clanInput.TextChanged += FreeClanInput_TextChanged;
                 _clanInput.PreviewKeyDown += FreeClanInput_PreviewKeyDown;
                 _clanInput.GotKeyboardFocus += (sender, args) => UpdateFreeClanSuggestions();
+                _clanInput.PreviewMouseLeftButtonDown += (sender, args) => UpdateFreeClanSuggestions();
+                _clanInput.LostKeyboardFocus += CloseClanSuggestionsWhenFocusLeaves;
+                _clanSuggestions.LostKeyboardFocus += CloseClanSuggestionsWhenFocusLeaves;
                 _clanSuggestions.SelectionChanged += FreeClanSuggestions_SelectionChanged;
                 _clanSuggestions.MouseLeftButtonUp += FreeClanSuggestions_MouseLeftButtonUp;
                 host.Children.Add(_clanInput);
@@ -940,6 +1111,25 @@ namespace VtM_LoCh_fP.Views
             ToolTipService.SetShowDuration(_clanSelector, 60000);
             if (!string.IsNullOrWhiteSpace(_character.ClanName)) _clanSelector.SelectedValue = _character.ClanName;
             SetClanFieldToolTip(_clanSelector, _clanSelector.SelectedItem as ClanInfo, tooltipTemplate);
+            Action openClanList = () => Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (_clanSelector.IsKeyboardFocusWithin) _clanSelector.IsDropDownOpen = true;
+            }), DispatcherPriority.Input);
+            _clanSelector.GotKeyboardFocus += (sender, args) => openClanList();
+            _clanSelector.PreviewMouseLeftButtonDown += (sender, args) =>
+            {
+                if (!_clanSelector.IsDropDownOpen) openClanList();
+            };
+            _clanSelector.PreviewKeyDown += (sender, args) =>
+            {
+                if (args.Key == Key.Tab) _clanSelector.IsDropDownOpen = false;
+            };
+            _clanSelector.LostKeyboardFocus += (sender, args) => Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (_clanSelector == null || _clanSelector.IsKeyboardFocusWithin) return;
+                if (IsWithinComboBoxDropdown(Keyboard.FocusedElement as DependencyObject, _clanSelector)) return;
+                _clanSelector.IsDropDownOpen = false;
+            }), DispatcherPriority.Background);
             _clanSelector.SelectionChanged += (sender, args) =>
             {
                 if (args.AddedItems.Count > 0 && args.AddedItems[0] is ClanInfo clan)
@@ -959,7 +1149,7 @@ namespace VtM_LoCh_fP.Views
             if (_settingClanText || _character == null) return;
             _character.ClanName = _clanInput.Text;
             _character.ClanSelectedFromSuggestions = false;
-            _clanInput.ToolTip = null;
+            SetClanFieldToolTip(_clanInput, null, CreateClanTooltipTemplate());
             ClearAppliedClanRules();
             UpdateFreeClanSuggestions();
         }
@@ -1030,22 +1220,33 @@ namespace VtM_LoCh_fP.Views
         {
             if (field == null) return;
 
+            field.ToolTipOpening -= ClanField_ToolTipOpening;
+            field.ToolTipOpening += ClanField_ToolTipOpening;
             if (clan == null)
             {
-                field.ToolTip = null;
-                return;
+                field.ToolTip = "Выберите клан из списка. Наведите курсор на поле, чтобы увидеть подсказку.";
             }
-
-            var toolTip = new ToolTip
+            else
             {
-                Content = clan,
-                ContentTemplate = template,
-                Style = (Style)FindResource("PopupToolTipStyle"),
-                MaxWidth = 410
-            };
-            field.ToolTip = toolTip;
+                field.ToolTip = new ToolTip
+                {
+                    Content = clan,
+                    ContentTemplate = template,
+                    Style = (Style)FindResource("PopupToolTipStyle"),
+                    MaxWidth = 410
+                };
+            }
             ToolTipService.SetInitialShowDelay(field, 250);
             ToolTipService.SetShowDuration(field, 60000);
+        }
+
+        private void ClanField_ToolTipOpening(object sender, ToolTipEventArgs e)
+        {
+            if (!(sender is FrameworkElement field) || !ReferenceEquals(e.OriginalSource, field)) return;
+            bool hasValue = field is ComboBox combo &&
+                (combo.SelectedItem != null || combo.SelectedValue != null || !string.IsNullOrWhiteSpace(combo.Text));
+            hasValue |= field is TextBox textBox && !string.IsNullOrWhiteSpace(textBox.Text);
+            if (field.IsKeyboardFocusWithin || hasValue) e.Handled = true;
         }
 
         private DataTemplate CreateClanTooltipTemplate()
@@ -1094,9 +1295,13 @@ namespace VtM_LoCh_fP.Views
                 TextAlignment = TextAlignment.Left
             };
             ApplyThemeResources(input);
+            input.ToolTip = isNature
+                ? "Натура отражает внутреннюю сущность персонажа и его базовые мотивы."
+                : "Маска описывает поведение персонажа, которое он показывает окружающим.";
             var list = new ListBox
             {
                 MaxHeight = 230, DisplayMemberPath = "Name",
+                Visibility = Visibility.Visible,
                 Background = (Brush)FindResource("CardBgBrush"),
                 Foreground = (Brush)FindResource("TextBrush"),
                 BorderBrush = (Brush)FindResource("BorderBrush")
@@ -1124,8 +1329,16 @@ namespace VtM_LoCh_fP.Views
             tipStyle.Setters.Add(new Setter(ContentControl.ContentTemplateProperty, tipTemplate));
             tipStyle.Setters.Add(new Setter(FrameworkElement.MaxWidthProperty, 500.0));
             list.Resources.Add(typeof(ToolTip), tipStyle);
-            var popup = new Popup { PlacementTarget = input, Placement = PlacementMode.Bottom, StaysOpen = false, AllowsTransparency = true, Child = list };
-            BindingOperations.SetBinding(popup, FrameworkElement.WidthProperty, new Binding("ActualWidth") { Source = input });
+            var popup = new Popup
+            {
+                PlacementTarget = input,
+                Placement = PlacementMode.Bottom,
+                StaysOpen = true,
+                AllowsTransparency = true,
+                Child = list
+            };
+            BindingOperations.SetBinding(popup, FrameworkElement.WidthProperty,
+                new Binding("ActualWidth") { Source = input });
             var addDescription = new Button
             {
                 Content = "Добавить описание", HorizontalAlignment = HorizontalAlignment.Left,
@@ -1136,7 +1349,8 @@ namespace VtM_LoCh_fP.Views
 
             if (isNature)
             {
-                _natureInput = input; _natureSuggestions = list; _naturePopup = popup; _natureDescriptionButton = addDescription;
+                _natureInput = input; _natureSuggestions = list; _natureSuggestionsPopup = popup;
+                _natureDescriptionButton = addDescription;
                 input.Text = _character.Nature ?? string.Empty;
                 if (_character.NatureSelectedFromSuggestions)
                 {
@@ -1148,7 +1362,8 @@ namespace VtM_LoCh_fP.Views
             }
             else
             {
-                _demeanorInput = input; _demeanorSuggestions = list; _demeanorPopup = popup; _demeanorDescriptionButton = addDescription;
+                _demeanorInput = input; _demeanorSuggestions = list; _demeanorSuggestionsPopup = popup;
+                _demeanorDescriptionButton = addDescription;
                 input.Text = _character.Demeanor ?? string.Empty;
                 if (_character.DemeanorSelectedFromSuggestions)
                 {
@@ -1159,16 +1374,23 @@ namespace VtM_LoCh_fP.Views
                 UpdateArchetypeDescriptionButton(false);
             }
 
-            input.TextChanged += (sender, args) =>
+            Action refreshSuggestions = () =>
             {
-                if (_settingArchetypeText || _character == null) return;
+                if (_character == null || _settingArchetypeText) return;
                 string query = input.Text.Trim();
-                input.ToolTip = null;
                 var matches = string.IsNullOrWhiteSpace(query)
                     ? ArchetypeService.GetArchetypes().ToList()
                     : ArchetypeService.GetArchetypes().Where(a => a.Name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
                 list.ItemsSource = matches;
                 popup.IsOpen = matches.Count > 0;
+            };
+            input.TextChanged += (sender, args) =>
+            {
+                if (_settingArchetypeText || _character == null) return;
+                input.ToolTip = isNature
+                    ? "Натура отражает внутреннюю сущность персонажа и его базовые мотивы."
+                    : "Маска описывает поведение персонажа, которое он показывает окружающим.";
+                refreshSuggestions();
                 if (isNature)
                 {
                     _character.Nature = input.Text;
@@ -1185,16 +1407,10 @@ namespace VtM_LoCh_fP.Views
                 }
                 UpdateArchetypeDescriptionButton(isNature);
             };
-            input.GotKeyboardFocus += (sender, args) =>
-            {
-                if (_character == null) return;
-                var current = input.Text.Trim();
-                var initialMatches = string.IsNullOrWhiteSpace(current)
-                    ? ArchetypeService.GetArchetypes().ToList()
-                    : ArchetypeService.GetArchetypes().Where(a => a.Name.IndexOf(current, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
-                list.ItemsSource = initialMatches;
-                popup.IsOpen = initialMatches.Count > 0;
-            };
+            input.GotKeyboardFocus += (sender, args) => refreshSuggestions();
+            input.PreviewMouseLeftButtonDown += (sender, args) => refreshSuggestions();
+            input.LostKeyboardFocus += (sender, args) => CloseArchetypeSuggestionsWhenFocusLeaves(input, list, popup);
+            list.LostKeyboardFocus += (sender, args) => CloseArchetypeSuggestionsWhenFocusLeaves(input, list, popup);
             input.PreviewKeyDown += (sender, args) =>
             {
                 if (args.Key == Key.Down && list.Items.Count > 0)
@@ -1220,7 +1436,6 @@ namespace VtM_LoCh_fP.Views
             _settingArchetypeText = true;
             input.Text = archetype.Name;
             input.CaretIndex = input.Text.Length;
-            _settingArchetypeText = false;
             input.ToolTip = CreateArchetypeDescriptionToolTip(archetype.Description, isNature ? "Натура" : "Маска", archetype.RegainWillpowerCondition);
             if (isNature)
             {
@@ -1228,7 +1443,7 @@ namespace VtM_LoCh_fP.Views
                 _character.NatureSelectedFromSuggestions = true;
                 _character.NatureCustomDescription = archetype.Description;
                 _character.NatureCustomWillpowerRecovery = archetype.RegainWillpowerCondition;
-                _naturePopup.IsOpen = false;
+                _natureSuggestionsPopup.IsOpen = false;
             }
             else
             {
@@ -1236,10 +1451,11 @@ namespace VtM_LoCh_fP.Views
                 _character.DemeanorSelectedFromSuggestions = true;
                 _character.DemeanorCustomDescription = archetype.Description;
                 _character.DemeanorCustomWillpowerRecovery = archetype.RegainWillpowerCondition;
-                _demeanorPopup.IsOpen = false;
+                _demeanorSuggestionsPopup.IsOpen = false;
             }
             UpdateArchetypeDescriptionButton(isNature);
             input.Focus();
+            _settingArchetypeText = false;
         }
 
         private void UpdateArchetypeDescriptionButton(bool isNature)
@@ -1440,7 +1656,7 @@ namespace VtM_LoCh_fP.Views
             if (_character.CreationState.InitialAttributeDots != null) _character.CreationState.InitialAttributeDots.Clear();
             if (_character.CreationState.InitialAbilityDots != null) _character.CreationState.InitialAbilityDots.Clear();
             if (_character.CreationState.PurchaseLedger != null)
-                foreach (var transaction in _character.CreationState.PurchaseLedger.Where(t => !t.IsCancelled && t.Block == "Характеристики" && t.Resource == "initial_pool")) transaction.IsCancelled = true;
+                _character.CreationState.PurchaseLedger.RemoveAll(t => t.Block == "Характеристики" && t.Resource == "initial_pool");
             if (_character.CreationState.InitialPurchases != null)
                 _character.CreationState.InitialPurchases.RemoveAll(p => p.Block == "Характеристики");
 
@@ -1489,7 +1705,7 @@ namespace VtM_LoCh_fP.Views
             if (state.InitialPurchases != null)
                 state.InitialPurchases.RemoveAll(p => string.Equals(p.Block, "Дисциплины", StringComparison.OrdinalIgnoreCase));
             if (state.PurchaseLedger != null)
-                foreach (var transaction in state.PurchaseLedger.Where(t => !t.IsCancelled && t.Resource == "initial_pool" && string.Equals(t.Block, "Дисциплины", StringComparison.OrdinalIgnoreCase))) transaction.IsCancelled = true;
+                state.PurchaseLedger.RemoveAll(t => t.Resource == "initial_pool" && string.Equals(t.Block, "Дисциплины", StringComparison.OrdinalIgnoreCase));
             if (state.FreebiePurchases != null)
                 state.FreebiePurchases.RemoveAll(p => string.Equals(p.Block, "Дисциплины", StringComparison.OrdinalIgnoreCase) && oldItemNames.Contains(p.ItemName));
             if (state.ExperiencePurchases != null)

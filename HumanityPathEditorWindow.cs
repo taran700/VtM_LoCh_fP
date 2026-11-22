@@ -10,6 +10,7 @@ namespace VtM_LoCh_fP
     internal sealed class HumanityPathEditorResult
     {
         public bool Deleted { get; set; }
+        public bool ApplyFivePointLimit { get; set; } = true;
         public string Name { get; set; }
         public string Description { get; set; }
         public string BearingName { get; set; }
@@ -66,6 +67,14 @@ namespace VtM_LoCh_fP
             var firstVirtue = new ComboBox { FontSize = 15, MinHeight = 36, Margin = new Thickness(0,0,6,0), ItemsSource = new[] { "Совесть", "Решимость" }, SelectedItem = current == null ? "Совесть" : (current.FirstVirtue ?? "Совесть") };
             var secondVirtue = new ComboBox { FontSize = 15, MinHeight = 36, Margin = new Thickness(6,0,0,0), ItemsSource = new[] { "Самоконтроль", "Инстинкты" }, SelectedItem = current == null ? "Самоконтроль" : (current.SecondVirtue ?? "Самоконтроль") };
             virtueGrid.Children.Add(firstVirtue); Grid.SetColumn(secondVirtue,1); virtueGrid.Children.Add(secondVirtue); content.Children.Add(virtueGrid);
+
+            content.Children.Add(new TextBlock { Text = "Применить правило ограничения до 5 пунктов", FontSize = 15, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 12, 0, 5) });
+            var limitSetting = new ComboBox
+            {
+                FontSize = 15, MinHeight = 36, ItemsSource = new[] { "Да", "Нет" },
+                SelectedItem = current == null || current.ApplyFivePointLimit ? "Да" : "Нет"
+            };
+            content.Children.Add(limitSetting);
 
             var tableTitle = new TextBlock { Text = "Таблица грехов", FontSize = 18, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 14, 0, 5) };
             content.Children.Add(tableTitle);
@@ -137,7 +146,8 @@ namespace VtM_LoCh_fP
             return new HumanityPathEditorResult
             {
                 Name = name.Text.Trim(), Description = description.Text.Trim(), BearingName = bearingName.Text.Trim(),
-                BearingEffect = bearingEffect.Text.Trim(), Edicts = edicts.Text.Trim(), FirstVirtue = Convert.ToString(firstVirtue.SelectedItem), SecondVirtue = Convert.ToString(secondVirtue.SelectedItem), Hierarchy = hierarchy
+                BearingEffect = bearingEffect.Text.Trim(), Edicts = edicts.Text.Trim(), FirstVirtue = Convert.ToString(firstVirtue.SelectedItem), SecondVirtue = Convert.ToString(secondVirtue.SelectedItem), Hierarchy = hierarchy,
+                ApplyFivePointLimit = !string.Equals(Convert.ToString(limitSetting.SelectedItem), "Нет", StringComparison.Ordinal)
             };
         }
 
