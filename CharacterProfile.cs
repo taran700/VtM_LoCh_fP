@@ -88,8 +88,15 @@ namespace VtM_LoCh_fP
         public string PortraitBase64 { get; set; }
         public string HumanityPathId { get; set; } = "humanity";
         public int HumanityPathRating { get; set; } = 2;
+        // Индивидуальная настройка ограничения обычных Путей для этого листа.
+        // По умолчанию ограничение включено; на Человечность не влияет.
+        public bool HumanityPathLimitEnabled { get; set; } = true;
+        // Отдельный флаг листа: решение о legacy-миграции ограничения уже принято.
+        // После миграции повторный вход не должен сбрасывать новые покупки/распределения.
+        public bool HumanityPathLimitMigrationCompleted { get; set; }
         public int? TemporaryWillpower { get; set; }
         public bool HumanityPathIsCustom { get; set; }
+        public bool CustomHumanityPathLimitEnabled { get; set; } = true;
         public string CustomHumanityPathName { get; set; }
         public string CustomHumanityPathDescription { get; set; }
         public string CustomHumanityBearingName { get; set; }

@@ -33,6 +33,8 @@ namespace VtM_LoCh_fP.Controls
         private bool _updating;
         private bool _editing;
         private bool _resizeQueued;
+        private object _fieldToolTip;
+        private bool _tooltipCaptured;
 
         public MarkdownFieldControl()
         {
@@ -42,7 +44,11 @@ namespace VtM_LoCh_fP.Controls
             Preview.MouseEnter += Preview_MouseEnter;
             Preview.MouseLeave += Preview_MouseLeave;
             Preview.Loaded += Preview_Loaded;
+            FieldBorder.ToolTipOpening += FieldBorder_ToolTipOpening;
+            GotKeyboardFocus += (sender, args) => UpdateEmptyTooltip();
+            LostKeyboardFocus += (sender, args) => Dispatcher.BeginInvoke(new Action(UpdateEmptyTooltip), DispatcherPriority.Background);
             Loaded += Control_Loaded;
+            CaptureFieldToolTip();
         }
 
         public string InputText
@@ -83,6 +89,7 @@ namespace VtM_LoCh_fP.Controls
             }
 
             control.UpdatePreviewMarkdown();
+            control.UpdateEmptyTooltip();
             control.QueueResize();
             if (control.IsLoaded)
             {
@@ -101,8 +108,30 @@ namespace VtM_LoCh_fP.Controls
 
         private void Control_Loaded(object sender, RoutedEventArgs e)
         {
+            CaptureFieldToolTip();
             QueueResize();
             UpdateEmptyTooltip();
+        }
+
+        private void CaptureFieldToolTip()
+        {
+            if (_tooltipCaptured) return;
+
+            object tooltip = ToolTipService.GetToolTip(this);
+            if (tooltip == null) tooltip = ToolTipService.GetToolTip(FieldBorder);
+            if (tooltip == null) tooltip = ToolTipService.GetToolTip(Preview);
+            if (tooltip == null) return;
+
+            _fieldToolTip = tooltip;
+            _tooltipCaptured = true;
+            ToolTipService.SetToolTip(this, null);
+            ToolTipService.SetToolTip(Preview, null);
+        }
+
+        private void FieldBorder_ToolTipOpening(object sender, ToolTipEventArgs e)
+        {
+            if (_editing || IsKeyboardFocusWithin || !string.IsNullOrWhiteSpace(InputText))
+                e.Handled = true;
         }
 
         private void Preview_Loaded(object sender, RoutedEventArgs e)
@@ -167,6 +196,7 @@ namespace VtM_LoCh_fP.Controls
 
             Preview.Visibility = Visibility.Collapsed;
             Editor.Visibility = Visibility.Visible;
+            UpdateEmptyTooltip();
             QueueResize();
 
             Dispatcher.BeginInvoke(new Action(delegate
@@ -202,7 +232,7 @@ namespace VtM_LoCh_fP.Controls
                 ApplyDocumentTheme();
                 QueueResize();
                 UpdateEmptyTooltip();
-            }), DispatcherPriority.Background);
+                }), DispatcherPriority.Background);
         }
 
         private void Preview_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -219,6 +249,16 @@ namespace VtM_LoCh_fP.Controls
         {
             if (Preview == null) return;
             Preview.Markdown = NormalizeLineBreaksForMarkdown(InputText ?? string.Empty);
+        }
+
+        private void UpdateEmptyTooltip()
+        {
+            if (FieldBorder == null) return;
+            bool show = _fieldToolTip != null && !_editing && !IsKeyboardFocusWithin &&
+                string.IsNullOrWhiteSpace(InputText);
+            FieldBorder.ToolTip = show ? _fieldToolTip : null;
+            ToolTipService.SetInitialShowDelay(FieldBorder, 450);
+            ToolTipService.SetShowDuration(FieldBorder, 60000);
         }
         private static string NormalizeLineBreaksForMarkdown(string source)
         {
@@ -388,14 +428,6 @@ namespace VtM_LoCh_fP.Controls
                 if (contentElement != null)
                     contentElement.SetResourceReference(dependencyProperty, resourceKey);
             }
-        }
-
-        private void UpdateEmptyTooltip()
-        {
-            if (Preview == null) return;
-            Preview.ToolTip = string.IsNullOrWhiteSpace(InputText)
-                ? "Нажмите, чтобы ввести текст (поддерживается Markdown)"
-                : null;
         }
 
         private void Root_PreviewMouseWheel(object sender, MouseWheelEventArgs e)

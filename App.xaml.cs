@@ -5,6 +5,8 @@ using System.Windows.Media;
 using System.Windows.Controls.Primitives;
 using System.Runtime.InteropServices;
 using System;
+using VtM_LoCh_fP.Controls;
+using VtM_LoCh_fP.Views;
 
 namespace VtM_LoCh_fP
 {
@@ -26,9 +28,12 @@ namespace VtM_LoCh_fP
         {
             // Используем TLS 1.2 для всех сетевых запросов, в том числе на старых Windows.
             System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12;
+            InputToolTipBehavior.Initialize();
             base.OnStartup(e);
             EventManager.RegisterClassHandler(typeof(ComboBox), UIElement.PreviewMouseWheelEvent,
                 new MouseWheelEventHandler(ComboBox_PreviewMouseWheel), true);
+            EventManager.RegisterClassHandler(typeof(ScrollViewer), ScrollViewer.ScrollChangedEvent,
+                new ScrollChangedEventHandler(GlobalScrollViewer_ScrollChanged), true);
             InputManager.Current.PreProcessInput += OnPreProcessInput;
             EventManager.RegisterClassHandler(typeof(Window), FrameworkElement.LoadedEvent,
                 new RoutedEventHandler(Window_LoadedForEscape));
@@ -304,8 +309,135 @@ namespace VtM_LoCh_fP
             return null;
         }
 
+        private static void GlobalScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
+        {
+            var changedViewer = e.OriginalSource as ScrollViewer;
+            if (changedViewer == null || !ReferenceEquals(sender, changedViewer) || e.VerticalChange == 0)
+                return;
+            if (FindAncestor<ScrollViewer>(changedViewer) != null)
+                return;
+
+            var page = FindAncestor<UserControl>(changedViewer);
+            if (page == null)
+                return;
+
+            CloseOpenComboBoxes(page);
+            var characterPage = page as PageOneView;
+            if (characterPage != null)
+                characterPage.CloseSelectionPopups();
+        }
+
+        private static void CloseOpenComboBoxes(DependencyObject parent)
+        {
+            if (parent == null)
+                return;
+
+            var combo = parent as ComboBox;
+            if (combo != null && combo.IsDropDownOpen)
+                combo.IsDropDownOpen = false;
+
+            int count = VisualTreeHelper.GetChildrenCount(parent);
+            for (int i = 0; i < count; i++)
+                CloseOpenComboBoxes(VisualTreeHelper.GetChild(parent, i));
+        }
+
+        private static T FindAncestor<T>(DependencyObject element) where T : DependencyObject
+        {
+            DependencyObject current = GetParentElement(element);
+            while (current != null)
+            {
+                var match = current as T;
+                if (match != null)
+                    return match;
+                current = GetParentElement(current);
+            }
+            return null;
+        }
+
+        private static DependencyObject GetParentElement(DependencyObject element)
+        {
+            if (element == null)
+                return null;
+            if (element is Visual || element is System.Windows.Media.Media3D.Visual3D)
+            {
+                var parent = VisualTreeHelper.GetParent(element);
+                if (parent != null)
+                    return parent;
+            }
+            if (element is FrameworkContentElement contentElement)
+                return contentElement.Parent;
+            return LogicalTreeHelper.GetParent(element);
+        }
+
+        private static ScrollViewer FindOutermostScrollViewer(DependencyObject element)
+        {
+            ScrollViewer result = null;
+            DependencyObject current = GetParentElement(element);
+            while (current != null)
+            {
+                var viewer = current as ScrollViewer;
+                if (viewer != null)
+                    result = viewer;
+                current = GetParentElement(current);
+            }
+            return result;
+        }
+
+        private static bool IsPriorityCombo(ComboBox combo)
+        {
+            if (combo == null)
+                return false;
+            switch (combo.Name)
+            {
+                case "PhysicalPriority":
+                case "SocialPriority":
+                case "MentalPriority":
+                case "TalentsPriority":
+                case "SkillsPriority":
+                case "KnowledgePriority":
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
         private static void ComboBox_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
         {
+            if (e.Handled)
+                return;
+
+            var combo = sender as ComboBox;
+            if (combo == null)
+            {
+                e.Handled = true;
+                return;
+            }
+
+            if (IsPriorityCombo(combo))
+            {
+                e.Handled = true;
+                return;
+            }
+
+            var scrollViewer = FindOutermostScrollViewer(combo);
+            if (scrollViewer != null && e.Delta != 0)
+            {
+                int lines = Math.Max(1, SystemParameters.WheelScrollLines);
+                int notches = Math.Max(1, (int)Math.Ceiling(Math.Abs(e.Delta) / 120.0));
+                for (int i = 0; i < lines * notches; i++)
+                {
+                    if (e.Delta > 0)
+                    {
+                        if (scrollViewer.VerticalOffset <= 0) break;
+                        scrollViewer.LineUp();
+                    }
+                    else
+                    {
+                        if (scrollViewer.VerticalOffset >= scrollViewer.ScrollableHeight) break;
+                        scrollViewer.LineDown();
+                    }
+                }
+            }
             e.Handled = true;
         }
 

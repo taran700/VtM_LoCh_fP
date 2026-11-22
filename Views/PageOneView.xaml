@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:sys="clr-namespace:System;assembly=mscorlib"
              xmlns:controls="clr-namespace:VtM_LoCh_fP.Controls">
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <ScrollViewer x:Name="PageScrollViewer" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="12,10,12,16">
 
             <DockPanel Margin="4,0,4,10" LastChildFill="True">
@@ -58,7 +58,7 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <controls:MarkdownFieldControl x:Name="ClanWeaknessInput" Grid.Column="0"
-                                     FieldHeight="64" Margin="0" InputTextChanged="ClanWeaknessInput_TextChanged"/>
+                                     ToolTip="Описание кланового изъяна и его проявлений." FieldHeight="64" Margin="0" InputTextChanged="ClanWeaknessInput_TextChanged"/>
                             <Button x:Name="ResetClanWeaknessButton" Grid.Column="1"
                                     Content="↶" Width="30" Height="30" Margin="5,0,0,0"
                                     VerticalAlignment="Top" Visibility="Collapsed"
@@ -72,9 +72,9 @@
                                 Margin="0" InputTextChanged="VentrueTasteInput_TextChanged"/>
                         </StackPanel>
                     </StackPanel>
-                    <controls:MarkdownFieldControl x:Name="ChroniclePillarsField" Grid.Column="1" Margin="6,0,6,4" Label="Опоры и принципы" FieldHeight="64" Tag="Pillars" InputTextChanged="ProfileField_InputTextChanged"/>
-                    <controls:MarkdownFieldControl x:Name="ChronicleTenetsField" Grid.Column="2" Margin="6,0,6,4" Label="Догмы хроники" FieldHeight="64" Tag="Tenets" InputTextChanged="ProfileField_InputTextChanged"/>
-                    <controls:MarkdownFieldControl x:Name="HuntingStyleField" Grid.Column="3" Margin="6,0,6,4" Label="Стиль охоты" FieldHeight="64" Tag="HuntingStyle" InputTextChanged="ProfileField_InputTextChanged"/>
+                    <controls:MarkdownFieldControl x:Name="ChroniclePillarsField" Grid.Column="1" Margin="6,0,6,4" Label="Опоры и принципы" FieldHeight="64" Tag="Pillars" InputTextChanged="ProfileField_InputTextChanged" ToolTip="Принципы и философия которой придерживается персонаж."/>
+                    <controls:MarkdownFieldControl x:Name="ChronicleTenetsField" Grid.Column="2" Margin="6,0,6,4" Label="Догмы хроники" FieldHeight="64" Tag="Tenets" InputTextChanged="ProfileField_InputTextChanged" ToolTip="Правила Хроники или как его могут подругому называть Кампании"/>
+                    <controls:MarkdownFieldControl x:Name="HuntingStyleField" Grid.Column="3" Margin="6,0,6,4" Label="Стиль охоты" FieldHeight="64" Tag="HuntingStyle" InputTextChanged="ProfileField_InputTextChanged" ToolTip="Любимый способ охоты персонажа, которого он старается придерживаться"/>
                 </Grid>
             </GroupBox>
 
