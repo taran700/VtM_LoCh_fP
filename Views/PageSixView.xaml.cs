@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 
 namespace VtM_LoCh_fP.Views
@@ -34,5 +34,19 @@ namespace VtM_LoCh_fP.Views
 
         private void ArmorDetails_Click(object sender, RoutedEventArgs e)
             => EquipmentInfoWindows.ShowArmor(Window.GetWindow(this));
+
+        private void CombatManeuvers_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                new CombatManeuversWindow(Window.GetWindow(this)).ShowDialog();
+            }
+            catch (System.Exception ex)
+            {
+                ThemedDialog.Show(Window.GetWindow(this),
+                    "Не удалось открыть справочник боевых манёвров.\n\n" + ex.Message,
+                    "Ошибка справочника", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
     }
 }

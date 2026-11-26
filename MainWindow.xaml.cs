@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
@@ -961,6 +961,9 @@ namespace VtM_LoCh_fP
                 foreach (var nested in FindTracks(child)) yield return nested;
             }
         }
+
+        private void VampireDictionary_Click(object sender, RoutedEventArgs e)
+        { new VampireDictionaryWindow(this).ShowDialog(); }
 
         private void Reference_Click(object sender, RoutedEventArgs e)
         {

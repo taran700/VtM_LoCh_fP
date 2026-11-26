@@ -96,8 +96,8 @@ namespace VtM_LoCh_fP
             var backgrounds = new HashSet<string>(BioFactService.GetAll().Select(x => x.Name), StringComparer.OrdinalIgnoreCase);
             var abilityGroups = new HashSet<string>(new[] { "Таланты", "Навыки", "Знания" }, StringComparer.OrdinalIgnoreCase);
 
-            if (db.NameProfiles.Count != 20)
-                throw new InvalidDataException("Ожидалось 20 именных профилей, найдено: " + db.NameProfiles.Count + ".");
+            if (db.NameProfiles.Count != 40)
+                throw new InvalidDataException("Ожидалось 40 именных профилей, найдено: " + db.NameProfiles.Count + ".");
 
             foreach (var profile in db.NameProfiles)
             {
@@ -128,7 +128,7 @@ namespace VtM_LoCh_fP
 
         private static void ValidateArchetypeList(string profileName, string label, List<string> values, HashSet<string> archetypes)
         {
-            if (values == null || values.Count != 5 || values.Any(x => !archetypes.Contains(x)))
+            if (values == null || (values.Count != 3 && values.Count != 5) || values.Distinct(StringComparer.OrdinalIgnoreCase).Count() != values.Count || values.Any(x => !archetypes.Contains(x)))
                 throw new InvalidDataException("Некорректный список «" + label + "» в профиле «" + profileName + "».");
         }
 

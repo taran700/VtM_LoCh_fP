@@ -17,4 +17,20 @@
     <SolidColorBrush x:Key="SelectedTabTextBrush" Color="#FFFFFFFF"/>
     <SolidColorBrush x:Key="SelectionBrush" Color="#FFF2D4D4"/>
 
+
+    <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#FFFFFFFF"/>
+    <SolidColorBrush x:Key="PanelBackgroundBrush" Color="#FFF8EDED"/>
+    <SolidColorBrush x:Key="SectionBackgroundBrush" Color="#FFFFF7F7"/>
+    <SolidColorBrush x:Key="NoteBackgroundBrush" Color="#FFFFF4E8"/>
+    <SolidColorBrush x:Key="CombatCategorySelectedBrush" Color="#FFB91C1C"/>
+    <SolidColorBrush x:Key="CombatCategorySelectedBorderBrush" Color="#FFDC2626"/>
+
+
+
+    <!-- Глобальные системные цвета выделения: WPF-контролы не должны подставлять голубое выделение Windows. -->
+    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#FFF2D4D4"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FF4A382C"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#FFF2D4D4"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#FF4A382C"/>
+
 </ResourceDictionary>

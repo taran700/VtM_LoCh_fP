@@ -21,6 +21,7 @@
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button x:Name="InitialPurchaseButton" Content="Проверить стартовую закупку" Style="{StaticResource ToolbarButtonStyle}"
                             Margin="0,0,8,0" Click="InitialPurchase_Click" Visibility="Collapsed"/>
+                    <Button Content="Вампирский словарь" Style="{StaticResource ToolbarButtonStyle}" Margin="0,0,8,0" Click="VampireDictionary_Click"/>
                     <Button Content="Справочник" Style="{StaticResource ToolbarButtonStyle}" Margin="0,0,8,0" Click="Reference_Click"/>
                     <Button Content="Настройки" Style="{StaticResource ToolbarButtonStyle}" Click="Settings_Click"/>
                 </StackPanel>

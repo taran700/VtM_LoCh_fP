@@ -14,6 +14,11 @@ namespace VtM_LoCh_fP
         private const int ThemeDictionaryIndex = 0;
         private const int DwmUseImmersiveDarkMode = 20;
         private const int DwmUseImmersiveDarkModeLegacy = 19;
+        private const int DwmBorderColor = 34;
+        private const int DwmCaptionColor = 35;
+        private const int DwmTextColor = 36;
+
+        internal static event Action ThemeChanged;
 
         [DllImport("dwmapi.dll", PreserveSig = true)]
         private static extern int DwmSetWindowAttribute(
@@ -46,6 +51,8 @@ namespace VtM_LoCh_fP
 
             IsDark = dark;
             RefreshOpenWindows();
+            var handler = ThemeChanged;
+            if (handler != null) handler();
         }
 
         internal static void AttachWindow(Window window)
@@ -77,11 +84,22 @@ namespace VtM_LoCh_fP
                 int result = DwmSetWindowAttribute(hwnd, DwmUseImmersiveDarkMode, ref value, sizeof(int));
                 if (result != 0)
                     DwmSetWindowAttribute(hwnd, DwmUseImmersiveDarkModeLegacy, ref value, sizeof(int));
+                int caption = IsDark ? ColorRef(11, 15, 25) : ColorRef(255, 255, 255);
+                int border = IsDark ? ColorRef(35, 42, 56) : ColorRef(232, 201, 201);
+                int text = IsDark ? ColorRef(217, 208, 208) : ColorRef(74, 56, 44);
+                DwmSetWindowAttribute(hwnd, DwmCaptionColor, ref caption, sizeof(int));
+                DwmSetWindowAttribute(hwnd, DwmBorderColor, ref border, sizeof(int));
+                DwmSetWindowAttribute(hwnd, DwmTextColor, ref text, sizeof(int));
             }
             catch
             {
                 
             }
+        }
+
+        private static int ColorRef(byte red, byte green, byte blue)
+        {
+            return red | (green << 8) | (blue << 16);
         }
     }
 }

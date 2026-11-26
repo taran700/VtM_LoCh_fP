@@ -120,6 +120,9 @@
     <Compile Include="DisciplineService.cs" />
     <Compile Include="DisciplineWindows.cs" />
     <Compile Include="EquipmentInfoWindows.cs" />
+    <Compile Include="CombatManeuverService.cs" />
+    <Compile Include="CombatManeuversWindow.cs" />
+    <Compile Include="VampireDictionaryWindow.cs" />
     <Compile Include="RitualWindows.cs" />
     <Compile Include="ViewModels\PipItem.cs" />
     <Compile Include="ViewModels\TrackLogic.cs" />

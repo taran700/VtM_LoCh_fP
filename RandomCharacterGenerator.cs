@@ -40,8 +40,7 @@ namespace VtM_LoCh_fP
                     RoleName = string.Empty
                 };
 
-                // Маска выбирается один раз; амплуа всегда соответствует именно ей
-                character.Demeanor = Pick(pattern.DemeanorCandidates, random);
+                // Амплуа всегда соответствует единственной выбранной Маске.
                 character.RoleName = GenerationPatternService.GetRoleForMask(character.Demeanor);
                 character.ClanWeakness = clan.WeaknessDescription;
                 character.OriginalClanWeakness = clan.WeaknessDescription;

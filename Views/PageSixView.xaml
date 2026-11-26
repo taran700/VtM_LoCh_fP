@@ -8,6 +8,14 @@
                 <TextBlock DockPanel.Dock="Right" Text="5/6" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource MutedBrush}"/>
                 <TextBlock Text="СНАРЯЖЕНИЕ" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource HeadingBrush}"/>
             </DockPanel>
+            <DockPanel Margin="4,0,4,12" LastChildFill="False">
+                <Button DockPanel.Dock="Right"
+                        Content="Боевые манёвры"
+                        Style="{StaticResource ToolbarButtonStyle}"
+                        Click="CombatManeuvers_Click"
+                        Padding="14,8"
+                        ToolTip="Открыть полный справочник боевых манёвров"/>
+            </DockPanel>
             <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
